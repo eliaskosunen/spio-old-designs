@@ -88,31 +88,6 @@ TEST_CASE("readable_buffer")
         CHECK(a[1] == 'e');
         CHECK(a[2] == 'm');
     }
-    SUBCASE("input_parser")
-    {
-        io::input_parser<decltype(r)> p{std::move(r)};
-        std::array<char, 5> a{};
-        std::fill(a.begin(), a.end(), 0);
-
-        p.read(io::make_span(a).first(2));
-        CHECK(a[0] == 'L');
-        CHECK(a[1] == 'o');
-
-        p.push(a[0]);
-        p.push(a[1]);
-
-        p.read(io::make_span(a).first(3));
-        CHECK(a[0] == 'L');
-        CHECK(a[1] == 'o');
-        CHECK(a[2] == 'r');
-
-        p.push(a[0]);
-        p.push(a[1]);
-        p.push(a[2]);
-
-        p.read(io::make_span(a).first(1));
-        CHECK(a[0] == 'L');
-    }
 }
 TEST_CASE("readable_wbuffer")
 {
