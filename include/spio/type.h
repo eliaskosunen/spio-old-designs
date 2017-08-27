@@ -22,6 +22,7 @@
 #define SPIO_TYPE_H
 
 #include "config.h"
+#include "stl.h"
 #include "util.h"
 
 namespace io {
@@ -41,6 +42,51 @@ struct type<T,
     static bool read(InputParser& p, T& val)
     {
         return p.read_raw(val);
+    }
+};
+
+template <typename T>
+struct type<T,
+            std::enable_if_t<contains<std::decay_t<typename T::element_type>,
+                                      char,
+                                      wchar_t,
+                                      unsigned char,
+                                      signed char,
+                                      char16_t,
+                                      char32_t>::value>> {
+    template <typename InputParser>
+    static bool read(InputParser& p, T& val)
+    {
+        using char_type = typename InputParser::readable_type::value_type;
+        span<char_type> s = make_span(reinterpret_cast<char_type*>(&val[0]),
+                                      val.size_bytes() / sizeof(char_type));
+
+        auto is_space = [](char_type ch) {
+            return ch == static_cast<char_type>(' ') ||
+                   ch == static_cast<char_type>('\n') ||
+                   ch == static_cast<char_type>('\t');
+        };
+        {
+            auto it = s.begin();
+            while (it != s.end() - 1) {
+                char_type& c = *it;
+                p.read(c);
+                if (is_space(c)) {
+                    if (it == s.begin()) {
+                        continue;
+                    }
+                    ++it;
+                    break;
+                }
+                if (is_space(c) || p.eof()) {
+                    ++it;
+                    break;
+                }
+                ++it;
+            }
+            *it = '\0';
+        }
+        return !p.eof();
     }
 };
 

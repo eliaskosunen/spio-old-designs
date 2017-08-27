@@ -112,6 +112,7 @@ static void readint_strtol(benchmark::State& state)
                 p++;
             }
         }
+        SPIO_UNUSED(num);
     }
     state.SetBytesProcessed(state.iterations() * state.range(0));
 }

@@ -43,16 +43,6 @@ public:
         }
         return type<T>::read(*this, elem);
     }
-    template <typename T>
-    bool read(span<T> elems)
-    {
-        for (auto& e : elems) {
-            if (!read(e)) {
-                return false;
-            }
-        }
-        return true;
-    }
 
     template <typename T>
     bool read_raw(T& elem)
