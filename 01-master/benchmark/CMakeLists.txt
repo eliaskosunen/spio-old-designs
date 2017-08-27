@@ -1,2 +1,6 @@
-set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "Build Google Benchmark tests")
-add_subdirectory(google-benchmark)
+file(GLOB sources_bench *.cpp)
+add_executable(bench ${sources_bench})
+if(NOT SPIO_HEADER_ONLY)
+    target_link_libraries(bench spio)
+endif()
+target_link_libraries(bench benchmark)

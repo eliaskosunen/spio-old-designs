@@ -36,34 +36,43 @@ public:
     input_parser(Readable r);
 
     template <typename T>
-    void read(T& elem)
+    bool read(T& elem)
     {
         if (m_eof) {
-            SPIO_THROW(end_of_file, "EOF reached");
+            SPIO_THROW(end_of_file, "EOF reached at " __FILE__ ":" SPIO_LINE);
         }
-        type<T>::read(*this, elem);
+        return type<T>::read(*this, elem);
     }
     template <typename T>
-    void read(span<T> elems)
+    bool read(span<T> elems)
     {
         for (auto& e : elems) {
-            read(e);
+            if (!read(e)) {
+                return false;
+            }
         }
+        return true;
     }
 
     template <typename T>
-    void read_raw(span<T> elems)
+    bool read_raw(T& elem)
+    {
+        return read_raw(make_span(&elem, 1));
+    }
+    template <typename T>
+    bool read_raw(span<T> elems)
     {
         if (m_eof) {
-            SPIO_THROW(end_of_file, "EOF reached");
+            SPIO_THROW(end_of_file, "EOF reached at " __FILE__ ":" SPIO_LINE);
         }
         auto error = _read(elems, elements{elems.length()});
-        if (is_eof(error)) {
+        if (error.is_eof()) {
             m_eof = true;
         }
         if (error) {
             SPIO_THROW_EC(error);
         }
+        return !m_eof;
     }
 
     Readable& get_readable()

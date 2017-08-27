@@ -57,4 +57,8 @@
 #endif
 #endif  // !SPIO_USE_STL
 
+#define SPIO_STRINGIZE_DETAIL(x) #x
+#define SPIO_STRINGIZE(x) SPIO_STRINGIZE_DETAIL(x)
+#define SPIO_LINE SPIO_STRINGIZE(__LINE__)
+
 #endif  // SPIO_CONFIG_H

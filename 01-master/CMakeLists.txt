@@ -7,10 +7,10 @@ set(SPIO_USE_STL ON CACHE BOOL "Use the STL")
 set(SPIO_USE_EXCEPTIONS ON CACHE BOOL "Enable exceptions")
 set(SPIO_THROW_ON_ASSERT ON CACHE BOOL "Throw on assertion failure")
 
-set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTERNSIONS OFF)
 
-add_subdirectory(benchmark)
+set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "Build Google Benchmark tests")
+add_subdirectory(benchmark/google-benchmark)
 
 include(CheckCXXCompilerFlag)
 
@@ -139,3 +139,4 @@ endif()
 enable_testing()
 add_subdirectory(include/spio)
 add_subdirectory(tests)
+add_subdirectory(benchmark)
