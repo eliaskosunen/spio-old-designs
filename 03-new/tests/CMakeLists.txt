@@ -1,0 +1,6 @@
+file(GLOB sources_tests *.cpp)
+add_executable(tests ${sources_tests})
+if(NOT SPIO_HEADER_ONLY)
+    target_link_libraries(tests spio)
+endif()
+add_test(NAME spio COMMAND tests)
