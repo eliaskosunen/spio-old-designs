@@ -10,6 +10,8 @@ set(SPIO_THROW_ON_ASSERT ON CACHE BOOL "Throw on assertion failure")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTERNSIONS OFF)
 
+add_subdirectory(benchmark)
+
 include(CheckCXXCompilerFlag)
 
 macro(add_compiler_flags)
@@ -26,6 +28,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compiler_flags(-pedantic-errors)
     add_compiler_flags(-fvisibility=hidden)
     add_compiler_flags(-fstrict-aliasing)
+    add_compiler_flags(-std=c++1z)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
@@ -105,6 +108,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 endif()
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
+include_directories(SYSTEM "${PROJECT_SOURCE_DIR}/benchmark/google-benchmark/include")
 include_directories(SYSTEM "${PROJECT_SOURCE_DIR}/tests/doctest/doctest")
 
 if(SPIO_HEADER_ONLY)
