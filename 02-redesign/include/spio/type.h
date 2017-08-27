@@ -38,9 +38,9 @@ struct type<T,
                                       char16_t,
                                       char32_t>::value>> {
     template <typename InputParser>
-    static void read(InputParser& p, T& val)
+    static bool read(InputParser& p, T& val)
     {
-        p.read_raw(io::make_span(&val, 1));
+        return p.read_raw(val);
     }
 };
 
@@ -56,7 +56,7 @@ struct type<T,
                                       unsigned long,
                                       unsigned long long>::value>> {
     template <typename InputParser>
-    static void read(InputParser& p, T& val)
+    static bool read(InputParser& p, T& val)
     {
         using char_type = typename InputParser::readable_type::value_type;
         char_type c{};
@@ -68,6 +68,18 @@ struct type<T,
         auto to_number = [](char_type ch) {
             return static_cast<T>(ch - char_type{'0'});
         };
+        auto is_space = [](char_type ch) {
+            return ch == static_cast<char_type>(' ') ||
+                   ch == static_cast<char_type>('\n') ||
+                   ch == static_cast<char_type>('\t');
+        };
+        if (is_space(c)) {
+            if (p.eof()) {
+                return false;
+            }
+            return p.read(val);
+        }
+
         T tmp = 0;
         const bool sign = [&]() {
             if constexpr (std::is_unsigned_v<T>) {
@@ -101,6 +113,7 @@ struct type<T,
         if (sign)
             tmp = -tmp;
         val = tmp;
+        return !p.eof();
     }
 };
 
@@ -109,7 +122,7 @@ struct type<T,
             std::enable_if_t<
                 contains<std::decay_t<T>, float, double, long double>::value>> {
     template <typename InputParser>
-    static void read(InputParser& p, T& val)
+    static bool read(InputParser& p, T& val)
     {
         using char_type = typename InputParser::readable_type::value_type;
         array<char_type, 64> buf{};
@@ -151,23 +164,24 @@ struct type<T,
             SPIO_THROW(invalid_input, "Failed to parse floating-point value");
         }
         val = tmp;
-        return;
+        return !p.eof();
     }
 };
 
 template <>
 struct type<bool> {
     template <typename InputParser>
-    static void read(InputParser& p, bool& val)
+    static bool read(InputParser& p, bool& val)
     {
         uint_fast16_t n = 0;
-        p.read(n);
+        auto ret = p.read(n);
         if (n == 0) {
             val = false;
         }
         else {
             val = true;
         }
+        return ret;
     }
 };
 }  // namespace io

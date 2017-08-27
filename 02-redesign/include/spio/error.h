@@ -101,6 +101,11 @@ public:
         return m_message.data();
     }
 
+    error get_error() const noexcept
+    {
+        return m_error;
+    }
+
 private:
     error m_error;
     vector<char> m_message;
