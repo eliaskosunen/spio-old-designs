@@ -19,8 +19,8 @@
 // SOFTWARE.
 
 #include <iostream>
-#include "spio.h"
 #include "doctest.h"
+#include "spio.h"
 
 TEST_CASE("input_parser int")
 {
@@ -105,5 +105,35 @@ TEST_CASE("input_parser float")
 
         double val;
         CHECK_THROWS_AS(p.read(val), const io::failure&);
+    }
+}
+TEST_CASE("input_parser string")
+{
+    SUBCASE("basic")
+    {
+        std::string buf = "foo";
+        io::readable_buffer r(io::make_span(buf));
+        io::input_parser<decltype(r)> p{std::move(r)};
+
+        std::vector<char> val(4, '\0');
+        auto s = io::make_span(val);
+        p.read(s);
+        CHECK_EQ(std::strcmp(val.data(), "foo"), 0);
+    }
+    SUBCASE("multiple words")
+    {
+        std::string buf = "Hello world!";
+        io::readable_buffer r(io::make_span(buf));
+        io::input_parser<decltype(r)> p{std::move(r)};
+
+        std::vector<char> val(6, '\0');
+        auto s = io::make_span(val);
+        p.read(s);
+        CHECK_EQ(std::strcmp(val.data(), "Hello"), 0);
+
+        val = std::vector<char>(7, '\0');
+        s = io::make_span(val);
+        p.read(s);
+        CHECK_EQ(std::strcmp(val.data(), "world!"), 0);
     }
 }
