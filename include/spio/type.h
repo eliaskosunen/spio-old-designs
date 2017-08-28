@@ -70,6 +70,10 @@ struct type<T,
             auto it = s.begin();
             while (it != s.end() - 1) {
                 char_type& c = *it;
+                if (p.eof()) {
+                    ++it;
+                    break;
+                }
                 p.read(c);
                 if (is_space(c)) {
                     if (it == s.begin()) {
