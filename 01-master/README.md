@@ -21,6 +21,8 @@ n   | `spio::input_parser` | `std::stringstream` | `std::scanf` | `std::strtol`
 64  | 726                  | 1624                | 9107         | 572
 512 | 4506                 | 5953                | 14314        | 3240
 
+### Word (string) reading
+
 `bench_readstring.cpp`: read whitespace-separated words from a randomly generated alphanumeric string buffer with length _n_.
 
 n    | `spio::input_parser` | `std::stringstream` | Pointer arithmetic
