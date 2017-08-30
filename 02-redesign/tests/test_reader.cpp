@@ -22,13 +22,13 @@
 #include "doctest.h"
 #include "spio.h"
 
-TEST_CASE("input_parser int")
+TEST_CASE("reader int")
 {
     SUBCASE("basic")
     {
         std::string buf = "123";
         io::readable_buffer r(io::make_span(buf));
-        io::input_parser<decltype(r)> p{std::move(r)};
+        io::reader<decltype(r)> p{r};
 
         int val;
         p.read(val);
@@ -38,7 +38,7 @@ TEST_CASE("input_parser int")
     {
         std::string buf = "-273";
         io::readable_buffer r(io::make_span(buf));
-        io::input_parser<decltype(r)> p{std::move(r)};
+        io::reader<decltype(r)> p{r};
 
         int val;
         p.read(val);
@@ -48,19 +48,19 @@ TEST_CASE("input_parser int")
     {
         std::string buf = "foo";
         io::readable_buffer r(io::make_span(buf));
-        io::input_parser<decltype(r)> p{std::move(r)};
+        io::reader<decltype(r)> p{r};
 
         int val;
         CHECK_THROWS_AS(p.read(val), const io::failure&);
     }
 }
-TEST_CASE("input_parser uint")
+TEST_CASE("reader uint")
 {
     SUBCASE("basic")
     {
         std::string buf = "123";
         io::readable_buffer r(io::make_span(buf));
-        io::input_parser<decltype(r)> p{std::move(r)};
+        io::reader<decltype(r)> p{r};
 
         uint32_t val;
         p.read(val);
@@ -70,7 +70,7 @@ TEST_CASE("input_parser uint")
     {
         std::string buf = "-273";
         io::readable_buffer r(io::make_span(buf));
-        io::input_parser<decltype(r)> p{std::move(r)};
+        io::reader<decltype(r)> p{r};
 
         uint32_t val;
         CHECK_THROWS_AS(p.read(val), const io::failure&);
@@ -79,19 +79,19 @@ TEST_CASE("input_parser uint")
     {
         std::string buf = "foo";
         io::readable_buffer r(io::make_span(buf));
-        io::input_parser<decltype(r)> p{std::move(r)};
+        io::reader<decltype(r)> p{r};
 
         uint32_t val;
         CHECK_THROWS_AS(p.read(val), const io::failure&);
     }
 }
-TEST_CASE("input_parser float")
+TEST_CASE("reader float")
 {
     SUBCASE("basic")
     {
         std::string buf = "3.14";
         io::readable_buffer r(io::make_span(buf));
-        io::input_parser<decltype(r)> p{std::move(r)};
+        io::reader<decltype(r)> p{r};
 
         double val;
         p.read(val);
@@ -101,19 +101,19 @@ TEST_CASE("input_parser float")
     {
         std::string buf = "foo";
         io::readable_buffer r(io::make_span(buf));
-        io::input_parser<decltype(r)> p{std::move(r)};
+        io::reader<decltype(r)> p{r};
 
         double val;
         CHECK_THROWS_AS(p.read(val), const io::failure&);
     }
 }
-TEST_CASE("input_parser string")
+TEST_CASE("reader string")
 {
     SUBCASE("basic")
     {
         std::string buf = "foo";
         io::readable_buffer r(io::make_span(buf));
-        io::input_parser<decltype(r)> p{std::move(r)};
+        io::reader<decltype(r)> p{r};
 
         std::vector<char> val(4, '\0');
         auto s = io::make_span(val);
@@ -124,16 +124,69 @@ TEST_CASE("input_parser string")
     {
         std::string buf = "Hello world!";
         io::readable_buffer r(io::make_span(buf));
-        io::input_parser<decltype(r)> p{std::move(r)};
+        io::reader<decltype(r)> p{r};
 
         std::vector<char> val(6, '\0');
         auto s = io::make_span(val);
-        p.read(s);
+        p.read(s.first(5));
         CHECK_EQ(std::strcmp(val.data(), "Hello"), 0);
 
         val = std::vector<char>(7, '\0');
         s = io::make_span(val);
-        p.read(s);
+        p.read(s.first(6));
         CHECK_EQ(std::strcmp(val.data(), "world!"), 0);
     }
+}
+TEST_CASE("reader getline")
+{
+    SUBCASE("basic")
+    {
+        std::string buf = "String spanning\nmultiple\nlines";
+        io::readable_buffer r(io::make_span(buf));
+        io::reader<decltype(r)> p{r};
+
+        std::vector<char> val(32, '\0');
+        CHECK(p.getline(io::make_span(val)));
+        CHECK_EQ(std::strcmp(val.data(), "String spanning"), 0);
+
+        CHECK(p.getline(io::make_span(val)));
+        CHECK_EQ(std::strcmp(val.data(), "multiple"), 0);
+
+        CHECK_FALSE(p.getline(io::make_span(val)));
+        CHECK_EQ(std::strcmp(val.data(), "lines"), 0);
+    }
+    SUBCASE("different delim")
+    {
+        std::string buf = "String spanning\ttwo\nlines";
+        io::readable_buffer r(io::make_span(buf));
+        io::reader<decltype(r)> p{r};
+
+        std::vector<char> val(32, '\0');
+        CHECK(p.getline(io::make_span(val), '\t'));
+        CHECK_EQ(std::strcmp(val.data(), "String spanning"), 0);
+
+        CHECK(p.getline(io::make_span(val)));
+        CHECK_EQ(std::strcmp(val.data(), "two"), 0);
+
+        CHECK_FALSE(p.getline(io::make_span(val)));
+        CHECK_EQ(std::strcmp(val.data(), "lines"), 0);
+    }
+}
+TEST_CASE("reader ignore")
+{
+        std::string buf = "String spanning\nmultiple\nlines";
+        io::readable_buffer r(io::make_span(buf));
+        io::reader<decltype(r)> p{r};
+
+        CHECK(p.ignore(32, '\n'));
+
+        std::vector<char> val(32, '\0');
+        CHECK(p.getline(io::make_span(val)));
+        CHECK_EQ(std::strcmp(val.data(), "multiple"), 0);
+
+        CHECK(p.ignore());
+        
+        char c;
+        CHECK(p.get(c));
+        CHECK(c == 'i');
 }

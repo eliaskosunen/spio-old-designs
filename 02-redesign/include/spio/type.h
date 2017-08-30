@@ -22,6 +22,7 @@
 #define SPIO_TYPE_H
 
 #include "config.h"
+#include "reader_options.h"
 #include "stl.h"
 #include "util.h"
 
@@ -39,8 +40,9 @@ struct type<T,
                                       char16_t,
                                       char32_t>::value>> {
     template <typename InputParser>
-    static bool read(InputParser& p, T& val)
+    static bool read(InputParser& p, T& val, reader_options<T> opt)
     {
+        SPIO_UNUSED(opt);
         return p.read_raw(val);
     }
 };
@@ -55,40 +57,37 @@ struct type<T,
                                       char16_t,
                                       char32_t>::value>> {
     template <typename InputParser>
-    static bool read(InputParser& p, T& val)
+    static bool read(InputParser& p, T& val, reader_options<T> opt)
     {
         using char_type = typename InputParser::readable_type::value_type;
         span<char_type> s = make_span(reinterpret_cast<char_type*>(&val[0]),
                                       val.size_bytes() / sizeof(char_type));
-
-        auto is_space = [](char_type ch) {
-            return ch == static_cast<char_type>(' ') ||
-                   ch == static_cast<char_type>('\n') ||
-                   ch == static_cast<char_type>('\t');
-        };
         {
             auto it = s.begin();
-            while (it != s.end() - 1) {
-                char_type& c = *it;
+            while (it != s.end()) {
+                char_type c{};
                 if (p.eof()) {
-                    ++it;
                     break;
                 }
-                p.read(c);
-                if (is_space(c)) {
-                    if (it == s.begin()) {
-                        continue;
+                if (!p.read(c)) {
+                    if (!is_space(c, opt.spaces)) {
+                        *it = c;
                     }
                     ++it;
                     break;
                 }
-                if (is_space(c) || p.eof()) {
-                    ++it;
+                if (is_space(c, opt.spaces)) {
+                    if (it == s.begin()) {
+                        continue;
+                    }
                     break;
                 }
+                *it = c;
                 ++it;
             }
-            *it = '\0';
+            if (it != s.end()) {
+                *it = '\0';
+            }
         }
         return !p.eof();
     }
@@ -106,23 +105,11 @@ struct type<T,
                                       unsigned long,
                                       unsigned long long>::value>> {
     template <typename InputParser>
-    static bool read(InputParser& p, T& val)
+    static bool read(InputParser& p, T& val, reader_options<T> opt)
     {
         using char_type = typename InputParser::readable_type::value_type;
         char_type c{};
         p.read(c);
-        auto is_digit = [](char_type ch) {
-            return ch >= static_cast<char_type>('0') &&
-                   ch <= static_cast<char_type>('9');
-        };
-        auto to_number = [](char_type ch) {
-            return static_cast<T>(ch - char_type{'0'});
-        };
-        auto is_space = [](char_type ch) {
-            return ch == static_cast<char_type>(' ') ||
-                   ch == static_cast<char_type>('\n') ||
-                   ch == static_cast<char_type>('\t');
-        };
         if (is_space(c)) {
             if (p.eof()) {
                 return false;
@@ -145,16 +132,18 @@ struct type<T,
             }
             if (c == '+')
                 return true;
-            if (is_digit(c)) {
-                tmp = tmp * 10 - to_number(c);
+            if (is_digit(c, opt.base)) {
+                tmp = tmp * static_cast<T>(opt.base) -
+                      char_to_int<T>(c, opt.base);
                 return true;
             }
             SPIO_THROW(invalid_input, "Invalid first character in integer");
         }();
         while (!p.eof()) {
             p.read(c);
-            if (is_digit(c)) {
-                tmp = tmp * 10 - to_number(c);
+            if (is_digit(c, opt.base)) {
+                tmp = tmp * static_cast<T>(opt.base) -
+                      char_to_int<T>(c, opt.base);
             }
             else {
                 break;
@@ -172,16 +161,12 @@ struct type<T,
             std::enable_if_t<
                 contains<std::decay_t<T>, float, double, long double>::value>> {
     template <typename InputParser>
-    static bool read(InputParser& p, T& val)
+    static bool read(InputParser& p, T& val, reader_options<T> opt)
     {
         using char_type = typename InputParser::readable_type::value_type;
         array<char_type, 64> buf{};
         buf.fill(char_type{0});
 
-        auto is_digit = [](char_type ch) {
-            return ch >= static_cast<char_type>('0') &&
-                   ch <= static_cast<char_type>('9');
-        };
         bool point = false;
         for (auto& c : buf) {
             if (p.eof()) {
@@ -214,6 +199,7 @@ struct type<T,
             SPIO_THROW(invalid_input, "Failed to parse floating-point value");
         }
         val = tmp;
+        SPIO_UNUSED(opt);
         return !p.eof();
     }
 };
@@ -221,7 +207,7 @@ struct type<T,
 template <>
 struct type<bool> {
     template <typename InputParser>
-    static bool read(InputParser& p, bool& val)
+    static bool read(InputParser& p, bool& val, reader_options<bool> opt)
     {
         uint_fast16_t n = 0;
         auto ret = p.read(n);

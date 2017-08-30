@@ -24,6 +24,7 @@
 #include <cstring>
 #include "config.h"
 #include "error.h"
+#include "span.h"
 #include "stl.h"
 
 namespace io {
@@ -149,9 +150,16 @@ struct contains : std::disjunction<std::is_same<T, Ts>...> {
 
 template <typename FloatingT, typename CharT>
 FloatingT str_to_floating(const CharT* str, CharT** end);
-}  // namespace io
 
-#include "span.h"
+template <typename CharT>
+constexpr bool is_space(CharT c, span<CharT> spaces = span<CharT>{nullptr});
+
+template <typename CharT>
+constexpr bool is_digit(CharT c, int base = 10);
+
+template <typename IntT, typename CharT>
+constexpr IntT char_to_int(CharT c, int base = 10);
+}  // namespace io
 
 #include "util.impl.h"
 #if SPIO_HEADER_ONLY

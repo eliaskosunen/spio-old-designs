@@ -20,13 +20,13 @@
 
 namespace io {
 template <typename Readable>
-input_parser<Readable>::input_parser(Readable r) : m_readable(std::move(r))
+reader<Readable>::reader(Readable& r) : m_readable(r)
 {
 }
 
 template <typename Readable>
 template <typename T>
-error input_parser<Readable>::_read(span<T> s, elements length)
+error reader<Readable>::_read(span<T> s, elements length)
 {
     if (m_buffer.empty()) {
         return m_readable.read(s, length);
@@ -55,9 +55,10 @@ error input_parser<Readable>::_read(span<T> s, elements length)
 
 template <typename Readable>
 template <typename T>
-void input_parser<Readable>::push(T elem)
+void reader<Readable>::push(T elem)
 {
     auto chars = reinterpret_cast<char*>(&elem);
     m_buffer.insert(m_buffer.end(), chars, chars + sizeof(T));
+    m_eof = false;
 }
 }  // namespace io
