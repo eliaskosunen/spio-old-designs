@@ -32,6 +32,38 @@ TEST_CASE("util")
         CHECK_FALSE(io::contains<const void*, short, int, long>::value);
     }
 
+    SUBCASE("char_to_int")
+    {
+        CHECK(0 == io::char_to_int<int>('0'));
+        CHECK(3 == io::char_to_int<int>('3'));
+        CHECK(6 == io::char_to_int<int>('6'));
+        CHECK(9 == io::char_to_int<int>('9'));
+
+        CHECK(0 == io::char_to_int<int>('0', 2));
+        CHECK(1 == io::char_to_int<int>('1', 2));
+
+        CHECK(10 == io::char_to_int<int>('a', 16));
+        CHECK(15 == io::char_to_int<int>('F', 16));
+    }
+
+    SUBCASE("is_space")
+    {
+        CHECK(io::is_space(' '));
+        CHECK(io::is_space('\n'));
+        CHECK(io::is_space('\r'));
+        CHECK(io::is_space('\t'));
+        CHECK(io::is_space('\v'));
+
+        CHECK_FALSE(io::is_space('a'));
+
+        std::array<char, 3> alternative_spaces{{'a', '5', '!'}};
+        auto s = io::make_span(alternative_spaces);
+        CHECK_FALSE(io::is_space(' ', s));
+        CHECK(io::is_space('a', s));
+        CHECK(io::is_space('5', s));
+        CHECK(io::is_space('!', s));
+    }
+
     SUBCASE("str_to_floating")
     {
 #define STRTOD_CHECK(s, d, r)                                       \
