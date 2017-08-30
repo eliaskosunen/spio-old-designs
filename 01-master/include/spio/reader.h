@@ -18,30 +18,41 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_INPUT_PARSER_H
-#define SPIO_INPUT_PARSER_H
+#ifndef SPIO_READER_H
+#define SPIO_READER_H
 
 #include "config.h"
 #include "error.h"
 #include "readable.h"
+#include "reader_options.h"
 #include "type.h"
 #include "util.h"
 
 namespace io {
+
 template <typename Readable>
-class input_parser {
+class reader {
 public:
     using readable_type = Readable;
+    using char_type = typename Readable::value_type;
 
-    input_parser(Readable r);
+    reader(Readable& r);
 
     template <typename T>
-    bool read(T& elem)
+    bool read(T& elem, reader_options<T> opt = {})
     {
         if (m_eof) {
             SPIO_THROW(end_of_file, "EOF reached at " __FILE__ ":" SPIO_LINE);
         }
-        return type<T>::read(*this, elem);
+        return type<T>::read(*this, elem, std::move(opt));
+    }
+    template <typename T>
+    bool read(span<T> elem, reader_options<span<T>> opt = {})
+    {
+        if (m_eof) {
+            SPIO_THROW(end_of_file, "EOF reached at " __FILE__ ":" SPIO_LINE);
+        }
+        return type<span<T>>::read(*this, elem, std::move(opt));
     }
 
     template <typename T>
@@ -61,6 +72,46 @@ public:
         }
         if (error) {
             SPIO_THROW_EC(error);
+        }
+        return !m_eof;
+    }
+
+    bool get(char_type& ch)
+    {
+        return read_raw(ch);
+    }
+    template <typename T>
+    bool getline(span<T> s)
+    {
+        return getline(s, static_cast<T>('\n'));
+    }
+    template <typename T>
+    bool getline(span<T> s, char_type delim)
+    {
+        reader_options<span<T>> opt = {make_span(&delim, 1)};
+        return read(s, opt);
+    }
+
+    template <typename ElementT = char_type>
+    bool ignore(std::size_t count = 1)
+    {
+        SPIO_ASSERT(sizeof(ElementT) * count % sizeof(char_type) == 0,
+                    "sizeof(ElementT) * count must be divisible by "
+                    "sizeof(char_type) in reader::ignore");
+        vector<char_type> arr(sizeof(ElementT) * count / sizeof(char_type));
+        return read_raw(make_span(arr));
+    }
+    template <typename ElementT = char_type>
+    bool ignore(std::size_t count, char_type delim)
+    {
+        char_type ch{};
+        for (std::size_t i = 0; i < count; ++i) {
+            if (!get(ch)) {
+                return false;
+            }
+            if (ch == delim) {
+                return !m_eof;
+            }
         }
         return !m_eof;
     }
@@ -86,12 +137,12 @@ private:
     template <typename T>
     error _read(span<T> s, elements length);
 
-    Readable m_readable;
+    Readable& m_readable;
     vector<char> m_buffer{};
     bool m_eof{false};
 };
 }  // namespace io
 
-#include "input_parser.impl.h"
+#include "reader.impl.h"
 
-#endif  // SPIO_INPUT_PARSER_H
+#endif  // SPIO_READER_H

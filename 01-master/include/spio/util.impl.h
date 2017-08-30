@@ -120,12 +120,58 @@ template <typename InputIt>
 constexpr std::size_t distance_nonneg(InputIt first, InputIt last)
 {
     SPIO_ASSERT(first < last, "distance_nonneg requires first < last");
-    const auto dist = std::distance(first, last);
+    const auto dist = distance(first, last);
     SPIO_ASSERT(
         dist >= 0,
         "distance_nonneg requires distance between first and last to be 0 "
         "or more");
     return static_cast<std::size_t>(dist);
+}
+
+template <typename CharT>
+constexpr bool is_space(CharT c, span<CharT> spaces)
+{
+    if (spaces.empty()) {
+        auto arr =
+            array<CharT, 5>{{static_cast<CharT>(' '), static_cast<CharT>('\n'),
+                             static_cast<CharT>('\t'), static_cast<CharT>('\r'),
+                             static_cast<CharT>('\v')}};
+        return is_space(c, make_span(arr));
+    }
+    for (auto& s : spaces) {
+        if (c == s)
+            return true;
+    }
+    return false;
+}
+
+template <typename CharT>
+constexpr bool is_digit(CharT c, int base)
+{
+    assert(c >= '0');
+    if (base <= 10) {
+        return c >= '0' && c <= '0' + (base - 1);
+    }
+    return is_digit(c, 10) || (c >= 'a' && c <= 'a' + (base - 1)) ||
+           (c >= 'A' && c <= 'A' + (base - 1));
+}
+
+template <typename IntT, typename CharT>
+constexpr IntT char_to_int(CharT c, int base)
+{
+    assert(is_digit(c, base));
+    if (base <= 10) {
+        assert(c <= '0' + (base - 1));
+        return static_cast<IntT>(c - '0');
+    }
+    if (c <= '9') {
+        return static_cast<IntT>(c - '0');
+    }
+    if (c >= 'a' && c <= 'z') {
+        return 10 + static_cast<IntT>(c - 'a');
+    }
+    auto ret = 10 + static_cast<IntT>(c - 'A');
+    return ret;
 }
 
 namespace detail {
