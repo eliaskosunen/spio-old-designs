@@ -42,6 +42,10 @@
 #include "stl.h"
 
 namespace io {
+// Forward declare to avoid inclusion and circular dependency of "span.h"
+template <typename InputIt>
+constexpr std::size_t distance_nonneg(InputIt first, InputIt last);
+
 constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
 
 namespace detail {
@@ -287,7 +291,10 @@ public:
     constexpr span() noexcept : m_storage(nullptr, detail::extent_type<0>())
     {
     }
-    constexpr span(std::nullptr_t) noexcept : span() {}
+    constexpr span(std::nullptr_t) noexcept
+        : m_storage(nullptr, detail::extent_type<0>())
+    {
+    }
     constexpr span(pointer p, index_type count) : m_storage(p, count) {}
     constexpr span(pointer first, pointer last)
         : m_storage(first, distance_nonneg(first, last))

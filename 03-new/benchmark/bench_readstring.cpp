@@ -58,7 +58,7 @@ static void readstring_spio(benchmark::State& state)
             state.ResumeTiming();
 
             io::readable_buffer r(io::make_span(data));
-            io::input_parser<decltype(r)> p{std::move(r)};
+            io::reader<decltype(r)> p{r};
             while (!p.eof() && p.read(s)) {
             }
         }
