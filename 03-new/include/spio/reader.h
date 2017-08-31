@@ -29,7 +29,6 @@
 #include "util.h"
 
 namespace io {
-
 template <typename Readable>
 class reader {
 public:

@@ -37,7 +37,7 @@ static std::string generate_string(size_t len)
         'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',  'w',  'x',
         'y', 'z', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '\n', '\n', '\t'};
     std::default_random_engine rng(std::random_device{}());
-    std::uniform_int_distribution<> dist(0, chars.size() - 1);
+    std::uniform_int_distribution<> dist(0, static_cast<int>(chars.size() - 1));
 
     std::string str(len, '\0');
     std::generate_n(str.begin(), len, [&chars, &dist, &rng]() {
@@ -96,11 +96,11 @@ static void readstring_ptr(benchmark::State& state)
         std::string data = generate_string(static_cast<size_t>(state.range(0)));
         state.ResumeTiming();
         size_t i = 0, datai = 0;
-        while(datai < data.size()) {
+        while (datai < data.size()) {
             i = 0;
-            while(i + 1 < str.size() && datai < data.size()) {
-                datai++; 
-                if(data[datai] == ' ') {
+            while (i + 1 < str.size() && datai < data.size()) {
+                datai++;
+                if (data[datai] == ' ') {
                     break;
                 }
                 str[i++] = data[datai];
