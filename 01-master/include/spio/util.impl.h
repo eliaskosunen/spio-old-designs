@@ -148,6 +148,7 @@ constexpr bool is_space(CharT c, span<CharT> spaces)
 template <typename CharT>
 constexpr bool is_digit(CharT c, int base)
 {
+    assert(base >= 2 && base <= 36);
     assert(c >= '0');
     if (base <= 10) {
         return c >= '0' && c <= '0' + (base - 1);
@@ -159,6 +160,7 @@ constexpr bool is_digit(CharT c, int base)
 template <typename IntT, typename CharT>
 constexpr IntT char_to_int(CharT c, int base)
 {
+    assert(base >= 2 && base <= 36);
     assert(is_digit(c, base));
     if (base <= 10) {
         assert(c <= '0' + (base - 1));
@@ -172,6 +174,48 @@ constexpr IntT char_to_int(CharT c, int base)
     }
     auto ret = 10 + static_cast<IntT>(c - 'A');
     return ret;
+}
+
+template <typename CharT, typename IntT>
+constexpr void int_to_char(IntT value, span<CharT> result, int base)
+{
+    assert(base >= 2 && base <= 36);
+
+    auto it = result.begin();
+    auto it1 = result.begin();
+    CharT tmpchar;
+    IntT tmpval;
+
+    do {
+        tmpval = value;
+        value /= base;
+        *it++ =
+            "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstu"
+            "vwxyz"[35 + (tmpval - value * base)];
+    } while (value);
+
+    if (tmpval < 0) {
+        *it++ = '-';
+    }
+    *it-- = '\0';
+    while (it1 < it) {
+        tmpchar = *it;
+        *it-- = *it1;
+        *it1++ = tmpchar;
+    }
+}
+
+template <typename IntT>
+constexpr int max_digits() noexcept
+{
+    const auto i = std::numeric_limits<IntT>::max();
+
+    int digits = 0;
+    while (i) {
+        i /= 10;
+        digits++;
+    }
+    return digits;
 }
 
 namespace detail {

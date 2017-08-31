@@ -22,6 +22,7 @@
 #define SPIO_UTIL_H
 
 #include <cstring>
+#include <limits>
 #include "config.h"
 #include "error.h"
 #include "span.h"
@@ -159,6 +160,12 @@ constexpr bool is_digit(CharT c, int base = 10);
 
 template <typename IntT, typename CharT>
 constexpr IntT char_to_int(CharT c, int base = 10);
+
+template <typename CharT, typename IntT>
+constexpr void int_to_char(IntT i, span<CharT> result, int base = 10);
+
+template <typename IntT>
+constexpr int max_digits() noexcept;
 }  // namespace io
 
 #include "util.impl.h"

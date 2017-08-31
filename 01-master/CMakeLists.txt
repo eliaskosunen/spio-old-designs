@@ -97,6 +97,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compiler_flags(-Wno-weak-vtables)
     add_compiler_flags(-Wno-padded)
     add_compiler_flags(-Wno-gnu-statement-expression) # assert uses these
+    add_compiler_flags(-Wno-global-constructors)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")

@@ -21,10 +21,12 @@
 #ifndef SPIO_TYPE_H
 #define SPIO_TYPE_H
 
+#include <cmath>
 #include "config.h"
 #include "reader_options.h"
 #include "stl.h"
 #include "util.h"
+#include "writer_options.h"
 
 namespace io {
 template <typename T, typename Enable = void>
@@ -39,11 +41,18 @@ struct type<T,
                                       signed char,
                                       char16_t,
                                       char32_t>::value>> {
-    template <typename InputParser>
-    static bool read(InputParser& p, T& val, reader_options<T> opt)
+    template <typename Reader>
+    static bool read(Reader& p, T& val, reader_options<T> opt)
     {
         SPIO_UNUSED(opt);
         return p.read_raw(val);
+    }
+
+    template <typename Writer>
+    static void write(Writer& w, const T& val, writer_options<T> opt)
+    {
+        SPIO_UNUSED(opt);
+        w.write_raw(val);
     }
 };
 
@@ -56,10 +65,10 @@ struct type<T,
                                       signed char,
                                       char16_t,
                                       char32_t>::value>> {
-    template <typename InputParser>
-    static bool read(InputParser& p, T& val, reader_options<T> opt)
+    template <typename Reader>
+    static bool read(Reader& p, T& val, reader_options<T> opt)
     {
-        using char_type = typename InputParser::readable_type::value_type;
+        using char_type = typename Reader::readable_type::value_type;
         span<char_type> s = make_span(reinterpret_cast<char_type*>(&val[0]),
                                       val.size_bytes() / sizeof(char_type));
         {
@@ -91,6 +100,15 @@ struct type<T,
         }
         return !p.eof();
     }
+
+    template <typename Writer>
+    static void write(Writer& w, const T& val, writer_options<T> opt)
+    {
+        SPIO_UNUSED(opt);
+        for (const auto& c : val) {
+            w.write(c);
+        }
+    }
 };
 
 template <typename T>
@@ -104,10 +122,10 @@ struct type<T,
                                       unsigned int,
                                       unsigned long,
                                       unsigned long long>::value>> {
-    template <typename InputParser>
-    static bool read(InputParser& p, T& val, reader_options<T> opt)
+    template <typename Reader>
+    static bool read(Reader& p, T& val, reader_options<T> opt)
     {
-        using char_type = typename InputParser::readable_type::value_type;
+        using char_type = typename Reader::readable_type::value_type;
         char_type c{};
         p.read(c);
         if (is_space(c)) {
@@ -154,16 +172,27 @@ struct type<T,
         val = tmp;
         return !p.eof();
     }
+
+    template <typename Writer>
+    static void write(Writer& w, const T& val, writer_options<T> opt)
+    {
+        using char_type = typename Writer::writable_type::value_type;
+        array<char_type, max_digits<T>() + 1> buf{};
+        buf.fill(char_type{0});
+        auto s = make_span(buf);
+        int_to_char<char_type>(val, s, opt.base);
+        w.write(s);
+    }
 };
 
 template <typename T>
 struct type<T,
             std::enable_if_t<
                 contains<std::decay_t<T>, float, double, long double>::value>> {
-    template <typename InputParser>
-    static bool read(InputParser& p, T& val, reader_options<T> opt)
+    template <typename Reader>
+    static bool read(Reader& p, T& val, reader_options<T> opt)
     {
-        using char_type = typename InputParser::readable_type::value_type;
+        using char_type = typename Reader::readable_type::value_type;
         array<char_type, 64> buf{};
         buf.fill(char_type{0});
 
@@ -202,12 +231,24 @@ struct type<T,
         SPIO_UNUSED(opt);
         return !p.eof();
     }
+
+    template <typename Writer>
+    static void write(Writer& w, const T& val, writer_options<T> opt)
+    {
+        using char_type = typename Writer::writable_type::value_type;
+        T i{};
+        auto frac = std::modf(val, &i);
+        w.write(static_cast<int>(i));
+        w.write(static_cast<char_type>('.'));
+        w.write(frac);
+        SPIO_UNUSED(opt);
+    }
 };
 
 template <>
 struct type<bool> {
-    template <typename InputParser>
-    static bool read(InputParser& p, bool& val, reader_options<bool> opt)
+    template <typename Reader>
+    static bool read(Reader& p, bool& val, reader_options<bool> opt)
     {
         uint_fast16_t n = 0;
         auto ret = p.read(n);
@@ -217,7 +258,19 @@ struct type<bool> {
         else {
             val = true;
         }
+        SPIO_UNUSED(opt);
         return ret;
+    }
+
+    template <typename Writer>
+    static void write(Writer& w, const bool& val, writer_options<bool> opt)
+    {
+        if (opt.alpha) {
+            w.write(val ? "true" : "false");
+        }
+        else {
+            w.write(val ? 1 : 0);
+        }
     }
 };
 }  // namespace io
