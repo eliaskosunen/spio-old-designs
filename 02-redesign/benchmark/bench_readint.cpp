@@ -33,7 +33,7 @@ static std::string generate_string(size_t len)
                                      '6', '7', '8', '9',  ' ', ' ',
                                      ' ', ' ', ' ', '\n', '\t'};
     std::default_random_engine rng(std::random_device{}());
-    std::uniform_int_distribution<> dist(0, chars.size() - 1);
+    std::uniform_int_distribution<> dist(0, static_cast<int>(chars.size() - 1));
 
     std::string str(len, '\0');
     std::generate_n(str.begin(), len, [&chars, &dist, &rng]() {
