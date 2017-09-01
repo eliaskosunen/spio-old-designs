@@ -135,21 +135,27 @@ public:
         return {};
     }
 
-    constexpr buffer_type buffer() const
+    constexpr buffer_type& get_buffer()
     {
         return m_buffer;
     }
-    constexpr buffer_type& buffer_ref()
+    constexpr const buffer_type& get_buffer() const
     {
         return m_buffer;
     }
-    constexpr const buffer_type& buffer_ref() const
+    template <typename T = buffer_type>
+    constexpr std::enable_if_t<std::is_copy_constructible_v<T>, T>
+    consume_buffer() const
     {
-        return m_buffer;
+        return T{m_buffer};
     }
-    constexpr const buffer_type& buffer_cref() const
+    template <typename T = buffer_type>
+    constexpr std::enable_if_t<!std::is_copy_constructible_v<T> &&
+                                   std::is_move_constructible_v<T>,
+                               T&&>
+    consume_buffer()
     {
-        return m_buffer;
+        return std::move(m_buffer);
     }
 
     constexpr bool is_valid() const

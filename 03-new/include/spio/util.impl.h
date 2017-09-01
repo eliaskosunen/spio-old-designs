@@ -181,6 +181,7 @@ constexpr void int_to_char(IntT value, span<CharT> result, int base)
 {
     assert(base >= 2 && base <= 36);
 
+    auto casted_base = static_cast<IntT>(base);
     auto it = result.begin();
     auto it1 = result.begin();
     CharT tmpchar;
@@ -188,10 +189,10 @@ constexpr void int_to_char(IntT value, span<CharT> result, int base)
 
     do {
         tmpval = value;
-        value /= base;
+        value /= casted_base;
         *it++ =
             "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstu"
-            "vwxyz"[35 + (tmpval - value * base)];
+            "vwxyz"[35 + (tmpval - value * casted_base)];
     } while (value);
 
     if (tmpval < 0) {
@@ -208,7 +209,7 @@ constexpr void int_to_char(IntT value, span<CharT> result, int base)
 template <typename IntT>
 constexpr int max_digits() noexcept
 {
-    const auto i = std::numeric_limits<IntT>::max();
+    auto i = std::numeric_limits<IntT>::max();
 
     int digits = 0;
     while (i) {

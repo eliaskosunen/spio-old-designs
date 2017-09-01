@@ -22,42 +22,45 @@
 #include "doctest.h"
 #include "spio.h"
 
-TEST_CASE("writable_buffer")
+TEST_CASE("writer int")
 {
-    io::writable_buffer w;
-    REQUIRE(w.is_valid());
-    SUBCASE("write_elem")
+    SUBCASE("basic")
     {
-        char c = 'A';
-        {
-            auto error = w.write(&c);
-            CHECK_FALSE(error);
-            if (error) {
-                std::cerr << error.message() << '\n';
-            }
-        }
-        {
-            auto buf = w.consume_buffer();
-            REQUIRE(!buf.empty());
-            CHECK(buf.size() == 1);
-            CHECK(buf[0] == c);
-        }
+        io::writable_buffer w{};
+        io::writer<decltype(w)> p{w};
+
+        p.write(123);
+        CHECK(w.get_buffer()[0] == '1');
+        CHECK(w.get_buffer()[1] == '2');
+        CHECK(w.get_buffer()[2] == '3');
+        CHECK(w.get_buffer().size() == 3);
     }
-    SUBCASE("write_range")
+    SUBCASE("signed")
     {
-        std::array<char, 5> a{{'W', 'o', 'r', 'd', '\0'}};
-        {
-            auto error = w.write(io::make_span(a), io::elements{a.size()});
-            CHECK_FALSE(error);
-            if (error) {
-                std::cerr << error.message() << '\n';
-            }
-        }
-        {
-            auto buf = w.consume_buffer();
-            REQUIRE(!buf.empty());
-            CHECK(buf.size() == 5);
-            CHECK_EQ(std::strcmp(a.data(), "Word"), 0);
-        }
+        io::writable_buffer w{};
+        io::writer<decltype(w)> p{w};
+
+        p.write(-273);
+        CHECK(w.get_buffer()[0] == '-');
+        CHECK(w.get_buffer()[1] == '2');
+        CHECK(w.get_buffer()[2] == '7');
+        CHECK(w.get_buffer()[3] == '3');
+        CHECK(w.get_buffer().size() == 4);
+    }
+}
+TEST_CASE("writer float")
+{
+    SUBCASE("basic")
+    {
+        io::writable_buffer w{};
+        io::writer<decltype(w)> p{w};
+
+        p.write(3.14);
+        CHECK(w.get_buffer()[0] == '3');
+        CHECK(w.get_buffer()[1] == '.');
+        CHECK(w.get_buffer()[2] == '1');
+        CHECK(w.get_buffer()[3] == '4');
+        std::cout << std::string{w.get_buffer().data(), w.get_buffer().size()} << '\n';
+        std::cout << w.get_buffer().size() << '\n';
     }
 }

@@ -49,7 +49,7 @@ struct type<T,
     }
 
     template <typename Writer>
-    static void write(Writer& w, const T& val, writer_options<T> opt)
+    static void write(Writer& w, T val, writer_options<T> opt)
     {
         SPIO_UNUSED(opt);
         w.write_raw(val);
@@ -102,7 +102,7 @@ struct type<T,
     }
 
     template <typename Writer>
-    static void write(Writer& w, const T& val, writer_options<T> opt)
+    static void write(Writer& w, T val, writer_options<T> opt)
     {
         SPIO_UNUSED(opt);
         for (const auto& c : val) {
@@ -174,14 +174,22 @@ struct type<T,
     }
 
     template <typename Writer>
-    static void write(Writer& w, const T& val, writer_options<T> opt)
+    static void write(Writer& w, T val, writer_options<T> opt)
     {
         using char_type = typename Writer::writable_type::value_type;
         array<char_type, max_digits<T>() + 1> buf{};
         buf.fill(char_type{0});
         auto s = make_span(buf);
         int_to_char<char_type>(val, s, opt.base);
-        w.write(s);
+        const auto len = [&]() {
+            for (std::size_t i = 0; i < s.length(); ++i) {
+                if (s[i] == '\0') {
+                    return i;
+                }
+            }
+            assert(false);
+        }();
+        w.write(s.first(len));
     }
 };
 
@@ -233,14 +241,40 @@ struct type<T,
     }
 
     template <typename Writer>
-    static void write(Writer& w, const T& val, writer_options<T> opt)
+    static void write(Writer& w, T val, writer_options<T> opt)
     {
         using char_type = typename Writer::writable_type::value_type;
-        T i{};
-        auto frac = std::modf(val, &i);
-        w.write(static_cast<int>(i));
-        w.write(static_cast<char_type>('.'));
-        w.write(frac);
+
+        vector<char> arr([&]() {
+            if constexpr (std::is_same_v<std::decay_t<T>, long double>) {
+                return static_cast<std::size_t>(
+                    std::snprintf(nullptr, 0, "%Lf", val));
+            }
+            else {
+                return static_cast<std::size_t>(
+                    std::snprintf(nullptr, 0, "%f", val));
+            }
+        }() + 1);
+        if constexpr (std::is_same_v<std::decay_t<T>, long double>) {
+            std::snprintf(&arr[0], arr.size(), "%Lf", val);
+        }
+        else {
+            std::snprintf(&arr[0], arr.size(), "%f", val);
+        }
+        auto char_span = make_span(&arr[0], strlen(&arr[0]));
+
+        if constexpr (sizeof(char_type) == 1) {
+            w.write(char_span);
+        }
+        else {
+            vector<char_type> buf{};
+            buf.reserve(char_span.size());
+            for (auto& c : char_span) {
+                buf.push_back(static_cast<char_type>(c));
+            }
+            w.write(make_span(buf));
+        }
+
         SPIO_UNUSED(opt);
     }
 };
@@ -263,7 +297,7 @@ struct type<bool> {
     }
 
     template <typename Writer>
-    static void write(Writer& w, const bool& val, writer_options<bool> opt)
+    static void write(Writer& w, bool val, writer_options<bool> opt)
     {
         if (opt.alpha) {
             w.write(val ? "true" : "false");

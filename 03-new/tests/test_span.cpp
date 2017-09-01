@@ -31,7 +31,6 @@ TEST_CASE("span")
         io::span<decltype(a)::value_type, a.size()> s(a.begin(), a.end());
         io::span<decltype(a)::value_type, a.size()> s2(&a[0], a.size());
         CHECK(s[0] == 0);
-        CHECK(s(1) == 1);
         CHECK(s.at(2) == 2);
         CHECK(s.size() == 10);
         CHECK_FALSE(s.empty());
