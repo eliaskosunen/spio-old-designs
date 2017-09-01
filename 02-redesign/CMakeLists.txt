@@ -29,6 +29,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compiler_flags(-fvisibility=hidden)
     add_compiler_flags(-fstrict-aliasing)
     add_compiler_flags(-std=c++1z)
+    add_compiler_flags(-ftemplate-backtrace-limit=0)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")

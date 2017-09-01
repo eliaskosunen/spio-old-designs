@@ -66,17 +66,22 @@ namespace detail {
     template <typename Span, bool IsConst>
     class span_iterator {
     public:
+        using span_type = std::conditional_t<IsConst, const Span, Span>*;
+
         using iterator_category = std::random_access_iterator_tag;
         using value_type = std::remove_cv_t<typename Span::element_type>;
         using difference_type = typename Span::index_type;
 
         using reference =
             std::conditional_t<IsConst, const value_type, value_type>&;
+        using const_reference = const value_type&;
+
         using pointer = std::add_pointer_t<reference>;
+        using const_pointer = std::add_pointer_t<const_reference>;
 
         span_iterator() = default;
 
-        constexpr span_iterator(const Span* s, difference_type i) noexcept
+        constexpr span_iterator(span_type s, difference_type i) noexcept
             : m_span(s), m_index(i)
         {
             assert((s == nullptr) || (i >= 0 && i <= s->length()));
@@ -89,12 +94,23 @@ namespace detail {
         {
         }
 
-        constexpr reference operator*() const noexcept
+        constexpr reference operator*() noexcept
         {
             assert(m_span);
             return (*m_span)[m_index];
         }
-        constexpr pointer operator->() const noexcept
+        constexpr const_reference operator*() const noexcept
+        {
+            assert(m_span);
+            return (*m_span)[m_index];
+        }
+
+        constexpr pointer operator->() noexcept
+        {
+            assert(m_span && m_index >= 0 && m_index <= m_span->length());
+            return m_span->data() + m_index;
+        }
+        constexpr const_pointer operator->() const noexcept
         {
             assert(m_span && m_index >= 0 && m_index <= m_span->length());
             return m_span->data() + m_index;
@@ -160,6 +176,10 @@ namespace detail {
             return *(*this + n);
         }
 
+        constexpr Span* get_span() noexcept
+        {
+            return m_span;
+        }
         constexpr const Span* get_span() const noexcept
         {
             return m_span;
@@ -170,7 +190,7 @@ namespace detail {
         }
 
     private:
-        const Span* m_span{nullptr};
+        span_type m_span{nullptr};
         difference_type m_index = 0;
     };
 
@@ -273,7 +293,9 @@ public:
     using element_type = ElementType;
     using index_type = std::size_t;
     using pointer = element_type*;
+    using const_pointer = std::add_const_t<pointer>;
     using reference = element_type&;
+    using const_reference = std::add_const_t<reference>;
 
     using iterator = detail::span_iterator<span<ElementType, Extent>, false>;
     using const_iterator =
@@ -399,29 +421,49 @@ public:
         return size() == 0;
     }
 
-    constexpr reference at(index_type idx) const
+    constexpr reference at(index_type idx)
     {
         assert(idx >= 0 && idx < m_storage.size());
         return data()[idx];
     }
-    constexpr reference operator[](index_type idx) const
+    constexpr const_reference at(index_type idx) const
+    {
+        assert(idx >= 0 && idx < m_storage.size());
+        return data()[idx];
+    }
+
+    constexpr reference operator[](index_type idx)
     {
         return at(idx);
     }
-    constexpr reference operator()(index_type idx) const
+    constexpr const_reference operator[](index_type idx) const
     {
         return at(idx);
     }
-    constexpr pointer data() const noexcept
+
+    constexpr pointer data() noexcept
+    {
+        return m_storage.data();
+    }
+    constexpr const_pointer data() const noexcept
     {
         return m_storage.data();
     }
 
-    iterator begin() const noexcept
+    iterator begin() noexcept
     {
         return {this, 0};
     }
-    iterator end() const noexcept
+    iterator end() noexcept
+    {
+        return {this, size()};
+    }
+
+    const_iterator begin() const noexcept
+    {
+        return {this, 0};
+    }
+    const_iterator end() const noexcept
     {
         return {this, size()};
     }
@@ -435,13 +477,22 @@ public:
         return {this, size()};
     }
 
-    reverse_iterator rbegin() const noexcept
+    reverse_iterator rbegin() noexcept
     {
         return reverse_iterator{end()};
     }
-    reverse_iterator rend() const noexcept
+    reverse_iterator rend() noexcept
     {
         return reverse_iterator{begin()};
+    }
+
+    const_reverse_iterator rbegin() const noexcept
+    {
+        return reverse_iterator{cend()};
+    }
+    const_reverse_iterator rend() const noexcept
+    {
+        return reverse_iterator{cbegin()};
     }
 
     const_reverse_iterator crbegin() const noexcept
