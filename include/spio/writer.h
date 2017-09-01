@@ -37,7 +37,7 @@ public:
     writer(Writable& w);
 
     template <typename T>
-    void write(const T& elem, writer_options<T> opt = {})
+    void write(T elem, writer_options<T> opt = {})
     {
         return type<T>::write(*this, elem, std::move(opt));
     }
@@ -48,7 +48,7 @@ public:
     }
 
     template <typename T>
-    void write_raw(const T& elem)
+    void write_raw(T elem)
     {
         return write_raw(make_span(&elem, 1));
     }
@@ -90,5 +90,7 @@ private:
     Writable& m_writable;
 };
 }  // namespace io
+
+#include "writer.impl.h"
 
 #endif  // SPIO_WRITER_H

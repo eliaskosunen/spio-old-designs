@@ -28,6 +28,7 @@
 #include "readable.h"
 #include "writable.h"
 #include "reader.h"
+#include "writer.h"
 #include "type.h"
 
 #endif // SPIO_SPIO_H
