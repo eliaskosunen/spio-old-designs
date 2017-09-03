@@ -176,34 +176,82 @@ constexpr IntT char_to_int(CharT c, int base)
     return ret;
 }
 
+namespace detail {
+    template <typename CharT, typename IntT>
+    constexpr void itoa(IntT n, CharT* s, int base)
+    {
+        {
+            IntT sign;
+            if ((sign = n) < 0) /* record sign */
+            {
+                n = -n; /* make n positive */
+            }
+
+            IntT i = 0;
+            auto casted_base = static_cast<IntT>(base);
+            do { /* generate digits in reverse order */
+                s[i++] = static_cast<CharT>(n % casted_base) +
+                         CharT{'0'};          /* get next digit */
+            } while ((n /= casted_base) > 0); /* delete it */
+            if (sign < 0) {
+                s[i++] = CharT{'-'};
+            }
+            s[i] = '\0';
+        }
+
+        auto len = [](CharT* str) {
+            if constexpr (sizeof(CharT) == 1) {
+                return strlen(str);
+            }
+            else {
+                std::size_t i = 0;
+                for (; str[i] != '\0'; ++i) {
+                }
+                return i;
+            }
+        };
+        auto reverse = [&len](CharT* str) {
+            for (std::size_t i = 0, j = len(str) - 1; i < j; i++, j--) {
+                CharT tmp = str[i];
+                str[i] = str[j];
+                str[j] = tmp;
+            }
+        };
+        reverse(s);
+    }
+}  // namespace detail
+
 template <typename CharT, typename IntT>
 constexpr void int_to_char(IntT value, span<CharT> result, int base)
 {
     assert(base >= 2 && base <= 36);
 
-    auto casted_base = static_cast<IntT>(base);
-    auto it = result.begin();
-    auto it1 = result.begin();
-    CharT tmpchar;
-    IntT tmpval;
+    detail::itoa(value, &result[0], base);
+    /* auto casted_base = static_cast<IntT>(base); */
+    /* auto it = result.begin(); */
 
-    do {
-        tmpval = value;
-        value /= casted_base;
-        *it++ =
-            "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstu"
-            "vwxyz"[35 + (tmpval - value * casted_base)];
-    } while (value);
+    /* IntT tmpval; */
+    /* do { */
+    /*     tmpval = value; */
+    /*     value /= casted_base; */
+    /*     *it++ = */
+    /*         "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstu"
+     */
+    /*         "vwxyz"[35 + (tmpval - value * casted_base)]; */
+    /* } while (value); */
 
-    if (tmpval < 0) {
-        *it++ = '-';
-    }
-    *it-- = '\0';
-    while (it1 < it) {
-        tmpchar = *it;
-        *it-- = *it1;
-        *it1++ = tmpchar;
-    }
+    /* if (tmpval < 0) { */
+    /*     *it++ = '-'; */
+    /* } */
+    /* *it-- = '\0'; */
+
+    /* CharT tmpchar; */
+    /* auto it1 = result.begin(); */
+    /* while (it1 < it) { */
+    /*     tmpchar = *it; */
+    /*     *it-- = *it1; */
+    /*     *it1++ = tmpchar; */
+    /* } */
 }
 
 template <typename IntT>
@@ -216,7 +264,12 @@ constexpr int max_digits() noexcept
         i /= 10;
         digits++;
     }
-    return digits;
+    if constexpr (std::is_signed_v<IntT>) {
+        return digits + 1;
+    }
+    else {
+        return digits;
+    }
 }
 
 namespace detail {
