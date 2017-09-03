@@ -105,9 +105,7 @@ struct type<T,
     static void write(Writer& w, T val, writer_options<T> opt)
     {
         SPIO_UNUSED(opt);
-        for (const auto& c : val) {
-            w.write(c);
-        }
+        w.write_raw(val);
     }
 };
 
@@ -181,13 +179,18 @@ struct type<T,
         buf.fill(char_type{0});
         auto s = make_span(buf);
         int_to_char<char_type>(val, s, opt.base);
+        /* buf[0] = '1'; */
+        /* buf[1] = '2'; */
+        /* buf[2] = '3'; */
+        /* buf[3] = '\0'; */
         const auto len = [&]() {
             for (std::size_t i = 0; i < s.length(); ++i) {
                 if (s[i] == '\0') {
                     return i;
                 }
             }
-            assert(false);
+            SPIO_THROW(assertion_failure,
+                       "Unreachable: (probably) a bug in int_to_char");
         }();
         w.write(s.first(len));
     }

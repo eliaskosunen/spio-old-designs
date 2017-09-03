@@ -183,7 +183,6 @@ error basic_writable_buffer<CharT>::write(span<T> buf, bytes_contiguous length)
     m_buffer.reserve(m_buffer.size() + length / sizeof(CharT));
     copy_contiguous({buf.begin(), buf.end()},
                     {m_buffer.begin() + i, m_buffer.end()});
-    copy(buf.begin(), buf.begin() + length, std::back_inserter(m_buffer));
     return {};
 }
 
