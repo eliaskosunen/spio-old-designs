@@ -60,7 +60,5 @@ TEST_CASE("writer float")
         CHECK(w.get_buffer()[1] == '.');
         CHECK(w.get_buffer()[2] == '1');
         CHECK(w.get_buffer()[3] == '4');
-        std::cout << std::string{w.get_buffer().data(), w.get_buffer().size()} << '\n';
-        std::cout << w.get_buffer().size() << '\n';
     }
 }
