@@ -59,7 +59,7 @@ static void readint_spio(benchmark::State& state)
             }
         }
         state.SetBytesProcessed(state.iterations() *
-                                static_cast<size_t>(state.range(0)));
+                                static_cast<size_t>(state.range(0)) * sizeof(T));
     }
     catch (const io::failure& f) {
         state.SkipWithError(f.what());
@@ -80,7 +80,7 @@ static void readint_ios(benchmark::State& state)
         }
     }
     state.SetBytesProcessed(state.iterations() *
-                            static_cast<size_t>(state.range(0)));
+                            static_cast<size_t>(state.range(0)) * sizeof(T));
 }
 template <typename T>
 static void readint_scanf(benchmark::State& state)
@@ -97,7 +97,7 @@ static void readint_scanf(benchmark::State& state)
         }
     }
     state.SetBytesProcessed(state.iterations() *
-                            static_cast<size_t>(state.range(0)));
+                            static_cast<size_t>(state.range(0)) * sizeof(T));
 }
 template <typename T>
 static void readint_strtol(benchmark::State& state)
@@ -119,7 +119,7 @@ static void readint_strtol(benchmark::State& state)
         SPIO_UNUSED(num);
     }
     state.SetBytesProcessed(state.iterations() *
-                            static_cast<size_t>(state.range(0)));
+                            static_cast<size_t>(state.range(0)) * sizeof(T));
 }
 
 BENCHMARK_TEMPLATE(readint_spio, int)->Range(8, 8 << 6);
