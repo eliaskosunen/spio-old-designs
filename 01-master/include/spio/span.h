@@ -87,7 +87,7 @@ namespace detail {
             assert((s == nullptr) || (i >= 0 && i <= s->length()));
         }
 
-        friend span_iterator<Span, true>;
+        friend span_iterator<Span, !IsConst>;
         template <bool B, std::enable_if_t<!B && IsConst>* = nullptr>
         constexpr span_iterator(const span_iterator<Span, B>& o) noexcept
             : span_iterator(o.m_span, o.m_index)

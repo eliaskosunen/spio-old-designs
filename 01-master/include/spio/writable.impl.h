@@ -53,9 +53,9 @@ error basic_writable_file<CharT>::write(span<T> buf, characters length)
 {
     SPIO_ASSERT(valid, "Cannot write on invalid stream");
     SPIO_ASSERT(length <= buf.size(), "buf is not big enough");
-    static_assert(sizeof(T) >= sizeof(CharT),
+    static_assert(sizeof(T) <= sizeof(CharT),
                   "Truncation in basic_writable_file<CharT>::write: sizeof "
-                  "buffer is less than CharT");
+                  "buffer is more than CharT");
     static_assert(
         std::is_trivially_copyable_v<T>,
         "basic_writable_file<CharT>::write: T must be TriviallyCopyable");
@@ -73,7 +73,7 @@ error basic_writable_file<CharT>::write(span<T> buf, characters length)
                 }
             }
             return SPIO_FWRITE(&char_buf[0], 1, length * sizeof(T),
-                                m_file.value()) /
+                               m_file.value()) /
                    sizeof(T);
         }
     }();
@@ -98,9 +98,9 @@ template <typename CharT>
 template <typename T>
 error basic_writable_file<CharT>::write(span<T> buf, bytes_contiguous length)
 {
-    SPIO_ASSERT(valid, "Cannot write on invalid stream");
+    SPIO_ASSERT(valid, "Cannot write to an invalid stream");
     SPIO_ASSERT(length % sizeof(CharT) == 0,
-                 "Length is not divisible by sizeof CharT");
+                "Length is not divisible by sizeof CharT");
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
     vector<char> char_buf(length, 0);
     const auto ret = SPIO_FWRITE(&char_buf[0], 1, length, m_file.value());
@@ -142,52 +142,72 @@ error basic_writable_file<CharT>::flush() noexcept
     return {};
 }
 
-template <typename CharT>
+template <typename CharT, typename BufferT>
+constexpr basic_writable_buffer<CharT, BufferT>::basic_writable_buffer(
+    buffer_type b)
+    : m_buffer(std::move(b))
+{
+}
+
+template <typename CharT, typename BufferT>
 template <typename T>
-error basic_writable_buffer<CharT>::write(span<T> buf, characters length)
+error basic_writable_buffer<CharT, BufferT>::write(span<T> buf,
+                                                   characters length)
 {
     SPIO_ASSERT(valid, "Cannot write on invalid stream");
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
-    static_assert(sizeof(T) >= sizeof(CharT),
-                  "Truncation in basic_writable_buffer<CharT>::read: sizeof "
-                  "buffer is less than CharT");
+    static_assert(
+        sizeof(T) <= sizeof(CharT),
+        "Truncation in basic_writable_buffer<CharT, BufferT>::read: sizeof "
+        "buffer is more than CharT");
 
-    copy(buf.begin(), buf.begin() + length, std::back_inserter(m_buffer));
+    const auto i = m_buffer.size();
+    m_buffer.resize(i + length);
+    copy(buf.begin(), buf.begin() + length,
+         m_buffer.begin() +
+             static_cast<typename decltype(m_buffer)::difference_type>(i));
+    if (m_buffer.is_end()) {
+        return end_of_file;
+    }
     return {};
 }
 
-template <typename CharT>
+template <typename CharT, typename BufferT>
 template <typename T>
-error basic_writable_buffer<CharT>::write(span<T> buf, elements length)
+error basic_writable_buffer<CharT, BufferT>::write(span<T> buf, elements length)
 {
     return write(buf, characters{length * sizeof(T) / sizeof(CharT)});
 }
 
-template <typename CharT>
+template <typename CharT, typename BufferT>
 template <typename T>
-error basic_writable_buffer<CharT>::write(span<T> buf, bytes length)
+error basic_writable_buffer<CharT, BufferT>::write(span<T> buf, bytes length)
 {
     return write(buf, characters{length * sizeof(CharT)});
 }
 
-template <typename CharT>
+template <typename CharT, typename BufferT>
 template <typename T>
-error basic_writable_buffer<CharT>::write(span<T> buf, bytes_contiguous length)
+error basic_writable_buffer<CharT, BufferT>::write(span<T> buf,
+                                                   bytes_contiguous length)
 {
     SPIO_ASSERT(valid, "Cannot write on invalid stream");
     SPIO_ASSERT(length % sizeof(CharT) == 0,
-                 "Length is not divisible by sizeof CharT");
+                "Length is not divisible by sizeof CharT");
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
 
-    auto i = m_buffer.size();
-    m_buffer.reserve(m_buffer.size() + length / sizeof(CharT));
+    const auto i = m_buffer.size();
+    m_buffer.resize(i + length / sizeof(CharT));
     copy_contiguous({buf.begin(), buf.end()},
                     {m_buffer.begin() + i, m_buffer.end()});
+    if (m_buffer.is_end()) {
+        return end_of_file;
+    }
     return {};
 }
 
-template <typename CharT>
-error basic_writable_buffer<CharT>::write(CharT* c)
+template <typename CharT, typename BufferT>
+error basic_writable_buffer<CharT, BufferT>::write(CharT* c)
 {
     span<CharT> s{c, 1};
     return write(s, characters{1});

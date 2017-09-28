@@ -27,85 +27,98 @@
 #include "benchmark/benchmark.h"
 #include "spio/spio.h"
 
-template <typename T = int>
-static std::vector<T> generate_data(size_t len)
+static std::vector<std::wstring> generate_data(size_t len)
 {
+    const std::vector<wchar_t> chars = {
+        L'0', L'1', L'2', L'3',  L'4',  L'5', L'6', L'7', L'8', L'9', L'A',
+        L'B', L'C', L'D', L'E',  L'F',  L'G', L'H', L'I', L'J', L'K', L'L',
+        L'M', L'N', L'O', L'P',  L'Q',  L'R', L'S', L'T', L'U', L'V', L'W',
+        L'X', L'Y', L'Z', L'a',  L'b',  L'c', L'd', L'e', L'f', L'g', L'h',
+        L'i', L'j', L'k', L'l',  L'm',  L'n', L'o', L'p', L'q', L'r', L's',
+        L't', L'u', L'v', L'w',  L'x',  L'y', L'z', L' ', L' ', L' ', L' ',
+        L' ', L' ', L' ', L'\n', L'\n', L'\t'};
     std::default_random_engine rng(std::random_device{}());
-    std::uniform_int_distribution<T> dist(std::numeric_limits<T>::min(),
-                                          std::numeric_limits<T>::max());
+    std::uniform_int_distribution<> dist(0, static_cast<int>(chars.size() - 1));
 
-    std::vector<T> data(len);
-    std::generate_n(data.begin(), len, [&dist, &rng]() { return dist(rng); });
+    std::vector<std::wstring> data;
+    data.emplace_back();
+    for (std::size_t i = 0; i < len; ++i) {
+        auto c = chars[static_cast<size_t>(dist(rng))];
+        if (io::is_space(c)) {
+            data.emplace_back();
+        }
+        else {
+            data.back().push_back(c);
+        }
+    }
     return data;
 }
 
-template <typename T>
-static void writeint_spio(benchmark::State& state)
+static void writewstring_spio(benchmark::State& state)
 {
     try {
+        size_t bytes = 0;
         while (state.KeepRunning()) {
             state.PauseTiming();
-            auto data = generate_data<T>(static_cast<size_t>(state.range(0)));
+            auto data = generate_data(static_cast<size_t>(state.range(0)));
             state.ResumeTiming();
 
-            io::writable_buffer w{};
+            io::writable_wbuffer w{};
             io::writer<decltype(w)> p{w};
             for (auto& n : data) {
-                p.write(n);
+                p.write(io::make_span(n.data(), n.length()));
+                bytes += n.length();
             }
         }
-        state.SetBytesProcessed(state.iterations() *
-                                static_cast<size_t>(state.range(0)) *
-                                sizeof(T));
+        state.SetBytesProcessed(bytes);
     }
     catch (const io::failure& f) {
         state.SkipWithError(f.what());
     }
 }
 
-template <typename T>
-static void writeint_spio_static(benchmark::State& state)
+static void writewstring_spio_static(benchmark::State& state)
 {
     try {
+        size_t bytes = 0;
         while (state.KeepRunning()) {
             state.PauseTiming();
-            auto data = generate_data<T>(static_cast<size_t>(state.range(0)));
-            io::dynamic_writable_buffer<char> buffer;
+            auto data = generate_data(static_cast<size_t>(state.range(0)));
+            io::dynamic_writable_buffer<wchar_t> buffer;
             buffer.reserve(static_cast<size_t>(state.range(0)));
             state.ResumeTiming();
 
-            io::writable_buffer w{std::move(buffer)};
+            io::writable_wbuffer w{std::move(buffer)};
             io::writer<decltype(w)> p{w};
             for (auto& n : data) {
-                p.write(n);
+                p.write(io::make_span(n.data(), n.length()));
+                bytes += n.length();
             }
         }
-        state.SetBytesProcessed(state.iterations() *
-                                static_cast<size_t>(state.range(0)) *
-                                sizeof(T));
+        state.SetBytesProcessed(bytes);
     }
     catch (const io::failure& f) {
         state.SkipWithError(f.what());
     }
 }
 
-template <typename T>
-static void writeint_ios(benchmark::State& state)
+static void writewstring_ios(benchmark::State& state)
 {
+    size_t bytes = 0;
     while (state.KeepRunning()) {
         state.PauseTiming();
-        auto data = generate_data<T>(static_cast<size_t>(state.range(0)));
+        auto data = generate_data(static_cast<size_t>(state.range(0)));
         state.ResumeTiming();
 
-        std::stringstream ss{};
+        std::wstringstream ss{};
         for (auto& n : data) {
             ss << n;
+            bytes += n.length();
         }
     }
-    state.SetBytesProcessed(state.iterations() *
-                            static_cast<size_t>(state.range(0)) * sizeof(T));
+    state.SetBytesProcessed(bytes);
 }
 
-BENCHMARK_TEMPLATE(writeint_spio, int)->Range(8, 8 << 8);
-BENCHMARK_TEMPLATE(writeint_spio_static, int)->Range(8, 8 << 8);
-BENCHMARK_TEMPLATE(writeint_ios, int)->Range(8, 8 << 8);
+BENCHMARK(writewstring_spio)->Range(8, 8 << 8);
+BENCHMARK(writewstring_spio_static)->Range(8, 8 << 8);
+BENCHMARK(writewstring_ios)->Range(8, 8 << 8);
