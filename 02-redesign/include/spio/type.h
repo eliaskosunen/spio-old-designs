@@ -33,14 +33,15 @@ template <typename T, typename Enable = void>
 struct type;
 
 template <typename T>
-struct type<T,
-            std::enable_if_t<contains<std::decay_t<T>,
-                                      char,
-                                      wchar_t,
-                                      unsigned char,
-                                      signed char,
-                                      char16_t,
-                                      char32_t>::value>> {
+struct type<
+    T,
+    std::enable_if_t<contains<std::remove_reference_t<std::remove_cv_t<T>>,
+                              char,
+                              wchar_t,
+                              unsigned char,
+                              signed char,
+                              char16_t,
+                              char32_t>::value>> {
     template <typename Reader>
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
@@ -106,6 +107,43 @@ struct type<T,
     {
         SPIO_UNUSED(opt);
         w.write_raw(val);
+    }
+};
+
+template <typename T>
+struct type<T,
+            std::enable_if_t<
+                contains<std::remove_volatile_t<std::remove_reference_t<T>>,
+                         const char*,
+                         const wchar_t*,
+                         const char16_t*,
+                         const char32_t*>::value>> {
+    template <typename Reader>
+    static bool read(Reader& p, T& val, reader_options<T> opt) = delete;
+
+    template <typename Writer>
+    static void write(Writer& w, T val, writer_options<T> opt)
+    {
+        using value_type = std::remove_pointer_t<std::decay_t<T>>;
+
+        auto ptr =
+            const_cast<std::add_pointer_t<std::remove_const_t<value_type>>>(
+                val);
+        const auto len = [&ptr]() -> std::size_t {
+            if constexpr (sizeof(value_type) == 1) {
+                return strlen(ptr);
+            }
+            else {
+                for (std::size_t i = 0;; ++i) {
+                    if (*(ptr + i) == value_type{'\0'}) {
+                        return i;
+                    }
+                }
+                return 0;
+            }
+        }();
+        SPIO_UNUSED(opt);
+        return w.write(make_span(ptr, len));
     }
 };
 
@@ -287,16 +325,34 @@ struct type<bool> {
     template <typename Reader>
     static bool read(Reader& p, bool& val, reader_options<bool> opt)
     {
-        uint_fast16_t n = 0;
-        auto ret = p.read(n);
-        if (n == 0) {
-            val = false;
+        if (opt.alpha) {
+            using char_type = typename Reader::readable_type::value_type;
+            array<char_type, 5> buf{};
+            auto ret = p.read(make_span(buf));
+            if (buf[0] == 't' && buf[1] == 'r' && buf[2] == 'u' &&
+                buf[3] == 'e') {
+                val = true;
+                p.push(buf[4]);
+                return ret;
+            }
+            if (buf[0] == 'f' && buf[1] == 'a' && buf[2] == 'l' &&
+                buf[3] == 's' && buf[4] == 'e') {
+                val = false;
+                return ret;
+            }
+            SPIO_THROW(invalid_input, "Failed to parse boolean value");
         }
         else {
-            val = true;
+            uint_fast16_t n = 0;
+            auto ret = p.read(n);
+            if (n == 0) {
+                val = false;
+            }
+            else {
+                val = true;
+            }
+            return ret;
         }
-        SPIO_UNUSED(opt);
-        return ret;
     }
 
     template <typename Writer>

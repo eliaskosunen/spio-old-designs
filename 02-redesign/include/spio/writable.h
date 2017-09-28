@@ -113,12 +113,99 @@ private:
     bool valid{false};
 };
 
-template <typename CharT>
+template <typename T>
+struct dynamic_writable_buffer : public vector<T> {
+    using vector<T>::vector;
+
+    constexpr bool is_end()
+    {
+        return false;
+    }
+};
+template <typename T, std::size_t N>
+struct static_writable_buffer {
+public:
+    using value_type = T;
+    using size_type = std::size_t;
+    using reference = value_type&;
+    using const_reference = std::add_const_t<reference>;
+
+    constexpr static_writable_buffer() : m_it(m_buf.begin()) {}
+
+    constexpr reference operator[](std::size_t i) noexcept
+    {
+        return m_buf[i];
+    }
+    constexpr const_reference operator[](std::size_t i) const noexcept
+    {
+        return m_buf[i];
+    }
+
+    constexpr auto data()
+    {
+        return m_buf.data();
+    }
+
+    constexpr size_type size() const
+    {
+        return distance_nonneg(m_buf.begin(), m_it);
+    }
+    constexpr size_type max_size() const
+    {
+        return m_buf.size();
+    }
+
+    constexpr auto begin()
+    {
+        return m_buf.begin();
+    }
+    constexpr auto begin() const
+    {
+        return m_buf.begin();
+    }
+
+    constexpr auto end()
+    {
+        return m_buf.end();
+    }
+    constexpr auto end() const
+    {
+        return m_buf.end();
+    }
+
+    constexpr bool is_end() const
+    {
+        return m_it == m_buf.end();
+    }
+
+    constexpr void push_back(const T& value)
+    {
+        if (is_end()) {
+            return;
+        }
+        *m_it = value;
+        ++m_it;
+    }
+    constexpr void push_back(T&& value)
+    {
+        if (is_end()) {
+            return;
+        }
+        *m_it = std::move(value);
+        ++m_it;
+    }
+
+private:
+    array<T, N> m_buf{};
+    typename decltype(m_buf)::iterator m_it{};
+};
+
+template <typename CharT, typename BufferT = dynamic_writable_buffer<CharT>>
 class basic_writable_buffer : public basic_writable_base<CharT> {
 public:
-    using buffer_type = vector<CharT>;
+    using buffer_type = BufferT;
 
-    constexpr basic_writable_buffer() = default;
+    constexpr basic_writable_buffer(buffer_type b = buffer_type{});
 
     template <typename T>
     error write(span<T> buf, characters length);
@@ -178,7 +265,12 @@ using writable_buffer = basic_writable_buffer<char>;
 using writable_wbuffer = basic_writable_buffer<wchar_t>;
 using writable_buffer16 = basic_writable_buffer<char16_t>;
 using writable_buffer32 = basic_writable_buffer<char32_t>;
+;
 using writable_ubuffer = basic_writable_buffer<unsigned char>;
+
+template <typename CharT, std::size_t N>
+using basic_writable_static_buffer =
+    basic_writable_buffer<CharT, static_writable_buffer<CharT, N>>;
 }  // namespace io
 
 #include "writable.impl.h"

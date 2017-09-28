@@ -41,11 +41,12 @@ static std::vector<std::string> generate_data(size_t len)
 
     std::vector<std::string> data;
     data.emplace_back();
-    for(std::size_t i = 0; i < len; ++i) {
-        auto c = chars[static_cast<size_t>(dist(rng))]; 
-        if(io::is_space(c)) {
+    for (std::size_t i = 0; i < len; ++i) {
+        auto c = chars[static_cast<size_t>(dist(rng))];
+        if (io::is_space(c)) {
             data.emplace_back();
-        } else {
+        }
+        else {
             data.back().push_back(c);
         }
     }
@@ -75,6 +76,30 @@ static void writestring_spio(benchmark::State& state)
     }
 }
 
+static void writestring_spio_static(benchmark::State& state)
+{
+    try {
+        size_t bytes = 0;
+        while (state.KeepRunning()) {
+            state.PauseTiming();
+            auto data = generate_data(static_cast<size_t>(state.range(0)));
+            io::dynamic_writable_buffer<char> buffer;
+            buffer.reserve(static_cast<size_t>(state.range(0)));
+            state.ResumeTiming();
+
+            io::writable_buffer w{std::move(buffer)};
+            io::writer<decltype(w)> p{w};
+            for (auto& n : data) {
+                p.write(io::make_span(n.data(), n.length()));
+                bytes += n.length();
+            }
+        }
+        state.SetBytesProcessed(bytes);
+    }
+    catch (const io::failure& f) {
+        state.SkipWithError(f.what());
+    }
+}
 
 static void writestring_ios(benchmark::State& state)
 {
@@ -94,4 +119,5 @@ static void writestring_ios(benchmark::State& state)
 }
 
 BENCHMARK(writestring_spio)->Range(8, 8 << 8);
+BENCHMARK(writestring_spio_static)->Range(8, 8 << 8);
 BENCHMARK(writestring_ios)->Range(8, 8 << 8);
