@@ -54,6 +54,11 @@ struct reader_options<
                               char32_t>::value>> {
     span<typename T::element_type> spaces{nullptr};
 };
+
+template <>
+struct reader_options<bool> {
+    bool alpha{false};
+};
 }  // namespace io
 
 #endif  // SPIO_READER_OPTIONS_H
