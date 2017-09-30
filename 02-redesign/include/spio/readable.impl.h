@@ -48,35 +48,51 @@ template <typename T>
 error basic_readable_file<CharT>::read(span<T> buf, characters length)
 {
     SPIO_ASSERT(valid, "Cannot read from invalid stream");
-    SPIO_ASSERT(length <= buf.size_bytes() / sizeof(CharT),
-                 "buf is not big enough");
+    SPIO_ASSERT(
+        length <= buf.size_bytes() / static_cast<quantity_type>(sizeof(CharT)),
+        "buf is not big enough");
     static_assert(sizeof(T) >= sizeof(CharT),
                   "Truncation in basic_readable_file<CharT>::read: sizeof "
                   "buffer is less than CharT");
     static_assert(
-        std::is_trivially_copyable_v<T>,
+        std::is_trivially_copyable<T>::value,
         "basic_readable_file<CharT>::read: T must be TriviallyCopyable");
 
     const auto ret = [&]() {
+#if SPIO_HAS_IF_CONSTEXPR
         if constexpr (sizeof(CharT) == 1) {
-            return SPIO_FREAD(&buf[0], 1, length, m_file.value());
+#else
+        if (sizeof(CharT) == 1) {
+#endif
+            return SPIO_FREAD(&buf[0], 1, length.get_unsigned(),
+                              m_file.value());
         }
-        vector<char> char_buf(length * sizeof(CharT), 0);
-        const auto r = SPIO_FREAD(&char_buf[0], 1, length * sizeof(CharT),
-                                   m_file.value());
-        for (std::size_t i = 0; i < length; ++i) {
-            buf[i] = *reinterpret_cast<T*>(&char_buf[i * sizeof(CharT)]);
+        else {
+            /* auto byte_buf = as_writable_bytes(buf); */
+            /* return SPIO_FREAD(&byte_buf[0], 1, byte_buf.size_us(), */
+            /*                   m_file.value()) / */
+            /*        sizeof(CharT); */
+
+            vector<char> char_buf(length.get_unsigned() * sizeof(CharT), 0);
+            const auto r = SPIO_FREAD(&char_buf[0], 1,
+                                      length.get_unsigned() * sizeof(CharT),
+                                      m_file.value());
+            for (auto i = 0; i < length; ++i) {
+                buf[i] = *reinterpret_cast<T*>(
+                    &char_buf[static_cast<std::size_t>(i) * sizeof(CharT)]);
+            }
+            return r / sizeof(CharT);
         }
-        return r / sizeof(CharT);
     }();
-    return get_error(ret, length);
+    return get_error(static_cast<quantity_type>(ret), length);
 }
 
 template <typename CharT>
 template <typename T>
 error basic_readable_file<CharT>::read(span<T> buf, elements length)
 {
-    return read(buf, characters{length * sizeof(T) / sizeof(CharT)});
+    return read(buf, characters{length * quantity_type{sizeof(T)} /
+                                quantity_type{sizeof(CharT)}});
 }
 
 template <typename CharT>
@@ -84,16 +100,24 @@ template <typename T>
 error basic_readable_file<CharT>::read(span<T> buf, bytes length)
 {
     SPIO_ASSERT(length <= buf.size(), "buf is not big enough");
-    vector<CharT> char_buf(length / sizeof(CharT), 0);
-    const auto ret = read(char_buf, bytes_contiguous{length});
-    if constexpr (sizeof(T) <= sizeof(CharT)) {
-        copy(char_buf.begin(), char_buf.end(), buf.begin());
-        return ret;
-    }
-    for (std::size_t i = 0; i < char_buf.length(); ++i) {
-        buf[i * sizeof(CharT)] = *reinterpret_cast<T*>(&char_buf[i]);
-    }
-    return ret;
+    return read(buf,
+                characters{length / static_cast<quantity_type>(sizeof(CharT))});
+    /* vector<CharT> char_buf(length / sizeof(CharT), 0); */
+    /* const auto ret = read(char_buf, bytes_contiguous{length}); */
+    /* #if SPIO_HAS_IF_CONSTEXPR */
+    /* if constexpr (sizeof(T) <= sizeof(CharT)) { */
+    /* #else */
+    /* if (sizeof(T) <= sizeof(CharT)) { */
+    /* #endif */
+    /*     copy(char_buf.begin(), char_buf.end(), buf.begin()); */
+    /*     return ret; */
+    /* } */
+    /* else { */
+    /*     for (std::size_t i = 0; i < char_buf.length(); ++i) { */
+    /*         buf[i * sizeof(CharT)] = *reinterpret_cast<T*>(&char_buf[i]); */
+    /*     } */
+    /*     return ret; */
+    /* } */
 }
 
 template <typename CharT>
@@ -102,16 +126,21 @@ error basic_readable_file<CharT>::read(span<T> buf, bytes_contiguous length)
 {
     SPIO_ASSERT(valid, "Cannot read from invalid stream");
     SPIO_ASSERT(length % sizeof(CharT) == 0,
-                 "Length is not divisible by sizeof CharT");
+                "Length is not divisible by sizeof CharT");
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
-    vector<char> char_buf(length, 0);
+    auto char_buf = as_writable_bytes(buf).first(length);
+    /* vector<char> char_buf(length.get_unsigned(), 0); */
     const auto ret = SPIO_FREAD(&char_buf[0], 1, length, m_file.value());
-    if constexpr (sizeof(T) == 1) {
-        copy(char_buf.begin(), char_buf.end(), buf.begin());
-    }
-    else {
-        copy_contiguous(char_buf, buf);
-    }
+    /* #if SPIO_HAS_IF_CONSTEXPR */
+    /*     if constexpr (sizeof(T) == 1) { */
+    /* #else */
+    /*     if (sizeof(T) == 1) { */
+    /* #endif */
+    /*         copy(char_buf.begin(), char_buf.end(), buf.begin()); */
+    /*     } */
+    /*     else { */
+    /*         copy_contiguous(char_buf, buf); */
+    /*     } */
     return get_error(ret, length);
 }
 
@@ -130,8 +159,8 @@ error basic_readable_file<CharT>::skip()
 }
 
 template <typename CharT>
-error basic_readable_file<CharT>::get_error(std::size_t read_count,
-                                            std::size_t expected) const
+error basic_readable_file<CharT>::get_error(quantity_type read_count,
+                                            quantity_type expected) const
 {
     if (read_count == expected) {
         return {};
@@ -164,16 +193,14 @@ error basic_readable_buffer<CharT>::read(span<T> buf, characters length)
         return end_of_file;
     }
 
-    const auto dist = distance_nonneg(m_it, m_buffer.end());
+    const auto dist = distance(m_it, m_buffer.end());
     if (dist <= length) {
-        const auto add =
-            static_cast<typename decltype(m_it)::difference_type>(dist);
+        const auto add = dist;
         copy(m_it, m_it + add, buf.begin());
         advance(m_it, add);
         return end_of_file;
     }
-    const auto add =
-        static_cast<typename decltype(m_it)::difference_type>(length);
+    const auto add = length;
     copy(m_it, m_it + add, buf.begin());
     advance(m_it, add);
     return {};
@@ -183,24 +210,36 @@ template <typename CharT>
 template <typename T>
 error basic_readable_buffer<CharT>::read(span<T> buf, elements length)
 {
-    return read(buf, characters{length * sizeof(T) / sizeof(CharT)});
+    return read(buf, characters{length * quantity_type{sizeof(T)} /
+                                quantity_type{sizeof(CharT)}});
 }
 
 template <typename CharT>
 template <typename T>
 error basic_readable_buffer<CharT>::read(span<T> buf, bytes length)
 {
-    SPIO_ASSERT(length <= buf.size(), "buf is not big enough");
-    vector<CharT> char_buf(length / sizeof(CharT), 0);
-    const auto ret = read(make_span(char_buf), bytes_contiguous{length});
-    if constexpr (sizeof(T) <= sizeof(CharT)) {
-        copy(char_buf.begin(), char_buf.end(), buf.begin());
-        return ret;
-    }
-    for (std::size_t i = 0; i < char_buf.size(); ++i) {
-        buf[i * sizeof(CharT)] = *reinterpret_cast<T*>(&char_buf[i]);
-    }
-    return ret;
+    SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
+    return read(buf,
+                characters{length / static_cast<quantity_type>(sizeof(CharT))});
+
+    /*     vector<CharT> char_buf(length.get_unsigned() / sizeof(CharT), 0); */
+    /*     const auto ret = read(make_span(char_buf), bytes_contiguous{length});
+     */
+    /*     #if SPIO_HAS_IF_CONSTEXPR */
+    /*     if constexpr (sizeof(T) <= sizeof(CharT)) { */
+    /*     #else */
+    /*     if (sizeof(T) <= sizeof(CharT)) { */
+    /*     #endif */
+    /*         copy(char_buf.begin(), char_buf.end(), buf.begin()); */
+    /*         return ret; */
+    /*     } */
+    /*     else { */
+    /*         for (auto i = 0; i < char_buf.size(); ++i) { */
+    /*             buf[i * sizeof(CharT)] = *reinterpret_cast<T*>(&char_buf[i]);
+     */
+    /*         } */
+    /*         return ret; */
+    /*     } */
 }
 
 template <typename CharT>
@@ -208,23 +247,21 @@ template <typename T>
 error basic_readable_buffer<CharT>::read(span<T> buf, bytes_contiguous length)
 {
     SPIO_ASSERT(length % sizeof(CharT) == 0,
-                 "Length is not divisible by sizeof CharT");
+                "Length is not divisible by sizeof CharT");
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
     if (m_it == m_buffer.end()) {
         return end_of_file;
     }
 
-    const auto dist = distance_nonneg(m_it, m_buffer.end());
+    const auto dist = distance(m_it, m_buffer.end());
     if (dist <= length) {
-        const auto add = static_cast<typename decltype(m_it)::difference_type>(
-            dist / sizeof(CharT));
+        const auto add = dist / static_cast<quantity_type>(sizeof(CharT));
         auto s = span<CharT>{&*m_it, &*(m_it + add)};
         copy_contiguous(s, buf);
         advance(m_it, add);
         return end_of_file;
     }
-    const auto add = static_cast<typename decltype(m_it)::difference_type>(
-        length / sizeof(CharT));
+    const auto add = length / static_cast<quantity_type>(sizeof(CharT));
     auto s = span<CharT>{&*m_it, &*(m_it + add)};
     copy_contiguous(s, buf);
     advance(m_it, add);

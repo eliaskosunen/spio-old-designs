@@ -69,7 +69,7 @@ TEST_CASE("readable_wfile")
     }
     SUBCASE("read_range")
     {
-        std::array<wchar_t, 6> a{{48}};
+        std::array<wchar_t, 6> a{{0}};
         auto error = r.read(io::make_span(a), io::elements{5});
         CHECK_FALSE(error);
         CHECK_FALSE(io::is_eof(error));

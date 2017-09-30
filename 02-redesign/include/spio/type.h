@@ -70,8 +70,9 @@ struct type<T,
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
         using char_type = typename Reader::readable_type::value_type;
-        span<char_type> s = make_span(reinterpret_cast<char_type*>(&val[0]),
-                                      val.size_bytes() / sizeof(char_type));
+        span<char_type> s =
+            make_span(reinterpret_cast<char_type*>(&val[0]),
+                      val.size_bytes() / quantity_type{sizeof(char_type)});
         {
             auto it = s.begin();
             while (it != s.end()) {
@@ -130,7 +131,11 @@ struct type<T,
             const_cast<std::add_pointer_t<std::remove_const_t<value_type>>>(
                 val);
         const auto len = [&ptr]() -> std::size_t {
+#if SPIO_HAS_IF_CONSTEXPR
             if constexpr (sizeof(value_type) == 1) {
+#else
+            if (sizeof(value_type) == 1) {
+#endif
                 return strlen(ptr);
             }
             else {
@@ -173,7 +178,11 @@ struct type<T,
 
         T tmp = 0;
         const bool sign = [&]() {
+#if SPIO_HAS_IF_CONSTEXPR
             if constexpr (std::is_unsigned_v<T>) {
+#else
+            if (std::is_unsigned<T>::value) {
+#endif
                 if (c == '-') {
                     SPIO_THROW(
                         invalid_input,
@@ -222,17 +231,63 @@ struct type<T,
         /* buf[2] = '3'; */
         /* buf[3] = '\0'; */
         const auto len = [&]() {
-            for (std::size_t i = 0; i < s.length(); ++i) {
-                if (s[i] == '\0') {
-                    return i;
-                }
-            }
-            SPIO_THROW(assertion_failure,
-                       "Unreachable: (probably) a bug in int_to_char");
+            return distance(s.begin(), find(s.begin(), s.end(), '\0'));
+            /* for (auto i = 0; i < s.length(); ++i) { */
+            /*     if (s[i] == '\0') { */
+            /*         return i; */
+            /*     } */
+            /* } */
+            /* SPIO_THROW(assertion_failure, */
+            /*            "Unreachable: (probably) a bug in int_to_char"); */
         }();
         w.write(s.first(len));
     }
 };
+
+namespace detail {
+#if SPIO_HAS_IF_CONSTEXPR
+    template <typename T>
+    auto floating_write_arr(T val)
+    {
+        vector<char> arr([&]() {
+            if constexpr (std::is_same_v<std::decay_t<T>, long double>) {
+                return static_cast<std::size_t>(
+                    std::snprintf(nullptr, 0, "%Lf", val));
+            }
+            else {
+                return static_cast<std::size_t>(
+                    std::snprintf(nullptr, 0, "%f", val));
+            }
+        }() + 1);
+        if constexpr (std::is_same_v<std::decay_t<T>, long double>) {
+            std::snprintf(&arr[0], arr.size(), "%Lf", val);
+        }
+        else {
+            std::snprintf(&arr[0], arr.size(), "%f", val);
+        }
+        return arr;
+    }
+#else
+    template <typename T>
+    auto floating_write_arr(T val)
+    {
+        vector<char> arr(
+            static_cast<std::size_t>(std::snprintf(nullptr, 0, "%f", val)) + 1);
+        std::snprintf(&arr[0], arr.size(), "%f", val);
+        return arr;
+    }
+
+    template <>
+    inline auto floating_write_arr(long double val)
+    {
+        vector<char> arr(
+            static_cast<std::size_t>(std::snprintf(nullptr, 0, "%Lf", val)) +
+            1);
+        std::snprintf(&arr[0], arr.size(), "%Lf", val);
+        return arr;
+    }
+#endif
+}
 
 template <typename T>
 struct type<T,
@@ -286,30 +341,16 @@ struct type<T,
     {
         using char_type = typename Writer::writable_type::value_type;
 
-        vector<char> arr([&]() {
-            if constexpr (std::is_same_v<std::decay_t<T>, long double>) {
-                return static_cast<std::size_t>(
-                    std::snprintf(nullptr, 0, "%Lf", val));
-            }
-            else {
-                return static_cast<std::size_t>(
-                    std::snprintf(nullptr, 0, "%f", val));
-            }
-        }() + 1);
-        if constexpr (std::is_same_v<std::decay_t<T>, long double>) {
-            std::snprintf(&arr[0], arr.size(), "%Lf", val);
-        }
-        else {
-            std::snprintf(&arr[0], arr.size(), "%f", val);
-        }
-        auto char_span = make_span(&arr[0], strlen(&arr[0]));
+        auto arr = detail::floating_write_arr(val);
+        auto char_span =
+            make_span(&arr[0], static_cast<span_extent_type>(strlen(&arr[0])));
 
-        if constexpr (sizeof(char_type) == 1) {
+        if (sizeof(char_type) == 1) {
             w.write(char_span);
         }
         else {
             vector<char_type> buf{};
-            buf.reserve(char_span.size());
+            buf.reserve(char_span.size_us());
             for (auto& c : char_span) {
                 buf.push_back(static_cast<char_type>(c));
             }

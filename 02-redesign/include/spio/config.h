@@ -42,6 +42,34 @@
 #endif
 
 //
+// Compatibility
+//
+
+#if defined(__cpp_if_constexpr) || __cplusplus >= 201703L
+#define SPIO_HAS_IF_CONSTEXPR 1
+#else
+#define SPIO_HAS_IF_CONSTEXPR 0
+#endif
+
+#if defined(__cpp_lib_type_trait_variable_templates) || __cplusplus >= 201703L
+#define SPIO_HAS_TYPE_TRAITS_V 1
+#else
+#define SPIO_HAS_TYPE_TRAITS_V 0
+#endif
+
+#if defined(__cpp_lib_experimental_logical_traits) || __cplusplus >= 201703L
+#define SPIO_HAS_LOGICAL_TRAITS 1
+#else
+#define SPIO_HAS_LOGICAL_TRAITS 0
+#endif
+
+#if defined(__cpp_lib_byte) || __cplusplus >= 201703L
+#define SPIO_HAS_BYTE 1
+#else
+#define SPIO_HAS_BYTE 0
+#endif
+
+//
 // Definitions
 //
 
