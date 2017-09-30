@@ -181,7 +181,7 @@ namespace detail {
     constexpr void itoa(IntT n, CharT* s, int base)
     {
         {
-            IntT sign;
+            IntT sign{0};
             if ((sign = n) < 0) /* record sign */
             {
                 n = -n; /* make n positive */
@@ -200,7 +200,11 @@ namespace detail {
         }
 
         auto len = [](CharT* str) {
+#if SPIO_HAS_IF_CONSTEXPR
             if constexpr (sizeof(CharT) == 1) {
+#else
+            if (sizeof(CharT) == 1) {
+#endif
                 return strlen(str);
             }
             else {
@@ -264,7 +268,11 @@ constexpr int max_digits() noexcept
         i /= 10;
         digits++;
     }
+#if SPIO_HAS_IF_CONSTEXPR
     if constexpr (std::is_signed_v<IntT>) {
+#else
+    if (std::is_signed<IntT>::value) {
+#endif
         return digits + 1;
     }
     else {
@@ -273,6 +281,7 @@ constexpr int max_digits() noexcept
 }
 
 namespace detail {
+#if SPIO_HAS_IF_CONSTEXPR
     template <typename FloatingT>
     static constexpr auto powersOf10()
     {
@@ -306,6 +315,42 @@ namespace detail {
             return 2047;
         }
     }
+#else
+    template <typename FloatingT>
+    constexpr auto powersOf10()
+    {
+        return array<long double, 11>{{10.l, 100.l, 1.0e4l, 1.0e8l, 1.0e16l,
+                                       1.0e32l, 1.0e64l, 1.0e128l, 1.0e256l,
+                                       1.0e512l, 1.0e1024l}};
+    }
+    template <>
+    constexpr auto powersOf10<float>()
+    {
+        return array<float, 6>{{10.f, 100.f, 1.0e4f, 1.0e8f, 1.0e16f, 1.0e32f}};
+    }
+    template <>
+    constexpr auto powersOf10<double>()
+    {
+        return array<double, 9>{{10., 100., 1.0e4, 1.0e8, 1.0e16, 1.0e32,
+                                 1.0e64, 1.0e128, 1.0e256}};
+    }
+
+    template <typename FloatingT>
+    constexpr auto maxExponent()
+    {
+        return 2047;
+    }
+    template <>
+    constexpr auto maxExponent<float>()
+    {
+        return 63;
+    }
+    template <>
+    constexpr auto maxExponent<double>()
+    {
+        return 511;
+    }
+#endif
 }  // namespace detail
 
 /*
