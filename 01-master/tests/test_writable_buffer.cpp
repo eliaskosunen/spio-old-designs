@@ -47,7 +47,9 @@ TEST_CASE("writable_buffer")
     {
         std::array<char, 5> a{{'W', 'o', 'r', 'd', '\0'}};
         {
-            auto error = w.write(io::make_span(a), io::elements{a.size()});
+            auto error = w.write(
+                io::make_span(a),
+                io::elements{static_cast<io::span_extent_type>(a.size())});
             CHECK_FALSE(error);
             if (error) {
                 std::cerr << error.message() << '\n';
