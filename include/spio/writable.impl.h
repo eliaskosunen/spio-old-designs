@@ -57,41 +57,50 @@ error basic_writable_file<CharT>::write(span<T> buf, characters length)
                   "Truncation in basic_writable_file<CharT>::write: sizeof "
                   "buffer is more than CharT");
     static_assert(
-        std::is_trivially_copyable_v<T>,
+        std::is_trivially_copyable<T>::value,
         "basic_writable_file<CharT>::write: T must be TriviallyCopyable");
 
     const auto ret = [&]() {
+#if SPIO_HAS_IF_CONSTEXPR
         if constexpr (sizeof(CharT) == 1) {
-            return SPIO_FWRITE(&buf[0], 1, length, m_file.value());
+#else
+        if (sizeof(CharT) == 1) {
+#endif
+            return SPIO_FWRITE(&buf[0], 1, length.get_unsigned(),
+                               m_file.value());
         }
         else {
-            vector<uint8_t> char_buf(length * sizeof(T), 0);
-            for (std::size_t i = 0; i < length; ++i) {
-                for (std::size_t j = 0; j < sizeof(T); ++j) {
-                    char_buf[i * sizeof(T) + j] =
-                        static_cast<uint8_t>((buf[i] >> (j * 8)) & 0xFF);
-                }
-            }
-            return SPIO_FWRITE(&char_buf[0], 1, length * sizeof(T),
+            /* vector<uint8_t> char_buf(length * sizeof(T), 0); */
+            /* for (std::size_t i = 0; i < length; ++i) { */
+            /*     for (std::size_t j = 0; j < sizeof(T); ++j) { */
+            /*         char_buf[i * sizeof(T) + j] = */
+            /*             static_cast<uint8_t>((buf[i] >> (j * 8)) & 0xFF); */
+            /*     } */
+            /* } */
+            auto char_buf =
+                as_bytes(buf).first(length * quantity_type{sizeof(T)});
+            return SPIO_FWRITE(&char_buf[0], 1,
+                               length.get_unsigned() * sizeof(T),
                                m_file.value()) /
                    sizeof(T);
         }
     }();
-    return get_error(ret, length);
+    return get_error(static_cast<quantity_type>(ret), length);
 }
 
 template <typename CharT>
 template <typename T>
 error basic_writable_file<CharT>::write(span<T> buf, elements length)
 {
-    return write(buf, characters{length * sizeof(T) / sizeof(CharT)});
+    return write(buf, characters{length * quantity_type{sizeof(T)} /
+                                 quantity_type{sizeof(CharT)}});
 }
 
 template <typename CharT>
 template <typename T>
 error basic_writable_file<CharT>::write(span<T> buf, bytes length)
 {
-    return write(buf, characters{length * sizeof(CharT)});
+    return write(buf, characters{length * quantity_type{sizeof(CharT)}});
 }
 
 template <typename CharT>
@@ -102,9 +111,14 @@ error basic_writable_file<CharT>::write(span<T> buf, bytes_contiguous length)
     SPIO_ASSERT(length % sizeof(CharT) == 0,
                 "Length is not divisible by sizeof CharT");
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
-    vector<char> char_buf(length, 0);
+    /* vector<char> char_buf(length.get_unsigned(), 0); */
+    auto char_buf = as_bytes(buf).first(length);
     const auto ret = SPIO_FWRITE(&char_buf[0], 1, length, m_file.value());
+#if SPIO_HAS_IF_CONSTEXPR
     if constexpr (sizeof(T) == 1) {
+#else
+    if (sizeof(T) == 1) {
+#endif
         copy(char_buf.begin(), char_buf.end(), buf.begin());
     }
     else {
@@ -121,8 +135,8 @@ error basic_writable_file<CharT>::write(CharT* c)
 }
 
 template <typename CharT>
-error basic_writable_file<CharT>::get_error(std::size_t read_count,
-                                            std::size_t expected) const
+error basic_writable_file<CharT>::get_error(quantity_type read_count,
+                                            quantity_type expected) const
 {
     if (read_count == expected) {
         return {};
@@ -162,7 +176,7 @@ error basic_writable_buffer<CharT, BufferT>::write(span<T> buf,
         "buffer is more than CharT");
 
     const auto i = m_buffer.size();
-    m_buffer.resize(i + length);
+    m_buffer.resize(i + length.get_unsigned());
     copy(buf.begin(), buf.begin() + length,
          m_buffer.begin() +
              static_cast<typename decltype(m_buffer)::difference_type>(i));
@@ -176,14 +190,15 @@ template <typename CharT, typename BufferT>
 template <typename T>
 error basic_writable_buffer<CharT, BufferT>::write(span<T> buf, elements length)
 {
-    return write(buf, characters{length * sizeof(T) / sizeof(CharT)});
+    return write(buf, characters{length * quantity_type{sizeof(T)} /
+                                 quantity_type{sizeof(CharT)}});
 }
 
 template <typename CharT, typename BufferT>
 template <typename T>
 error basic_writable_buffer<CharT, BufferT>::write(span<T> buf, bytes length)
 {
-    return write(buf, characters{length * sizeof(CharT)});
+    return write(buf, characters{length * quantity_type{sizeof(CharT)}});
 }
 
 template <typename CharT, typename BufferT>

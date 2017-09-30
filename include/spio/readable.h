@@ -82,7 +82,7 @@ class basic_readable_file
     : public basic_readable_base<CharT, basic_readable_file<CharT>> {
 public:
     static_assert(
-        std::is_trivially_copyable_v<CharT>,
+        std::is_trivially_copyable<CharT>::value,
         "basic_readable_file<CharT>: CharT must be TriviallyCopyable");
 
     basic_readable_file() = default;
@@ -107,7 +107,7 @@ public:
     }
 
 private:
-    error get_error(std::size_t read_count, std::size_t expected) const;
+    error get_error(quantity_type read_count, quantity_type expected) const;
 
     file_wrapper m_file{};
     bool valid{false};
