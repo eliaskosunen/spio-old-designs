@@ -527,9 +527,9 @@ public:
     template <span_extent_type Offset, span_extent_type Count = dynamic_extent>
     constexpr span<element_type, Count> subspan() const
     {
-        assert((Offset == 0 || Offset > 0 && Offset < size()) &&
+        assert((Offset == 0 || (Offset > 0 && Offset < size())) &&
                (Count == dynamic_extent ||
-                Count >= 0 && Offset + Count <= size()));
+                (Count >= 0 && Offset + Count <= size())));
 #if SPIO_HAS_IF_CONSTEXPR
         if constexpr (Count == dynamic_extent) {
             return {_at_ptr(Offset), size() - Offset};
@@ -557,9 +557,9 @@ public:
         index_type offset,
         index_type count = dynamic_extent) const
     {
-        assert((offset == 0 || offset > 0 && offset < size()) &&
+        assert((offset == 0 || (offset > 0 && offset < size())) &&
                (count == dynamic_extent ||
-                count >= 0 && offset + count <= size()));
+                (count >= 0 && offset + count <= size())));
         return {_at_ptr(offset),
                 count == dynamic_extent ? size() - offset : count};
     }
@@ -688,7 +688,7 @@ constexpr auto make_span(Element* first, Element* last)
 template <typename Element, std::size_t N, typename = std::enable_if_t<N != 0>>
 constexpr auto make_span(Element (&arr)[N])
 {
-    return span<Element, static_cast<std::size_t>(N)>(arr);
+    return span<Element, static_cast<span_extent_type>(N)>(arr);
 }
 
 template <typename Container>
