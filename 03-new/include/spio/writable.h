@@ -39,7 +39,12 @@ public:
     file_buffering() = default;
     file_buffering(bool use_buffer, mode_type m, std::size_t len = BUFSIZ);
 
+    // C++14 defect not fixed in gcc 5/6
+#if defined(__GNUC__) && __GNUC__ < 7
+    bool use() const
+#else
     constexpr bool use() const
+#endif
     {
         return m_use;
     }

@@ -1,5 +1,7 @@
 # spio
 
+[![Build Status](https://travis-ci.org/eliaskosunen/spio.svg?branch=master)](https://travis-ci.org/eliaskosunen/spio)
+
 This library aims to to combine the speed of C standard IO with the functionality and safety of C++ iostreams. WIP
 
 ## Benchmarks
