@@ -19,8 +19,8 @@
 // SOFTWARE.
 
 #include <numeric>
-#include "spio.h"
 #include "doctest.h"
+#include "spio.h"
 
 TEST_CASE("span")
 {
@@ -28,8 +28,12 @@ TEST_CASE("span")
     {
         std::array<int, 10> a{{0}};
         std::iota(a.begin(), a.end(), 0);
-        io::span<decltype(a)::value_type, a.size()> s(a.begin(), a.end());
-        io::span<decltype(a)::value_type, a.size()> s2(&a[0], a.size());
+        io::span<decltype(a)::value_type,
+                 static_cast<io::span_extent_type>(a.size())>
+            s(a.begin(), a.end());
+        io::span<decltype(a)::value_type,
+                 static_cast<io::span_extent_type>(a.size())>
+            s2(&a[0], static_cast<io::span_extent_type>(a.size()));
         CHECK(s[0] == 0);
         CHECK(s.at(2) == 2);
         CHECK(s.size() == 10);
