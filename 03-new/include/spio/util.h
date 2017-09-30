@@ -34,15 +34,16 @@ namespace detail {
     struct default_delete {
         constexpr default_delete() noexcept = default;
 
-        template <typename U,
-                  typename = std::enable_if_t<std::is_convertible_v<U*, T*>>>
+        template <
+            typename U,
+            typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
         default_delete(const default_delete<U>&) noexcept
         {
         }
 
         void operator()(T* ptr) const
         {
-            static_assert(!std::is_void_v<T>,
+            static_assert(!std::is_void<T>::value,
                           "can't delete pointer to incomplete type");
             static_assert(sizeof(T) > 0,
                           "can't delete pointer to incomplete type");
@@ -56,15 +57,15 @@ namespace detail {
         constexpr default_delete() noexcept = default;
 
         template <typename U,
-                  typename =
-                      std::enable_if_t<std::is_convertible_v<U (*)[], T (*)[]>>>
+                  typename = std::enable_if_t<
+                      std::is_convertible<U (*)[], T (*)[]>::value>>
         default_delete(const default_delete<U[]>&) noexcept
         {
         }
 
         template <typename U>
-        std::enable_if_t<std::is_convertible_v<U (*)[], T (*)[]>> operator()(
-            U* ptr) const
+        std::enable_if_t<std::is_convertible<U (*)[], T (*)[]>::value>
+        operator()(U* ptr) const
         {
             static_assert(sizeof(T) > 0,
                           "can't delete pointer to incomplete type");
@@ -112,41 +113,125 @@ bool is_eof(error c);
 template <typename InputIt>
 constexpr std::size_t distance_nonneg(InputIt first, InputIt last);
 
-struct characters {
-    const std::size_t n;
+using quantity_type = span_extent_type;
+namespace detail {
+#if !SPIO_HAS_IF_CONSTEXPR
+    template <bool Signed>
+    struct quantity_base_signed {
+        constexpr quantity_base_signed(quantity_type n) : m_n(n) {}
 
-    constexpr operator std::size_t() const noexcept
-    {
-        return n;
-    }
-};
-struct elements {
-    const std::size_t n;
+        constexpr auto get_signed() const noexcept
+        {
+            return m_n;
+        }
 
-    constexpr operator std::size_t() const noexcept
-    {
-        return n;
-    }
-};
-struct bytes {
-    const std::size_t n;
+        constexpr auto get_unsigned() const noexcept
+        {
+            assert(m_n >= 0);
+            return static_cast<std::make_unsigned_t<quantity_type>>(m_n);
+        }
 
-    constexpr operator std::size_t() const noexcept
-    {
-        return n;
-    }
-};
-struct bytes_contiguous {
-    const std::size_t n;
+    protected:
+        quantity_type m_n;
+    };
 
-    constexpr operator std::size_t() const noexcept
-    {
-        return n;
-    }
+    template <>
+    struct quantity_base_signed<false> {
+        constexpr quantity_base_signed(quantity_type n) : m_n(n) {}
+
+        constexpr auto get_signed() const noexcept
+        {
+            return static_cast<std::make_signed_t<quantity_type>>(m_n);
+        }
+        constexpr auto get_unsigned() const noexcept
+        {
+            return m_n;
+        }
+
+    protected:
+        quantity_type m_n;
+    };
+#else
+    template <bool>
+    struct quantity_base_signed {
+        constexpr quantity_base_signed(quantity_type n) : m_n(n) {}
+
+    protected:
+        quantity_type m_n;
+    };
+#endif
+
+    struct quantity_base
+        : quantity_base_signed<std::is_signed<quantity_type>::value> {
+        using quantity_base_signed<
+            std::is_signed<quantity_type>::value>::quantity_base_signed;
+
+        constexpr operator quantity_type() const noexcept
+        {
+            assert(m_n >= 0);
+            return m_n;
+        }
+
+        constexpr auto get() const noexcept
+        {
+            return m_n;
+        }
+
+#if SPIO_HAS_IF_CONSTEXPR
+        constexpr auto get_signed() const noexcept
+        {
+            if constexpr (std::is_signed_v<quantity_type>) {
+                return m_n;
+            }
+            else {
+                return static_cast<std::make_signed_t<quantity_type>>(m_n);
+            }
+        }
+        constexpr auto get_unsigned() const noexcept
+        {
+            assert(m_n >= 0);
+            if constexpr (std::is_unsigned_v<quantity_type>) {
+                return m_n;
+            }
+            else {
+                return static_cast<std::make_unsigned_t<quantity_type>>(m_n);
+            }
+        }
+
+#endif
+    };
+}  // namespace detail
+struct characters : detail::quantity_base {
+    using quantity_base::quantity_base;
 };
+struct elements : detail::quantity_base {
+    using quantity_base::quantity_base;
+};
+struct bytes : detail::quantity_base {
+    using quantity_base::quantity_base;
+};
+struct bytes_contiguous : detail::quantity_base {
+    using quantity_base::quantity_base;
+};
+
+#if SPIO_HAS_LOGICAL_TRAITS
+template <typename... B>
+using disjunction = std::disjunction<B...>;
+#else
+template <typename...>
+struct disjunction : std::false_type {
+};
+template <typename B1>
+struct disjunction<B1> : B1 {
+};
+template <typename B1, typename... Bn>
+struct disjunction<B1, Bn...>
+    : std::conditional_t<bool(B1::value), B1, disjunction<Bn...>> {
+};
+#endif
 
 template <typename T, typename... Ts>
-struct contains : std::disjunction<std::is_same<T, Ts>...> {
+struct contains : disjunction<std::is_same<T, Ts>...> {
 };
 
 template <typename FloatingT, typename CharT>

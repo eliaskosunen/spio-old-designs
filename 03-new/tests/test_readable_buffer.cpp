@@ -19,8 +19,8 @@
 // SOFTWARE.
 
 #include <iostream>
-#include "spio.h"
 #include "doctest.h"
+#include "spio.h"
 
 TEST_CASE("readable_buffer")
 {
@@ -112,7 +112,10 @@ TEST_CASE("readable_wbuffer")
         REQUIRE(r2.is_valid());
 
         std::array<char, 4> b{{0}};
-        auto error = r2.read(io::make_span(b), io::bytes{4});
+        auto error =
+            r2.read(io::make_span(reinterpret_cast<wchar_t*>(&b[0]),
+                                  reinterpret_cast<wchar_t*>(&b[0]) + 2),
+                    io::bytes{4});
         CHECK_FALSE(error);
         CHECK_FALSE(io::is_eof(error));
         if (error) {

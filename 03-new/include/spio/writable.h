@@ -77,7 +77,7 @@ template <typename CharT>
 class basic_writable_file : public basic_writable_base<CharT> {
 public:
     static_assert(
-        std::is_trivially_copyable_v<CharT>,
+        std::is_trivially_copyable<CharT>::value,
         "basic_writable_file<CharT>: CharT must be TriviallyCopyable");
 
     basic_writable_file() = default;
@@ -106,7 +106,7 @@ public:
     }
 
 private:
-    error get_error(std::size_t read_count, std::size_t expected) const;
+    error get_error(quantity_type read_count, quantity_type expected) const;
 
     file_wrapper m_file{};
     file_buffering m_buffering{file_buffering{}};
@@ -231,14 +231,14 @@ public:
         return m_buffer;
     }
     template <typename T = buffer_type>
-    constexpr std::enable_if_t<std::is_copy_constructible_v<T>, T>
+    constexpr std::enable_if_t<std::is_copy_constructible<T>::value, T>
     consume_buffer() const
     {
         return T{m_buffer};
     }
     template <typename T = buffer_type>
-    constexpr std::enable_if_t<!std::is_copy_constructible_v<T> &&
-                                   std::is_move_constructible_v<T>,
+    constexpr std::enable_if_t<!std::is_copy_constructible<T>::value &&
+                                   std::is_move_constructible<T>::value,
                                T&&>
     consume_buffer()
     {
@@ -265,7 +265,7 @@ using writable_buffer = basic_writable_buffer<char>;
 using writable_wbuffer = basic_writable_buffer<wchar_t>;
 using writable_buffer16 = basic_writable_buffer<char16_t>;
 using writable_buffer32 = basic_writable_buffer<char32_t>;
-;
+
 using writable_ubuffer = basic_writable_buffer<unsigned char>;
 
 template <typename CharT, std::size_t N>

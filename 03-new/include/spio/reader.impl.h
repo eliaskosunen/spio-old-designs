@@ -32,12 +32,12 @@ error reader<Readable>::_read(span<T> s, elements length)
         return m_readable.read(s, length);
     }
     assert(s.size() >= length);
-    auto len_bytes = length * sizeof(T);
+    auto len_bytes = length.get_unsigned() * sizeof(T);
     if (m_buffer.size() >= len_bytes) {
         auto len = static_cast<typename decltype(m_buffer)::difference_type>(
             len_bytes);
         copy(m_buffer.begin(), m_buffer.begin() + len,
-                  reinterpret_cast<char*>(&s[0]));
+             reinterpret_cast<char*>(&s[0]));
         m_buffer.erase(m_buffer.begin(), m_buffer.begin() + len);
         return {};
     }

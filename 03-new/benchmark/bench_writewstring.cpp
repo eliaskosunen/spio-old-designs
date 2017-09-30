@@ -66,7 +66,7 @@ static void writewstring_spio(benchmark::State& state)
             io::writable_wbuffer w{};
             io::writer<decltype(w)> p{w};
             for (auto& n : data) {
-                p.write(io::make_span(n.data(), n.length()));
+                p.write(io::make_span(n));
                 bytes += n.length();
             }
         }
@@ -91,7 +91,7 @@ static void writewstring_spio_static(benchmark::State& state)
             io::writable_wbuffer w{std::move(buffer)};
             io::writer<decltype(w)> p{w};
             for (auto& n : data) {
-                p.write(io::make_span(n.data(), n.length()));
+                p.write(io::make_span(n));
                 bytes += n.length();
             }
         }
