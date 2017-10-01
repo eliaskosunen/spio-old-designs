@@ -217,6 +217,30 @@ namespace detail {
         return !(rhs > lhs);
     }
 
+    template <class T>
+    struct is_span_oracle : std::false_type {
+    };
+
+    template <class ElementType, std::ptrdiff_t Extent>
+    struct is_span_oracle<span<ElementType, Extent>> : std::true_type {
+    };
+
+    template <class T>
+    struct is_span : public is_span_oracle<std::remove_cv_t<T>> {
+    };
+
+    template <class T>
+    struct is_std_array_oracle : std::false_type {
+    };
+
+    template <class ElementType, std::size_t Extent>
+    struct is_std_array_oracle<io::array<ElementType, Extent>>
+        : std::true_type {
+    };
+
+    template <class T>
+    struct is_std_array : public is_std_array_oracle<std::remove_cv_t<T>> {
+    };
 }  // namespace detail
 
 template <typename ElementType, span_extent_type Extent>
@@ -484,6 +508,48 @@ public:
     {
     }
 
+    template <std::size_t N,
+              typename ArrayElement = std::remove_const_t<element_type>>
+    constexpr span(array<ArrayElement, N>& arr) noexcept
+        : m_storage(std::addressof(arr[0]), N)
+    {
+    }
+
+    template <std::size_t N>
+    constexpr span(
+        const array<std::remove_const_t<element_type>, N>& arr) noexcept
+        : m_storage(std::addressof(arr[0]), N)
+    {
+    }
+
+    template <
+        typename Container,
+        typename = std::enable_if_t<
+            !detail::is_span<Container>::value &&
+            !detail::is_std_array<Container>::value &&
+            std::is_convertible<typename Container::pointer, pointer>::value &&
+            std::is_convertible<
+                typename Container::pointer,
+                decltype(std::declval<Container>().data())>::value>>
+    constexpr span(Container& c)
+        : m_storage(c.data(), static_cast<index_type>(c.size()))
+    {
+    }
+
+    template <
+        typename Container,
+        typename = std::enable_if_t<
+            std::is_const<element_type>::value &&
+            !detail::is_span<Container>::value &&
+            std::is_convertible<typename Container::pointer, pointer>::value &&
+            std::is_convertible<
+                typename Container::pointer,
+                decltype(std::declval<Container>().data())>::value>>
+    constexpr span(const Container& c)
+        : m_storage(c.data(), static_cast<index_type>(c.size()))
+    {
+    }
+
     constexpr span(const span& other) noexcept = default;
     constexpr span(span&& other) noexcept = default;
     template <
@@ -672,6 +738,14 @@ private:
         return m_storage.at(idx);
     }
 };
+
+#if SPIO_HAS_DEDUCTION_GUIDES
+template <typename Container>
+span(Container& c) -> span<typename Container::value_type>;
+
+template <typename Container>
+span(const Container& c) -> span<typename Container::value_type>;
+#endif
 
 template <typename Element>
 constexpr auto make_span(Element* ptr, typename span<Element>::index_type count)
