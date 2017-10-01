@@ -26,7 +26,7 @@ template <typename CharT>
 basic_readable_file<CharT>::basic_readable_file(file_wrapper file)
     : m_file(std::move(file))
 {
-    if (!file.value()) {
+    if (!m_file.value()) {
         SPIO_THROW(invalid_argument, "Nullptr file given");
     }
     valid = true;

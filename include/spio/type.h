@@ -130,16 +130,16 @@ struct type<T,
         auto ptr =
             const_cast<std::add_pointer_t<std::remove_const_t<value_type>>>(
                 val);
-        const auto len = [&ptr]() -> std::size_t {
+        const auto len = [&ptr]() -> span_extent_type {
 #if SPIO_HAS_IF_CONSTEXPR
             if constexpr (sizeof(value_type) == 1) {
 #else
             if (sizeof(value_type) == 1) {
 #endif
-                return strlen(ptr);
+                return static_cast<span_extent_type>(strlen(ptr));
             }
             else {
-                for (std::size_t i = 0;; ++i) {
+                for (auto i = 0;; ++i) {
                     if (*(ptr + i) == value_type{'\0'}) {
                         return i;
                     }
