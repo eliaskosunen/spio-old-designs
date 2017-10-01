@@ -28,18 +28,18 @@ bool basic_instream<Readable>::scan(T&&... args)
 }
 #else
 namespace detail {
-    template <typename ReadF, typename T, typename... Args>
-    bool instream_scan(ReadF&& read, T&& arg, Args&&... args)
+    template <typename Readable>
+    bool instream_scan(basic_instream<Readable>&)
     {
-        if (!read(std::forward<T>(arg))) {
+        return true;
+    }
+    template <typename Readable, typename T, typename... Args>
+    bool instream_scan(basic_instream<Readable>& r, T&& arg, Args&&... args)
+    {
+        if (!r.read(std::forward<T>(arg))) {
             return false;
         }
-        return instream_scan(read, std::forward<Args>(args)...);
-    }
-    template <typename ReadF, typename T>
-    bool instream_scan(ReadF&& read, T&& arg)
-    {
-        return read(std::forward<T>(arg));
+        return instream_scan(r, std::forward<Args>(args)...);
     }
 }  // namespace detail
 
@@ -47,7 +47,7 @@ template <typename Readable>
 template <typename... T>
 bool basic_instream<Readable>::scan(T&&... args)
 {
-    return detail::instream_scan(read, std::forward<T>(args)...);
+    return detail::instream_scan(*this, std::forward<T>(args)...);
 }
 #endif
 }
