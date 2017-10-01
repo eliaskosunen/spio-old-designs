@@ -27,7 +27,7 @@ basic_writable_file<CharT>::basic_writable_file(file_wrapper file,
                                                 file_buffering&& buffering)
     : m_file(std::move(file)), m_buffering(std::move(buffering))
 {
-    if (!file) {
+    if (!m_file) {
         SPIO_THROW(invalid_argument, "Nullptr file given");
     }
     m_buffering.set(file);
