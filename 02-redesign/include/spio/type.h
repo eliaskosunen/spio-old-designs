@@ -69,7 +69,7 @@ struct type<T,
     template <typename Reader>
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
-        using char_type = typename Reader::readable_type::value_type;
+        using char_type = typename Reader::char_type;
         span<char_type> s =
             make_span(reinterpret_cast<char_type*>(&val[0]),
                       val.size_bytes() / quantity_type{sizeof(char_type)});
@@ -166,7 +166,7 @@ struct type<T,
     template <typename Reader>
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
-        using char_type = typename Reader::readable_type::value_type;
+        using char_type = typename Reader::char_type;
         char_type c{};
         p.read(c);
         if (is_space(c)) {
@@ -221,7 +221,7 @@ struct type<T,
     template <typename Writer>
     static void write(Writer& w, T val, writer_options<T> opt)
     {
-        using char_type = typename Writer::writable_type::value_type;
+        using char_type = typename Writer::char_type;
         array<char_type, max_digits<T>() + 1> buf{};
         buf.fill(char_type{0});
         auto s = make_span(buf);
@@ -296,7 +296,7 @@ struct type<T,
     template <typename Reader>
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
-        using char_type = typename Reader::readable_type::value_type;
+        using char_type = typename Reader::char_type;
         array<char_type, 64> buf{};
         buf.fill(char_type{0});
 
@@ -339,7 +339,7 @@ struct type<T,
     template <typename Writer>
     static void write(Writer& w, T val, writer_options<T> opt)
     {
-        using char_type = typename Writer::writable_type::value_type;
+        using char_type = typename Writer::char_type;
 
         auto arr = detail::floating_write_arr(val);
         auto char_span =
@@ -367,7 +367,7 @@ struct type<bool> {
     static bool read(Reader& p, bool& val, reader_options<bool> opt)
     {
         if (opt.alpha) {
-            using char_type = typename Reader::readable_type::value_type;
+            using char_type = typename Reader::char_type;
             array<char_type, 5> buf{};
             auto ret = p.read(make_span(buf));
             if (buf[0] == 't' && buf[1] == 'r' && buf[2] == 'u' &&

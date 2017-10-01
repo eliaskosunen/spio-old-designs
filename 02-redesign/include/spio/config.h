@@ -69,6 +69,18 @@
 #define SPIO_HAS_BYTE 0
 #endif
 
+#if defined(__cpp_fold_expression) || __cplusplus >= 201703L
+#define SPIO_HAS_FOLD_EXPRESSIONS 1
+#else
+#define SPIO_HAS_FOLD_EXPRESSIONS 0
+#endif
+
+#if defined(__cpp_deduction_guides) || __cplusplus >= 201703L
+#define SPIO_HAS_DEDUCTION_GUIDES 1
+#else
+#define SPIO_HAS_DEDUCTION_GUIDES 0
+#endif
+
 //
 // Definitions
 //

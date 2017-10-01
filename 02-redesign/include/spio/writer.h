@@ -31,10 +31,11 @@ namespace io {
 template <typename Writable>
 class writer {
 public:
-    using writable_type = Writable;
-    using char_type = typename Writable::value_type;
+    using writable_type = basic_writable_base<Writable>;
+    using writable_impl = typename writable_type::implementation_type;
+    using char_type = typename writable_impl::value_type;
 
-    writer(Writable& w);
+    writer(writable_type& w);
 
     template <typename T>
     void write(T elem, writer_options<T> opt = {})
@@ -87,7 +88,7 @@ private:
     template <typename T>
     error _write(span<T> s, elements length);
 
-    Writable& m_writable;
+    writable_type& m_writable;
 };
 }  // namespace io
 

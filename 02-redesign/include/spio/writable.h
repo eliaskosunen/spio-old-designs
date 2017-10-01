@@ -68,10 +68,47 @@ private:
     bool m_use{false};
 };
 
-template <typename CharT>
+template <typename ImplT>
 class basic_writable_base {
 public:
-    using value_type = CharT;
+    using implementation_type = ImplT;
+
+#define THIS static_cast<ImplT*>(this)
+#define CONST_THIS static_cast<const ImplT*>(this)
+
+    template <typename T>
+    error write(span<T> buf, characters length)
+    {
+        return THIS->write(std::move(buf), length);
+    }
+    template <typename T>
+    error write(span<T> buf, elements length)
+    {
+        return THIS->write(std::move(buf), length);
+    }
+    template <typename T>
+    error write(span<T> buf, bytes length)
+    {
+        return THIS->write(std::move(buf), length);
+    }
+    template <typename T>
+    error write(span<T> buf, bytes_contiguous length)
+    {
+        return THIS->write(std::move(buf), length);
+    }
+
+    error flush() noexcept
+    {
+        return THIS->flush();
+    }
+
+    constexpr bool is_valid() const
+    {
+        return CONST_THIS->is_valid();
+    }
+
+#undef THIS
+#undef CONST_THIS
 };
 
 #ifndef SPIO_FWRITE
@@ -79,8 +116,10 @@ public:
 #endif
 
 template <typename CharT>
-class basic_writable_file : public basic_writable_base<CharT> {
+class basic_writable_file : public basic_writable_base<basic_writable_file<CharT>> {
 public:
+    using value_type = CharT;
+
     static_assert(
         std::is_trivially_copyable<CharT>::value,
         "basic_writable_file<CharT>: CharT must be TriviallyCopyable");
@@ -206,8 +245,9 @@ private:
 };
 
 template <typename CharT, typename BufferT = dynamic_writable_buffer<CharT>>
-class basic_writable_buffer : public basic_writable_base<CharT> {
+class basic_writable_buffer : public basic_writable_base<basic_writable_buffer<CharT>> {
 public:
+    using value_type = CharT;
     using buffer_type = BufferT;
 
     constexpr basic_writable_buffer(buffer_type b = buffer_type{});

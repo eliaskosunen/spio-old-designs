@@ -26,10 +26,10 @@
 #include "util.h"
 
 namespace io {
-template <typename CharT, typename ImplT>
+template <typename ImplT>
 class basic_readable_base {
 public:
-    using value_type = CharT;
+    using implementation_type = ImplT;
 
 #define THIS static_cast<ImplT*>(this)
 #define CONST_THIS static_cast<const ImplT*>(this)
@@ -54,10 +54,6 @@ public:
     {
         return THIS->read(std::move(buf), length);
     }
-    error read(CharT* c)
-    {
-        return THIS->read(c);
-    }
 
     error skip()
     {
@@ -79,8 +75,10 @@ public:
 
 template <typename CharT>
 class basic_readable_file
-    : public basic_readable_base<CharT, basic_readable_file<CharT>> {
+    : public basic_readable_base<basic_readable_file<CharT>> {
 public:
+    using value_type = CharT;
+
     static_assert(
         std::is_trivially_copyable<CharT>::value,
         "basic_readable_file<CharT>: CharT must be TriviallyCopyable");
@@ -115,8 +113,9 @@ private:
 
 template <typename CharT>
 class basic_readable_buffer
-    : public basic_readable_base<CharT, basic_readable_buffer<CharT>> {
+    : public basic_readable_base<basic_readable_buffer<CharT>> {
 public:
+    using value_type = CharT;
     using buffer_type = span<CharT>;
 
     constexpr basic_readable_buffer() = default;
