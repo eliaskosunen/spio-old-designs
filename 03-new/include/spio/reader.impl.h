@@ -20,7 +20,7 @@
 
 namespace io {
 template <typename Readable>
-reader<Readable>::reader(Readable& r) : m_readable(r)
+reader<Readable>::reader(readable_type& r) : m_readable(r)
 {
 }
 

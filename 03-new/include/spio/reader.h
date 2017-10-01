@@ -32,10 +32,11 @@ namespace io {
 template <typename Readable>
 class reader {
 public:
-    using readable_type = Readable;
-    using char_type = typename Readable::value_type;
+    using readable_type = basic_readable_base<Readable>;
+    using readable_impl = typename readable_type::implementation_type;
+    using char_type = typename readable_impl::value_type;
 
-    reader(Readable& r);
+    reader(readable_type& r);
 
     template <typename T>
     bool read(T& elem, reader_options<T> opt = {})
@@ -79,13 +80,9 @@ public:
     {
         return read_raw(ch);
     }
+
     template <typename T>
-    bool getline(span<T> s)
-    {
-        return getline(s, static_cast<T>('\n'));
-    }
-    template <typename T>
-    bool getline(span<T> s, char_type delim)
+    bool getline(span<T> s, char_type delim = char_type{'\n'})
     {
         reader_options<span<T>> opt = {make_span(&delim, 1)};
         return read(s, opt);
@@ -115,11 +112,12 @@ public:
         return !m_eof;
     }
 
-    Readable& get_readable()
+    template <typename = std::enable_if_t<!std::is_const<readable_type>::value>>
+    readable_type& get_readable()
     {
         return m_readable;
     }
-    const Readable& get_readable() const
+    const readable_type& get_readable() const
     {
         return m_readable;
     }
@@ -136,7 +134,7 @@ private:
     template <typename T>
     error _read(span<T> s, elements length);
 
-    Readable& m_readable;
+    readable_type& m_readable;
     vector<char> m_buffer{};
     bool m_eof{false};
 };
