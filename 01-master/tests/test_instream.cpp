@@ -18,18 +18,37 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_SPIO_H
-#define SPIO_SPIO_H
+#include <iostream>
+#include "doctest.h"
+#include "spio.h"
 
-#include "config.h"
-#include "util.h"
-#include "error.h"
-#include "stl.h"
-#include "readable.h"
-#include "writable.h"
-#include "reader.h"
-#include "writer.h"
-#include "type.h"
-#include "instream.h"
-
-#endif // SPIO_SPIO_H
+TEST_CASE("file_instream")
+{
+    SUBCASE("read")
+    {
+        io::file_instream f("file.txt");
+        std::vector<char> str(20, '\0');
+#if defined(__GNUC__) && __GNUC__ >= 7 && SPIO_HAS_DEDUCTION_GUIDES
+        f.read(io::span{str});
+#else
+        f.read(io::span<char>{str});
+#endif
+        CHECK_EQ(std::strcmp("Lorem", str.data()), 0);
+    }
+    SUBCASE("getline")
+    {
+        io::file_instream f("file.txt");
+        std::vector<char> str(20, '\0');
+        f.getline(io::span<char>{str});
+        CHECK_EQ(std::strcmp("Lorem ipsum", str.data()), 0);
+    }
+    SUBCASE("scan")
+    {
+        io::file_instream f("file.txt");
+        std::vector<char> str(20, '\0');
+        std::vector<char> str2(20, '\0');
+        f.scan(io::span<char>{str}, io::span<char>{str2});
+        CHECK_EQ(std::strcmp("Lorem", str.data()), 0);
+        CHECK_EQ(std::strcmp("ipsum", str2.data()), 0);
+    }
+}

@@ -19,31 +19,35 @@
 // SOFTWARE.
 
 namespace io {
-template <typename CharT, typename Readable>
-template <typename T>
-basic_instream<CharT, Readable>&
-basic_instream<CharT, Readable>::read(span<T>& elems)
+#if SPIO_HAS_FOLD_EXPRESSIONS
+template <typename Readable>
+template <typename... T>
+bool basic_instream<Readable>::scan(T&&... args)
 {
-    auto err = m_readable.read(elems, elements{elems.size()});
-    assert(err);
-    return *this;
+    return (read(std::forward<T>(args)) && ...);
 }
+#else
+namespace detail {
+    template <typename ReadF, typename T, typename... Args>
+    bool instream_scan(ReadF&& read, T&& arg, Args&&... args)
+    {
+        if (!read(std::forward<T>(arg))) {
+            return false;
+        }
+        return instream_scan(read, std::forward<Args>(args)...);
+    }
+    template <typename ReadF, typename T>
+    bool instream_scan(ReadF&& read, T&& arg)
+    {
+        return read(std::forward<T>(arg));
+    }
+}  // namespace detail
 
-template <typename CharT, typename Readable>
-template <typename T>
-basic_instream<CharT, Readable>&
-basic_instream<CharT, Readable>::read(T& elem)
+template <typename Readable>
+template <typename... T>
+bool basic_instream<Readable>::scan(T&&... args)
 {
-    auto s = make_span(&elem, 1);
-    return read(s);
+    return detail::instream_scan(read, std::forward<T>(args)...);
 }
-
-template <typename CharT, typename Readable>
-template <typename InputIt>
-basic_instream<CharT, Readable>&
-basic_instream<CharT, Readable>::read(InputIt first, InputIt last)
-{
-    auto s = make_span(first, last);
-    return read(s);
+#endif
 }
-}  // namespace io

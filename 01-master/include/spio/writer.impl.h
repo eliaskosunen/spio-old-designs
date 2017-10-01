@@ -20,7 +20,7 @@
 
 namespace io {
 template <typename Writable>
-writer<Writable>::writer(Writable& w) : m_writable(w)
+writer<Writable>::writer(writable_type& w) : m_writable(w)
 {
 }
 
