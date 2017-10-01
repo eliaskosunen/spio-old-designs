@@ -22,9 +22,9 @@ namespace io {
 #if SPIO_HAS_FOLD_EXPRESSIONS
 template <typename Readable>
 template <typename... T>
-bool basic_instream<Readable>::scan(T&&... args)
+basic_instream<Readable>& basic_instream<Readable>::scan(T&&... args)
 {
-    return (read(std::forward<T>(args)) && ...);
+    return _do((read(std::forward<T>(args)).fail() && ...));
 }
 #else
 namespace detail {
@@ -36,7 +36,7 @@ namespace detail {
     template <typename Readable, typename T, typename... Args>
     bool instream_scan(basic_instream<Readable>& r, T&& arg, Args&&... args)
     {
-        if (!r.read(std::forward<T>(arg))) {
+        if (!r.read(std::forward<T>(arg)).fail()) {
             return false;
         }
         return instream_scan(r, std::forward<Args>(args)...);
@@ -45,9 +45,9 @@ namespace detail {
 
 template <typename Readable>
 template <typename... T>
-bool basic_instream<Readable>::scan(T&&... args)
+basic_instream<Readable>& basic_instream<Readable>::scan(T&&... args)
 {
-    return detail::instream_scan(*this, std::forward<T>(args)...);
+    return _do(detail::instream_scan(*this, std::forward<T>(args)...));
 }
 #endif
 }
