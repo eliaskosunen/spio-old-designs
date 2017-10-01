@@ -46,56 +46,69 @@ public:
     virtual ~basic_instream() = default;
 
     template <typename T>
-    bool read(T& elem, reader_options<T> opt = {})
+    basic_instream& read(T& elem, reader_options<T> opt = {})
     {
-        return m_reader.read(elem, std::move(opt));
+        return _do(m_reader.read(elem, std::move(opt)));
     }
     template <typename T>
-    bool read(span<T> elem, reader_options<span<T>> opt = {})
+    basic_instream& read(span<T> elem, reader_options<span<T>> opt = {})
     {
-        return m_reader.read(std::move(elem), std::move(opt));
+        return _do(m_reader.read(std::move(elem), std::move(opt)));
     }
 
     template <typename T>
-    bool read_raw(T& elem)
+    basic_instream& read_raw(T& elem)
     {
-        return m_reader.read_raw(elem);
+        return _do(m_reader.read_raw(elem));
     }
     template <typename T>
-    bool read_raw(span<T> elem)
+    basic_instream& read_raw(span<T> elem)
     {
-        return m_reader.read_raw(elem);
+        return _do(m_reader.read_raw(elem));
     }
 
-    virtual bool get(char_type& ch)
+    virtual basic_instream& get(char_type& ch)
     {
-        return m_reader.read_raw(ch);
+        return _do(m_reader.read_raw(ch));
     }
 
     template <typename T>
-    bool getline(span<T> s, char_type delim = char_type{'\n'})
+    basic_instream& getline(span<T> s, char_type delim = char_type{'\n'})
     {
-        return m_reader.getline(s, delim);
+        return _do(m_reader.getline(s, delim));
     }
 
     template <typename Element = char_type>
-    bool ignore(std::size_t count = 1)
+    basic_instream& ignore(std::size_t count = 1)
     {
-        return m_reader.ignore(count);
+        return _do(m_reader.ignore(count));
     }
     template <typename Element = char_type>
-    bool ignore(std::size_t count, char_type delim)
+    basic_instream& ignore(std::size_t count, char_type delim)
     {
-        return m_reader.ignore(count, delim);
+        return _do(m_reader.ignore(count, delim));
     }
 
     virtual bool eof() const
     {
         return m_reader.eof();
     }
+    template <typename Then>
+    auto eof_then(Then&& f) {
+        return f(eof(), *this);  
+    }
+
+    virtual bool fail() const
+    {
+        return m_fail;
+    }
+    template <typename Then>
+    auto fail_then(Then&& f) {
+        return f(fail(), *this);
+    }
 
     template <typename... T>
-    bool scan(T&&... args);
+    basic_instream& scan(T&&... args);
 
     template <typename = std::enable_if_t<!std::is_const<reader_type>::value>>
     reader_type& get_reader()
@@ -118,8 +131,16 @@ public:
     }
 
 protected:
+    basic_instream& _do(bool r) {
+        if(!m_fail && r) {
+            m_fail = r; 
+        }
+        return *this;
+    }
+
     readable_type m_readable;
     reader_type m_reader;
+    bool m_fail{false};
 };
 
 template <typename CharT>
