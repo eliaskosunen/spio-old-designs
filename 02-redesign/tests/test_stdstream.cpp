@@ -25,7 +25,7 @@
 TEST_CASE("stdout")
 {
     io::file_outstream f(io::make_file_wrapper(stdout, false));
-    f.write("Hello world!\n");
+    f.write("Hello world!\n").println("{} {}", "Hei maailma", 42);
 }
 /*
 TEST_CASE("stdin")

@@ -22,6 +22,7 @@
 #define SPIO_OUTSTREAM_H
 
 #include "config.h"
+#include "fmt.h"
 #include "writable.h"
 #include "writer.h"
 
@@ -70,8 +71,20 @@ public:
         return *this;
     }
 
+    virtual basic_outstream& ln()
+    {
+        put(static_cast<char_type>('\n'));
+        return *this;
+    }
+
     template <typename... Args>
     basic_outstream& print(const char* format, Args&&... args);
+
+    template <typename... Args>
+    basic_outstream& println(const char* format, Args&&... args)
+    {
+        return print(format, std::forward<Args>(args)...).ln();
+    }
 
     template <typename = std::enable_if_t<!std::is_const<writer_type>::value>>
     writable_type& get_writable()
@@ -136,5 +149,7 @@ using file_woutstream = basic_file_outstream<wchar_t>;
 using buffer_outstream = basic_buffer_outstream<char>;
 using buffer_woutstream = basic_buffer_outstream<wchar_t>;
 }  // namespace io
+
+#include "outstream.impl.h"
 
 #endif  // SPIO_INSTREAM_H
