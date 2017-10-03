@@ -18,23 +18,25 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_SPIO_H
-#define SPIO_SPIO_H
+#ifndef SPIO_FMT_H
+#define SPIO_FMT_H
 
 #include "config.h"
-#include "util.h"
-#include "error.h"
-#include "stl.h"
-#include "readable.h"
-#include "writable.h"
 
-#if SPIO_USE_STREAMS
-#include "reader.h"
-#include "writer.h"
-#include "type.h"
-#include "instream.h"
-#include "outstream.h"
-#include "fmt.h"
+#if SPIO_HEADER_ONLY && !defined(FMT_HEADER_ONLY)
+#define FMT_HEADER_ONLY
 #endif
 
-#endif // SPIO_SPIO_H
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch-enum"
+
+#if SPIO_USE_FMT
+#include "fmt/fmt/format.h"
+#endif
+
+#if SPIO_USE_FMT_OSTREAM
+#include "fmt/fmt/ostream.h"
+#endif
+#pragma GCC diagnostic pop
+
+#endif  // SPIO_FMT_H

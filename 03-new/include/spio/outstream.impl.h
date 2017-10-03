@@ -18,23 +18,19 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_SPIO_H
-#define SPIO_SPIO_H
-
-#include "config.h"
-#include "util.h"
-#include "error.h"
-#include "stl.h"
-#include "readable.h"
-#include "writable.h"
-
-#if SPIO_USE_STREAMS
-#include "reader.h"
-#include "writer.h"
-#include "type.h"
-#include "instream.h"
-#include "outstream.h"
 #include "fmt.h"
-#endif
 
-#endif // SPIO_SPIO_H
+namespace io {
+template <typename Writable>
+template <typename... Args>
+basic_outstream<Writable>& basic_outstream<Writable>::print(const char* format,
+                                                            Args&&... args)
+{
+    static_assert(SPIO_USE_FMT,
+                  "fmtlib (SPIO_USE_FMT) required in order to call "
+                  "basic_outstream::print");
+    auto str = fmt::format(format, std::forward<Args>(args)...);
+    write(str.c_str());
+    return *this;
+}
+}  // namespace io

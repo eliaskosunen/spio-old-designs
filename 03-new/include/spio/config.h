@@ -29,8 +29,20 @@
 #define SPIO_HEADER_ONLY 1
 #endif
 
+#ifndef SPIO_USE_STREAMS
+#define SPIO_USE_STREAMS 1
+#endif
+
 #ifndef SPIO_USE_STL
 #define SPIO_USE_STL 1
+#endif
+
+#ifndef SPIO_USE_FMT
+#define SPIO_USE_FMT 1
+#endif
+
+#ifndef SPIO_USE_FMT_OSTREAM
+#define SPIO_USE_FMT_OSTREAM 1
 #endif
 
 #ifndef SPIO_USE_EXCEPTIONS
@@ -39,6 +51,14 @@
 
 #ifndef SPIO_THROW_ON_ASSERT
 #define SPIO_THROW_ON_ASSERT 0
+#endif
+
+#if !SPIO_USE_STL && SPIO_USE_FMT
+#error fmtlib (SPIO_USE_FMT) requires STL (SPIO_USE_STL)
+#endif
+
+#if !SPIO_USE_FMT && SPIO_USE_FMT_OSTREAM
+#error SPIO_USE_FMT required for SPIO_USE_FMT_OSTREAM
 #endif
 
 //

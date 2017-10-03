@@ -4,3 +4,6 @@
 [submodule "tests/doctest"]
 	path = tests/doctest
 	url = https://github.com/onqtam/doctest
+[submodule "include/spio/fmt"]
+	path = include/spio/fmt
+	url = https://github.com/fmtlib/fmt
