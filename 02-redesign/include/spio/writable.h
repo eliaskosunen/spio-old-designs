@@ -116,7 +116,8 @@ public:
 #endif
 
 template <typename CharT>
-class basic_writable_file : public basic_writable_base<basic_writable_file<CharT>> {
+class basic_writable_file
+    : public basic_writable_base<basic_writable_file<CharT>> {
 public:
     using value_type = CharT;
 
@@ -166,15 +167,19 @@ struct dynamic_writable_buffer : public vector<T> {
         return false;
     }
 };
-template <typename T, std::size_t N>
-struct static_writable_buffer {
+template <typename T, span_extent_type Extent>
+class span_writable_buffer {
 public:
-    using value_type = T;
-    using size_type = std::size_t;
+    using span_type = span<T, Extent>;
+    using value_type = typename span_type::value_type;
+    using size_type = typename span_type::size_type;
     using reference = value_type&;
     using const_reference = std::add_const_t<reference>;
 
-    constexpr static_writable_buffer() : m_it(m_buf.begin()) {}
+    constexpr span_writable_buffer(span<T, Extent> s)
+        : m_buf(std::move(s)), m_it(m_buf.begin())
+    {
+    }
 
     constexpr reference operator[](std::size_t i) noexcept
     {
@@ -192,7 +197,7 @@ public:
 
     constexpr size_type size() const
     {
-        return distance_nonneg(m_buf.begin(), m_it);
+        return distance(m_buf.begin(), m_it);
     }
     constexpr size_type max_size() const
     {
@@ -240,12 +245,26 @@ public:
     }
 
 private:
-    array<T, N> m_buf{};
+    span<T, Extent> m_buf{};
     typename decltype(m_buf)::iterator m_it{};
+};
+template <typename T,
+          std::size_t N,
+          span_extent_type Extent = static_cast<span_extent_type>(N)>
+class static_writable_buffer : public span_writable_buffer<T, Extent> {
+public:
+    static_writable_buffer(array<T, N> a = {})
+        : m_buf(std::move(a)), span_writable_buffer<T, Extent>(m_buf)
+    {
+    }
+
+private:
+    array<T, N> m_buf{};
 };
 
 template <typename CharT, typename BufferT = dynamic_writable_buffer<CharT>>
-class basic_writable_buffer : public basic_writable_base<basic_writable_buffer<CharT>> {
+class basic_writable_buffer
+    : public basic_writable_base<basic_writable_buffer<CharT>> {
 public:
     using value_type = CharT;
     using buffer_type = BufferT;

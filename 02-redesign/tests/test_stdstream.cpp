@@ -24,9 +24,8 @@
 
 TEST_CASE("stdout")
 {
-    io::writable_file f(io::make_file_wrapper(stdout, false));
-    io::writer<io::writable_file> w(f);
-    w.write("Hello world!\n");
+    io::file_outstream f(io::make_file_wrapper(stdout, false));
+    f.write("Hello world!\n");
 }
 /*
 TEST_CASE("stdin")
