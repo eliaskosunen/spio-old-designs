@@ -29,6 +29,7 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wswitch-enum"
+#pragma GCC diagnostic ignored "-Weffc++"
 
 #if SPIO_USE_FMT
 #include "fmt/fmt/format.h"
