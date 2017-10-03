@@ -42,11 +42,6 @@ public:
     {
         return type<T>::write(*this, elem, std::move(opt));
     }
-    template <typename T>
-    void write(span<T> elem, writer_options<span<T>> opt = {})
-    {
-        return type<span<T>>::write(*this, elem, std::move(opt));
-    }
 
     template <typename T>
     void write_raw(T elem)
@@ -64,7 +59,7 @@ public:
 
     void put(char_type ch)
     {
-        return write_raw(ch);
+        write_raw(ch);
     }
 
     void flush()
@@ -75,11 +70,11 @@ public:
         }
     }
 
-    Writable& get_writable()
+    writable_type& get_writable()
     {
         return m_writable;
     }
-    const Writable& get_writable() const
+    const writable_type& get_writable() const
     {
         return m_writable;
     }
