@@ -31,5 +31,6 @@
 #include "writer.h"
 #include "type.h"
 #include "instream.h"
+#include "outstream.h"
 
 #endif // SPIO_SPIO_H
