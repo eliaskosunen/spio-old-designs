@@ -37,10 +37,21 @@ public:
 
     writer(writable_type& w);
 
-    template <typename T>
+    template <
+        typename T,
+        typename = std::enable_if_t<!detail::check_string_tag<T>::value>>
     void write(T elem, writer_options<T> opt = {})
     {
-        return type<T>::write(*this, elem, std::move(opt));
+        return type<T>::write(*this, std::move(elem), std::move(opt));
+    }
+    template <
+        typename T,
+        std::size_t N = 0,
+        typename = std::enable_if_t<detail::check_string_tag<T, N>::value>>
+    void write(T elem, writer_options<T> opt = {})
+    {
+        return type<detail::string_tag<T, N>>::write(*this, elem,
+                                                     std::move(opt));
     }
 
     template <typename T>

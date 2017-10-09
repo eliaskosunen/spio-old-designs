@@ -46,10 +46,22 @@ public:
 
     virtual ~basic_outstream() = default;
 
-    template <typename T>
+    template <
+        typename T,
+        typename = std::enable_if_t<!detail::check_string_tag<T>::value>>
     basic_outstream& write(T elem, writer_options<T> opt = {})
     {
         m_writer.write(std::move(elem), std::move(opt));
+        return *this;
+    }
+    template <
+        typename T,
+        std::size_t N = 0,
+        typename = std::enable_if_t<detail::check_string_tag<T, N>::value>>
+    basic_outstream& write(T elem,
+                           writer_options<T> opt = {})
+    {
+        m_writer.write(elem, std::move(opt));
         return *this;
     }
 
