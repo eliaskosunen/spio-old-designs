@@ -111,44 +111,49 @@ struct type<T,
     }
 };
 
-template <typename T>
-struct type<T,
-            std::enable_if_t<
-                contains<std::remove_volatile_t<std::remove_reference_t<T>>,
-                         const char*,
-                         const wchar_t*,
-                         const char16_t*,
-                         const char32_t*>::value>> {
+template <typename T, std::size_t N>
+struct type<detail::string_tag<T, N>> {
+    using string_type = detail::string_tag<T, N>;
+
     template <typename Reader>
-    static bool read(Reader& p, T& val, reader_options<T> opt) = delete;
+    static bool read(Reader& p,
+                     typename string_type::type val,
+                     reader_options<T> opt) = delete;
 
     template <typename Writer>
-    static void write(Writer& w, T val, writer_options<T> opt)
+    static void write(Writer& w,
+                      typename string_type::type val,
+                      writer_options<T> opt)
     {
-        using value_type = std::remove_pointer_t<std::decay_t<T>>;
-
-        auto ptr =
-            const_cast<std::add_pointer_t<std::remove_const_t<value_type>>>(
-                val);
-        const auto len = [&ptr]() -> span_extent_type {
-#if SPIO_HAS_IF_CONSTEXPR
-            if constexpr (sizeof(value_type) == 1) {
-#else
-            if (sizeof(value_type) == 1) {
-#endif
-                return static_cast<span_extent_type>(strlen(ptr));
-            }
-            else {
-                for (auto i = 0;; ++i) {
-                    if (*(ptr + i) == value_type{'\0'}) {
-                        return i;
-                    }
-                }
-                return 0;
-            }
-        }();
         SPIO_UNUSED(opt);
-        return w.write(make_span(ptr, len));
+#if SPIO_HAS_IF_CONSTEXPR
+        if constexpr (N != 0) {
+            return w.write(make_span(&val, N));
+        }
+        else {
+#else
+        {
+#endif
+            auto ptr = string_type::make_pointer(val);
+            const auto len = [&]() -> span_extent_type {
+                if (N != 0) {
+                    return N;
+                }
+                else if (sizeof(T) == 1) {
+                    return static_cast<span_extent_type>(strlen(ptr));
+                }
+                else {
+                    for (auto i = 0;; ++i) {
+                        if (*(ptr + i) ==
+                            typename string_type::char_type{'\0'}) {
+                            return i;
+                        }
+                    }
+                    return 0;
+                }
+            }();
+            return w.write(make_span(ptr, len));
+        }
     }
 };
 
@@ -222,7 +227,7 @@ struct type<T,
     static void write(Writer& w, T val, writer_options<T> opt)
     {
         using char_type = typename Writer::char_type;
-        array<char_type, max_digits<T>() + 1> buf{};
+        array<char_type, max_digits<std::remove_reference_t<T>>() + 1> buf{};
         buf.fill(char_type{0});
         auto s = make_span(buf);
         int_to_char<char_type>(val, s, opt.base);
