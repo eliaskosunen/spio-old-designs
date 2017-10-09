@@ -234,6 +234,63 @@ template <typename T, typename... Ts>
 struct contains : disjunction<std::is_same<T, Ts>...> {
 };
 
+namespace detail {
+    template <typename T, std::size_t N = 0, typename Enable = void>
+    struct string_tag : std::false_type {
+        using type = T;
+        static constexpr auto size = N;
+    };
+
+    template <typename T, std::size_t N>
+    struct string_tag<
+        const T (&)[N],
+        N,
+        std::enable_if_t<
+            contains<std::decay_t<T>, char, wchar_t, char16_t, char32_t>::
+                value>> : std::true_type {
+        using type = const T (&)[N];
+        using pointer = const T*;
+        using char_type = std::decay_t<T>;
+        static constexpr auto size = N;
+
+        static constexpr pointer make_pointer(type v)
+        {
+            return &v;
+        }
+    };
+
+    template <typename T>
+    struct string_tag<
+        const T*,
+        0,
+        std::enable_if_t<
+            contains<std::decay_t<T>, char, wchar_t, char16_t, char32_t>::
+                value>> : std::true_type {
+        using type = const T*;
+        using pointer = type;
+        using char_type = std::decay_t<T>;
+        static constexpr auto size = 0;
+
+        static constexpr pointer make_pointer(type v)
+        {
+            return v;
+        }
+    };
+
+    template <typename T, std::size_t N = 0>
+    struct check_string_tag {
+        static constexpr auto value = string_tag<T, N>::value;
+    };
+
+    template <typename T, std::size_t N>
+    struct check_string_tag<const T (&)[N], N> : std::true_type {
+    };
+
+    template <typename T, std::size_t N>
+    struct check_string_tag<const T*, N> : std::true_type {
+    };
+}  // namespace detail
+
 template <typename FloatingT, typename CharT>
 FloatingT str_to_floating(const CharT* str, CharT** end);
 
