@@ -807,6 +807,36 @@ constexpr auto make_span(const Container& c)
     return span<const typename Container::value_type>(&*c.begin(), &*c.end());
 }
 
+template <span_extent_type N,
+          typename Element,
+          typename = std::enable_if_t<!std::is_const<Element>::value>>
+constexpr auto make_span(Element* ptr)
+{
+    return span<Element, N>(ptr, N);
+}
+
+template <span_extent_type N,
+          typename Element>
+constexpr auto make_span(const Element* ptr)
+{
+    return span<const Element, N>(ptr, N);
+}
+
+template <span_extent_type N,
+          typename Container,
+          typename = std::enable_if_t<!std::is_const<typename Container::value_type>::value>>
+constexpr auto make_span(Container& c)
+{
+    return span<typename Container::value_type, N>(&*c.begin(), N);
+}
+
+template <span_extent_type N,
+          typename Container>
+constexpr auto make_span(const Container& c)
+{
+    return span<const typename Container::value_type, N>(&*c.begin(), N);
+}
+
 namespace detail {
 #if SPIO_HAS_BYTE
     using span_as_bytes_type = std::byte;

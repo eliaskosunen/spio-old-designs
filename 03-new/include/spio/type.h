@@ -39,12 +39,11 @@ struct type {
     }
 
     template <typename Writer>
-    static void write(Writer& w, const T& val, writer_options<T> opt)
+    static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
-        custom_write<T>::write(w, val, opt);
+        return custom_write<T>::write(w, val, opt);
     }
 };
-
 
 template <typename T>
 struct type<
@@ -64,10 +63,10 @@ struct type<
     }
 
     template <typename Writer>
-    static void write(Writer& w, const T& val, writer_options<T> opt)
+    static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
         SPIO_UNUSED(opt);
-        w.write_raw(val);
+        return w.write_raw(val);
     }
 };
 
@@ -118,10 +117,10 @@ struct type<T,
     }
 
     template <typename Writer>
-    static void write(Writer& w, const T& val, writer_options<T> opt)
+    static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
         SPIO_UNUSED(opt);
-        w.write_raw(val);
+        return w.write_raw(val);
     }
 };
 
@@ -135,7 +134,7 @@ struct type<detail::string_tag<T, N>> {
                      reader_options<T> opt) = delete;
 
     template <typename Writer>
-    static void write(Writer& w,
+    static bool write(Writer& w,
                       typename string_type::type val,
                       writer_options<T> opt)
     {
@@ -143,7 +142,7 @@ struct type<detail::string_tag<T, N>> {
         auto ptr = string_type::make_pointer(val);
 #if SPIO_HAS_IF_CONSTEXPR
         if constexpr (N != 0) {
-            return w.write(make_span(ptr, N));
+            return w.write(make_span<N>(ptr));
         }
         else {
 #else
@@ -238,7 +237,7 @@ struct type<T,
     }
 
     template <typename Writer>
-    static void write(Writer& w, const T& val, writer_options<T> opt)
+    static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
         using char_type = typename Writer::char_type;
         array<char_type, max_digits<std::remove_reference_t<T>>() + 1> buf{};
@@ -246,7 +245,7 @@ struct type<T,
         auto s = make_span(buf);
         int_to_char<char_type>(val, s, opt.base);
         const auto len = distance(s.begin(), find(s.begin(), s.end(), '\0'));
-        w.write(s.first(len).as_const_span());
+        return w.write(s.first(len).as_const_span());
     }
 };
 
@@ -343,7 +342,7 @@ struct type<T,
     }
 
     template <typename Writer>
-    static void write(Writer& w, const T& val, writer_options<T> opt)
+    static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
         using char_type = typename Writer::char_type;
 
@@ -351,8 +350,10 @@ struct type<T,
         auto char_span =
             make_span(&arr[0], static_cast<span_extent_type>(strlen(&arr[0])));
 
+        SPIO_UNUSED(opt);
+
         if (sizeof(char_type) == 1) {
-            w.write(char_span);
+            return w.write(char_span);
         }
         else {
             vector<char_type> buf{};
@@ -360,10 +361,8 @@ struct type<T,
             for (auto& c : char_span) {
                 buf.push_back(static_cast<char_type>(c));
             }
-            w.write(make_span(buf));
+            return w.write(make_span(buf));
         }
-
-        SPIO_UNUSED(opt);
     }
 };
 
@@ -373,13 +372,13 @@ struct type<T*> {
     static bool read(Reader& p, T*& val, reader_options<T*> opt) = delete;
 
     template <typename Writer>
-    static void write(Writer& w, const T* val, writer_options<T*> opt)
+    static bool write(Writer& w, const T* val, writer_options<T*> opt)
     {
         SPIO_UNUSED(opt);
 
         writer_options<std::intptr_t> o;
         o.base = 16;
-        w.write(static_cast<std::intptr_t>(val), o);
+        return w.write(static_cast<std::intptr_t>(val), o);
     }
 };
 
@@ -419,13 +418,13 @@ struct type<bool> {
     }
 
     template <typename Writer>
-    static void write(Writer& w, const bool& val, writer_options<bool> opt)
+    static bool write(Writer& w, const bool& val, writer_options<bool> opt)
     {
         if (opt.alpha) {
-            w.write(val ? "true" : "false");
+            return w.write(val ? "true" : "false");
         }
         else {
-            w.write(val ? 1 : 0);
+            return w.write(val ? 1 : 0);
         }
     }
 };
