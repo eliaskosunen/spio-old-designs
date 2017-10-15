@@ -32,25 +32,29 @@ public:
     using implementation_type = ImplT;
 
 #define THIS static_cast<ImplT*>(this)
-#define CONST_THIS static_cast<const ImplT*>(this)
 
-    template <typename T>
-    error read(span<T> buf, characters length)
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf)
+    {
+        return THIS->read(std::move(buf));
+    }
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf, characters length)
     {
         return THIS->read(std::move(buf), length);
     }
-    template <typename T>
-    error read(span<T> buf, elements length)
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf, elements length)
     {
         return THIS->read(std::move(buf), length);
     }
-    template <typename T>
-    error read(span<T> buf, bytes length)
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf, bytes length)
     {
         return THIS->read(std::move(buf), length);
     }
-    template <typename T>
-    error read(span<T> buf, bytes_contiguous length)
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf, bytes_contiguous length)
     {
         return THIS->read(std::move(buf), length);
     }
@@ -59,13 +63,6 @@ public:
     {
         return THIS->skip();
     }
-
-    constexpr bool is_valid() const
-    {
-        return CONST_THIS->is_valid();
-    }
-
-#undef CONST_THIS
 #undef THIS
 };
 
@@ -84,31 +81,37 @@ public:
         "basic_readable_file<CharT>: CharT must be TriviallyCopyable");
 
     basic_readable_file() = default;
-    /*implicit*/ basic_readable_file(file_wrapper file);
-    /*implicit*/ basic_readable_file(const char* filename);
+    /*implicit*/ basic_readable_file(stdio_filehandle* file);
 
-    template <typename T>
-    error read(span<T> buf, characters length);
-    template <typename T>
-    error read(span<T> buf, elements length);
-    template <typename T>
-    error read(span<T> buf, bytes length);
-    template <typename T>
-    error read(span<T> buf, bytes_contiguous length);
-    error read(CharT* c);
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf);
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf, characters length);
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf, elements length);
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf, bytes length);
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf, bytes_contiguous length);
+    error read(CharT& c);
 
     error skip();
 
-    constexpr bool is_valid() const
+    stdio_filehandle& get_file()
     {
-        return valid;
+        assert(m_file);
+        return *m_file;
+    }
+    const stdio_filehandle& get_file() const
+    {
+        assert(m_file);
+        return *m_file;
     }
 
 private:
     error get_error(quantity_type read_count, quantity_type expected) const;
 
-    file_wrapper m_file{};
-    bool valid{false};
+    stdio_filehandle* m_file{nullptr};
 };
 
 template <typename CharT>
@@ -121,27 +124,32 @@ public:
     constexpr basic_readable_buffer() = default;
     basic_readable_buffer(buffer_type buf);
 
-    template <typename T>
-    error read(span<T> buf, characters length);
-    template <typename T>
-    error read(span<T> buf, elements length);
-    template <typename T>
-    error read(span<T> buf, bytes length);
-    template <typename T>
-    error read(span<T> buf, bytes_contiguous length);
-    error read(CharT* c);
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf);
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf, characters length);
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf, elements length);
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf, bytes length);
+    template <typename T, span_extent_type N>
+    error read(span<T, N> buf, bytes_contiguous length);
+    error read(CharT& c);
 
     error skip();
 
-    constexpr bool is_valid() const
+    buffer_type& get_buffer()
     {
-        return valid && m_it != m_buffer.end();
+        return m_buffer;
+    }
+    const buffer_type& get_buffer() const
+    {
+        return m_buffer;
     }
 
 private:
     buffer_type m_buffer;
     typename buffer_type::iterator m_it;
-    bool valid{false};
 };
 
 using readable_file = basic_readable_file<char>;
@@ -158,8 +166,5 @@ using readable_ubuffer = basic_readable_buffer<unsigned char>;
 }  // namespace io
 
 #include "readable.impl.h"
-#if SPIO_HEADER_ONLY
-#include "readable.cpp"
-#endif  // SPIO_HEADER_ONLY
 
 #endif  // SPIO_READABLE_H

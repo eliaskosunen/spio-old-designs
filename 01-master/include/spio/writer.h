@@ -37,25 +37,30 @@ public:
 
     writer(writable_type& w);
 
-    template <
-        typename T,
-        typename = std::enable_if_t<!detail::check_string_tag<T>::value>>
-    void write(T elem, writer_options<T> opt = {})
+    template <typename T,
+              typename = std::enable_if_t<!detail::check_string_tag<T>::value>>
+    void write(const T& elem, writer_options<T> opt = {})
     {
-        return type<T>::write(*this, std::move(elem), std::move(opt));
+        return type<T>::write(*this, elem, std::move(opt));
     }
-    template <
-        typename T,
-        std::size_t N = 0,
-        typename = std::enable_if_t<detail::check_string_tag<T, N>::value>>
+    template <typename T,
+              typename = std::enable_if_t<detail::check_string_tag<T>::value>>
     void write(T elem, writer_options<T> opt = {})
     {
-        return type<detail::string_tag<T, N>>::write(*this, elem,
-                                                     std::move(opt));
+        return type<detail::string_tag<T>>::write(*this, elem, std::move(opt));
+    }
+    template <typename T,
+              std::size_t N = 0,
+              typename = std::enable_if_t<
+                  detail::check_string_tag<const T (&)[N], N>::value>>
+    void write(const T (&elem)[N], writer_options<const T (&)[N]> opt = {})
+    {
+        return type<detail::string_tag<const T(&)[N], N>>::write(
+            *this, elem, std::move(opt));
     }
 
     template <typename T>
-    void write_raw(T elem)
+    void write_raw(const T& elem)
     {
         return write_raw(make_span(&elem, 1));
     }

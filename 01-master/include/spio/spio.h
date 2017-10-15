@@ -35,6 +35,7 @@
 #include "instream.h"
 #include "outstream.h"
 #include "fmt.h"
+#include "custom_type.h"
 #endif
 
 #endif // SPIO_SPIO_H

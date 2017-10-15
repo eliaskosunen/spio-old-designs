@@ -29,84 +29,174 @@
 #include "stl.h"
 
 namespace io {
-namespace detail {
-    template <typename T>
-    struct default_delete {
-        constexpr default_delete() noexcept = default;
+class stdio_filehandle {
+    static std::FILE* s_open(const char* filename, const char* mode)
+    {
+        return std::fopen(filename, mode);
+    }
+    static std::FILE* s_open(const char* filename, uint32_t mode)
+    {
+        bool r = mode & READ;
+        bool a = mode & APPEND;
+        bool e = mode & EXTENDED;
+        bool b = mode & BINARY;
 
-        template <
-            typename U,
-            typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-        default_delete(const default_delete<U>&) noexcept
-        {
+        vector<char> str{};
+        str.reserve(4);
+
+        if (r) {
+            str.push_back('r');
+        }
+        else if (a) {
+            str.push_back('a');
+        }
+        else {
+            str.push_back('w');
         }
 
-        void operator()(T* ptr) const
-        {
-            static_assert(!std::is_void<T>::value,
-                          "can't delete pointer to incomplete type");
-            static_assert(sizeof(T) > 0,
-                          "can't delete pointer to incomplete type");
-            delete ptr;
+        if (b) {
+            str.push_back('b');
         }
+        if (e) {
+            str.push_back('+');
+        }
+        str.push_back('\0');
+
+        return s_open(filename, &str[0]);
+    }
+
+public:
+    enum open_mode {
+        READ = 1,
+        WRITE = 2,
+        APPEND = 4,
+        EXTENDED = 8,
+        BINARY = 16
     };
 
-    template <typename T>
-    struct default_delete<T[]> {
-    public:
-        constexpr default_delete() noexcept = default;
+    stdio_filehandle() = default;
+    stdio_filehandle(std::FILE* ptr) : m_handle(ptr) {}
+    stdio_filehandle(const char* filename, const char* mode)
+        : m_handle(s_open(filename, mode))
+    {
+    }
+    stdio_filehandle(const char* filename, uint32_t mode)
+        : m_handle(s_open(filename, mode))
+    {
+    }
 
-        template <typename U,
-                  typename = std::enable_if_t<
-                      std::is_convertible<U (*)[], T (*)[]>::value>>
-        default_delete(const default_delete<U[]>&) noexcept
-        {
+
+    stdio_filehandle(const stdio_filehandle&) = default;
+    stdio_filehandle& operator=(const stdio_filehandle&) = default;
+    stdio_filehandle(stdio_filehandle&&) noexcept = default;
+    stdio_filehandle& operator=(stdio_filehandle&&) noexcept = default;
+    ~stdio_filehandle() noexcept = default;
+
+    bool open(const char* filename, const char* mode)
+    {
+        assert(!good());
+        m_handle = s_open(filename, mode);
+        return good();
+    }
+    bool open(const char* filename, uint32_t mode)
+    {
+        assert(!good());
+        m_handle = s_open(filename, mode);
+        return good();
+    }
+
+    void close()
+    {
+        assert(good());
+        std::fclose(m_handle);
+        m_handle = nullptr;
+    }
+
+    constexpr bool good() const
+    {
+        return m_handle != nullptr;
+    }
+    constexpr operator bool() const
+    {
+        return good();
+    }
+
+    std::FILE* get() const
+    {
+        assert(good());
+        return m_handle;
+    }
+
+    bool error() const
+    {
+        assert(m_handle);
+        return std::ferror(m_handle) != 0;
+    }
+    void check_error() const
+    {
+        if (error()) {
+            throw std::strerror(errno);
         }
+    }
+    bool eof() const
+    {
+        return std::feof(get()) != 0;
+    }
 
-        template <typename U>
-        std::enable_if_t<std::is_convertible<U (*)[], T (*)[]>::value>
-        operator()(U* ptr) const
-        {
-            static_assert(sizeof(T) > 0,
-                          "can't delete pointer to incomplete type");
-            delete[] ptr;
+    bool flush()
+    {
+        return std::fflush(get()) == 0;
+    }
+
+private:
+    std::FILE* m_handle{nullptr};
+};
+
+struct owned_stdio_filehandle {
+public:
+    owned_stdio_filehandle() = default;
+    owned_stdio_filehandle(const char* filename, const char* mode)
+        : m_file(filename, mode)
+    {
+    }
+    owned_stdio_filehandle(const char* filename, uint32_t mode)
+        : m_file(filename, mode)
+    {
+    }
+
+    owned_stdio_filehandle(const owned_stdio_filehandle&) = delete;
+    owned_stdio_filehandle& operator=(const owned_stdio_filehandle&) = delete;
+    owned_stdio_filehandle(owned_stdio_filehandle&&) noexcept = default;
+    owned_stdio_filehandle& operator=(owned_stdio_filehandle&&) noexcept = default;
+    ~owned_stdio_filehandle() noexcept {
+        if(m_file) {
+            m_file.close();
         }
-    };
+    }
 
-    template <typename T, typename Deleter = default_delete<T>>
-    class maybe_owned_ptr {
-    public:
-        constexpr maybe_owned_ptr() noexcept = default;
-        constexpr maybe_owned_ptr(std::nullptr_t o) noexcept;
-        constexpr maybe_owned_ptr(T* o, bool owned) noexcept;
-        template <typename D>
-        maybe_owned_ptr(T* o, bool owned, D&& deleter);
+    bool open(const char* filename, const char* mode) {
+        return m_file.open(filename, mode);
+    }
+    bool open(const char* filename, uint32_t mode) {
+        return m_file.open(filename, mode);
+    }
 
-        constexpr maybe_owned_ptr(const maybe_owned_ptr&) = delete;
-        constexpr maybe_owned_ptr(maybe_owned_ptr&& other) noexcept;
-        constexpr maybe_owned_ptr& operator=(const maybe_owned_ptr&) = delete;
-        constexpr maybe_owned_ptr& operator=(maybe_owned_ptr&& other) noexcept;
+    void close() {
+        return m_file.close();
+    }
 
-        ~maybe_owned_ptr() noexcept;
+    constexpr operator bool() const {
+        return m_file.operator bool();
+    }
 
-        constexpr bool has_value() const;
-        constexpr operator bool() const;
+    stdio_filehandle* get() {
+        return &m_file;
+    }
 
-        constexpr T* value() const;
-        constexpr void value(T* val);
-
-        constexpr bool owned() const;
-        constexpr void owned(bool val);
-
-    private:
-        T* m_obj{nullptr};
-        Deleter m_deleter{};
-        bool m_owned{false};
-    };
-}  // namespace detail
-
-using file_wrapper = detail::maybe_owned_ptr<std::FILE, decltype(&std::fclose)>;
-file_wrapper make_file_wrapper(std::FILE* f, bool owned) noexcept;
+private:
+    stdio_filehandle m_file{};
+};
+/* using stdio_filehandle = std::FILE*; */
 
 bool is_eof(error c);
 
@@ -255,7 +345,7 @@ namespace detail {
 
         static constexpr pointer make_pointer(type v)
         {
-            return &v;
+            return &v[0];
         }
     };
 
@@ -311,8 +401,5 @@ constexpr int max_digits() noexcept;
 }  // namespace io
 
 #include "util.impl.h"
-#if SPIO_HEADER_ONLY
-#include "util.cpp"
-#endif  // SPIO_HEADER_ONLY
 
 #endif  // SPIO_UTIL_H
