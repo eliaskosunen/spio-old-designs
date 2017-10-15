@@ -194,6 +194,7 @@ public:
 #else
     constexpr operator bool() const
 #endif
+    {
         return m_file.operator bool();
     }
 
