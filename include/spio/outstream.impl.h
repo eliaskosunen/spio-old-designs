@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 #include "fmt.h"
+#include "outstream.h"
 
 namespace io {
 #if SPIO_USE_FMT

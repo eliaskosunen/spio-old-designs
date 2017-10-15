@@ -48,8 +48,7 @@ static void writeint_spio(benchmark::State& state)
             auto data = generate_data<T>(static_cast<size_t>(state.range(0)));
             state.ResumeTiming();
 
-            io::writable_buffer w{};
-            io::writer<decltype(w)> p{w};
+            io::buffer_outstream p{};
             for (auto& n : data) {
                 p.write(n);
             }
@@ -74,8 +73,7 @@ static void writeint_spio_static(benchmark::State& state)
             buffer.reserve(static_cast<size_t>(state.range(0)));
             state.ResumeTiming();
 
-            io::writable_buffer w{std::move(buffer)};
-            io::writer<decltype(w)> p{w};
+            io::buffer_outstream p{std::move(buffer)};
             for (auto& n : data) {
                 p.write(n);
             }
