@@ -25,12 +25,11 @@
 TEST_CASE("writable_buffer")
 {
     io::writable_buffer w;
-    REQUIRE(w.is_valid());
     SUBCASE("write_elem")
     {
         char c = 'A';
         {
-            auto error = w.write(&c);
+            auto error = w.write(c);
             CHECK_FALSE(error);
             if (error) {
                 std::cerr << error.message() << '\n';

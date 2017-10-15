@@ -122,10 +122,10 @@ class failure {
 
 #if SPIO_THROW_ON_ASSERT
 #define SPIO_ASSERT(cond, msg)                        \
-    do {                                               \
-        if (!(cond)) {                                 \
+    do {                                              \
+        if (!(cond)) {                                \
             SPIO_THROW(::io::assertion_failure, msg); \
-        }                                              \
+        }                                             \
     } while (false)
 #else
 #define SPIO_ASSERT(cond, msg) assert((cond) && msg)

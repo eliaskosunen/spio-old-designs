@@ -19,30 +19,35 @@
 // SOFTWARE.
 
 #include <iostream>
-#include "spio.h"
 #include "doctest.h"
+#include "spio.h"
 
 TEST_CASE("writable_file")
 {
-    io::writable_file w("write.txt", false);
-    REQUIRE(w.is_valid());
+    io::owned_stdio_filehandle f("write.txt", io::stdio_filehandle::WRITE |
+                                                  io::stdio_filehandle::BINARY);
+    REQUIRE(f);
+    io::writable_file w(f.get());
     char ln = '\n';
     SUBCASE("write_elem")
     {
         char c = 'A';
         {
-            auto error = w.write(&c);
+            auto error = w.write(c);
             CHECK_FALSE(error);
             if (error) {
                 std::cerr << error.message() << '\n';
             }
-            CHECK_FALSE(w.write(&ln));
+            CHECK_FALSE(w.write(ln));
             CHECK_FALSE(w.flush());
         }
         {
-            io::readable_file r("write.txt");
-            REQUIRE(r.is_valid());
-            auto error = r.read(&c);
+            io::owned_stdio_filehandle h(
+                "write.txt",
+                io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+            REQUIRE(h);
+            io::readable_file r(h.get());
+            auto error = r.read(c);
             CHECK_FALSE(error);
             if (error && !io::is_eof(error)) {
                 std::cerr << error.message() << '\n';
@@ -59,11 +64,15 @@ TEST_CASE("writable_file")
             if (error) {
                 std::cerr << error.message() << '\n';
             }
-            CHECK_FALSE(w.write(&ln));
+            CHECK_FALSE(w.write(ln));
             CHECK_FALSE(w.flush());
         }
         {
-            io::readable_file r("write.txt");
+            io::owned_stdio_filehandle h(
+                "write.txt",
+                io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+            REQUIRE(h);
+            io::readable_file r(h.get());
             auto error = r.read(io::make_span(a), io::elements{4});
             REQUIRE(a[4] == '\0');
             CHECK_FALSE(error);
@@ -78,24 +87,30 @@ TEST_CASE("writable_wfile")
 {
     SUBCASE("write_elem")
     {
-        io::writable_wfile w("write.utf32.txt", false);
-        REQUIRE(w.is_valid());
+        io::owned_stdio_filehandle f(
+            "write.utf32.txt",
+            io::stdio_filehandle::WRITE | io::stdio_filehandle::BINARY);
+        REQUIRE(f);
+        io::writable_wfile w(f.get());
         wchar_t ln = L'\n';
         wchar_t c = L'A';
         {
-            auto error = w.write(&c);
+            auto error = w.write(c);
             CHECK_FALSE(error);
             if (error) {
                 std::cerr << error.message() << '\n';
             }
-            CHECK_FALSE(w.write(&ln));
+            CHECK_FALSE(w.write(ln));
             CHECK_FALSE(w.flush());
             w.flush();
         }
         {
-            io::readable_wfile r("write.utf32.txt");
-            REQUIRE(r.is_valid());
-            auto error = r.read(&c);
+            io::owned_stdio_filehandle h(
+                "write.utf32.txt",
+                io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+            REQUIRE(h);
+            io::readable_wfile r(h.get());
+            auto error = r.read(c);
             CHECK_FALSE(error);
             if (error && !io::is_eof(error)) {
                 std::cerr << error.message() << '\n';
@@ -105,8 +120,11 @@ TEST_CASE("writable_wfile")
     }
     SUBCASE("write_range")
     {
-        io::writable_wfile w("write.utf32.txt", false);
-        REQUIRE(w.is_valid());
+        io::owned_stdio_filehandle f(
+            "write.utf32.txt",
+            io::stdio_filehandle::WRITE | io::stdio_filehandle::BINARY);
+        REQUIRE(f);
+        io::writable_wfile w(f.get());
         wchar_t ln = L'\n';
         std::array<wchar_t, 5> a{{L'W', L'o', L'r', L'd', L'\0'}};
         {
@@ -115,11 +133,15 @@ TEST_CASE("writable_wfile")
             if (error) {
                 std::cerr << error.message() << '\n';
             }
-            CHECK_FALSE(w.write(&ln));
+            CHECK_FALSE(w.write(ln));
             CHECK_FALSE(w.flush());
         }
         {
-            io::readable_file r("write.utf32.txt");
+            io::owned_stdio_filehandle h(
+                "write.utf32.txt",
+                io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+            REQUIRE(h);
+            io::readable_wfile r(h.get());
             auto error = r.read(io::make_span(a), io::elements{4});
             REQUIRE(a[4] == 0);
             CHECK_FALSE(error);

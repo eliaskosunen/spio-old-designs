@@ -46,29 +46,35 @@ public:
 
     virtual ~basic_outstream() = default;
 
-    template <
-        typename T,
-        typename = std::enable_if_t<!detail::check_string_tag<T>::value>>
-    basic_outstream& write(T elem, writer_options<T> opt = {})
+    template <typename T,
+              typename = std::enable_if_t<!detail::check_string_tag<T>::value>>
+    basic_outstream& write(const T& elem, writer_options<T> opt = {})
     {
-        m_writer.write(std::move(elem), std::move(opt));
+        m_writer.write(elem, std::move(opt));
         return *this;
     }
-    template <
-        typename T,
-        std::size_t N = 0,
-        typename = std::enable_if_t<detail::check_string_tag<T, N>::value>>
-    basic_outstream& write(T elem,
-                           writer_options<T> opt = {})
+    template <typename T,
+              typename = std::enable_if_t<detail::check_string_tag<T>::value>>
+    basic_outstream& write(T elem, writer_options<T> opt = {})
+    {
+        m_writer.write(elem, std::move(opt));
+        return *this;
+    }
+    template <typename T,
+              std::size_t N = 0,
+              typename = std::enable_if_t<
+                  detail::check_string_tag<const T (&)[N], N>::value>>
+    basic_outstream& write(const T (&elem)[N],
+                           writer_options<const T (&)[N]> opt = {})
     {
         m_writer.write(elem, std::move(opt));
         return *this;
     }
 
     template <typename T>
-    basic_outstream& write_raw(T elem)
+    basic_outstream& write_raw(const T& elem)
     {
-        m_writer.write_raw(std::move(elem));
+        m_writer.write_raw(elem);
         return *this;
     }
 
@@ -89,14 +95,16 @@ public:
         return *this;
     }
 
+#if SPIO_USE_FMT
     template <typename... Args>
-    basic_outstream& print(const char* format, Args&&... args);
+    basic_outstream& print(const char* format, const Args&... args);
 
     template <typename... Args>
-    basic_outstream& println(const char* format, Args&&... args)
+    basic_outstream& println(const char* format, const Args&... args)
     {
-        return print(format, std::forward<Args>(args)...).ln();
+        return print(format, args...).ln();
     }
+#endif
 
     template <typename = std::enable_if_t<!std::is_const<writer_type>::value>>
     writable_type& get_writable()
@@ -118,7 +126,7 @@ public:
         return m_writer;
     }
 
-private:
+protected:
     writable_type m_writable;
     writer_type m_writer;
 };
@@ -129,14 +137,20 @@ class basic_file_outstream
     using base_type = basic_outstream<basic_writable_file<CharT>>;
 
 public:
-    using readable_type = typename base_type::writable_type;
-    using reader_type = typename base_type::writer_type;
+    using writable_type = typename base_type::writable_type;
+    using writer_type = typename base_type::writer_type;
     using char_type = typename base_type::char_type;
 
     using basic_outstream<basic_writable_file<CharT>>::basic_outstream;
-    basic_file_outstream() : base_type(readable_type{}) {}
-    basic_file_outstream(file_wrapper file) : base_type(std::move(file)) {}
-    basic_file_outstream(const char* filename) : base_type(filename) {}
+    basic_file_outstream() : base_type(writable_type{}) {}
+    basic_file_outstream(stdio_filehandle file)
+        : base_type({}), m_file(std::move(file))
+    {
+        base_type::m_writable = writable_type{&m_file};
+    }
+
+private:
+    stdio_filehandle m_file{};
 };
 
 template <typename CharT, typename BufferT = dynamic_writable_buffer<CharT>>
@@ -145,21 +159,37 @@ class basic_buffer_outstream
     using base_type = basic_outstream<basic_writable_buffer<CharT, BufferT>>;
 
 public:
-    using readable_type = typename base_type::writable_type;
-    using reader_type = typename base_type::writer_type;
+    using writable_type = typename base_type::writable_type;
+    using writer_type = typename base_type::writer_type;
     using char_type = typename base_type::char_type;
-    using buffer_type = typename readable_type::buffer_type;
+    using buffer_type = typename writable_type::buffer_type;
 
     using basic_outstream<
         basic_writable_buffer<CharT, BufferT>>::basic_outstream;
-    basic_buffer_outstream() : base_type(readable_type{}) {}
+    basic_buffer_outstream() : base_type(writable_type{}) {}
     basic_buffer_outstream(buffer_type b) : base_type(b) {}
+};
+
+template <typename CharT>
+class basic_stdout_outstream : public basic_file_outstream<CharT> {
+public:
+    basic_stdout_outstream() : basic_file_outstream<CharT>(stdout) {}
+};
+template <typename CharT>
+class basic_stderr_outstream : public basic_file_outstream<CharT> {
+public:
+    basic_stderr_outstream() : basic_file_outstream<CharT>(stderr) {}
 };
 
 using file_outstream = basic_file_outstream<char>;
 using file_woutstream = basic_file_outstream<wchar_t>;
 using buffer_outstream = basic_buffer_outstream<char>;
 using buffer_woutstream = basic_buffer_outstream<wchar_t>;
+
+using sout = basic_stdout_outstream<char>;
+using wsout = basic_stdout_outstream<wchar_t>;
+using serr = basic_stderr_outstream<char>;
+using wserr = basic_stderr_outstream<wchar_t>;
 }  // namespace io
 
 #include "outstream.impl.h"
