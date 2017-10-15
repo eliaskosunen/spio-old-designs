@@ -63,8 +63,9 @@ static void writewstring_spio(benchmark::State& state)
             auto data = generate_data(static_cast<size_t>(state.range(0)));
             state.ResumeTiming();
 
-            io::writable_wbuffer w{};
-            io::writer<decltype(w)> p{w};
+            io::writable_wbuffer p{};
+            /* io::writable_wbuffer w{}; */
+            /* io::writer<decltype(w)> p{w}; */
             for (auto& n : data) {
                 p.write(io::make_span(n));
                 bytes += n.length();
@@ -88,8 +89,9 @@ static void writewstring_spio_static(benchmark::State& state)
             buffer.reserve(static_cast<size_t>(state.range(0)));
             state.ResumeTiming();
 
-            io::writable_wbuffer w{std::move(buffer)};
-            io::writer<decltype(w)> p{w};
+            io::writable_wbuffer p{std::move(buffer)};
+            /* io::writable_wbuffer w{std::move(buffer)}; */
+            /* io::writer<decltype(w)> p{w}; */
             for (auto& n : data) {
                 p.write(io::make_span(n));
                 bytes += n.length();

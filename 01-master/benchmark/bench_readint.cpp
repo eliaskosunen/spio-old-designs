@@ -52,8 +52,9 @@ static void readint_spio(benchmark::State& state)
                 generate_string(static_cast<size_t>(state.range(0)));
             state.ResumeTiming();
 
-            io::readable_buffer r(io::make_span(data));
-            io::reader<decltype(r)> p{r};
+            io::buffer_instream p{io::make_span(data)};
+            /* io::readable_buffer r(io::make_span(data)); */
+            /* io::basic_instream<decltype(r)> p(r); */
             T num;
             while (!p.eof() && p.read(num)) {
             }

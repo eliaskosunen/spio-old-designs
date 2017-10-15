@@ -29,8 +29,6 @@
 #include "writable.h"
 
 #if SPIO_USE_STREAMS
-#include "reader.h"
-#include "writer.h"
 #include "type.h"
 #include "instream.h"
 #include "outstream.h"

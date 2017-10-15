@@ -23,21 +23,18 @@
 
 #include "config.h"
 #include "fmt.h"
+#include "type.h"
 #include "writable.h"
-#include "writer.h"
+#include "writer_options.h"
 
 namespace io {
 template <typename Writable>
 class basic_outstream {
 public:
     using writable_type = Writable;
-    using writer_type = writer<writable_type>;
-    using char_type = typename writer_type::char_type;
+    using char_type = typename writable_type::value_type;
 
-    basic_outstream(writable_type w)
-        : m_writable(std::move(w)), m_writer(m_writable)
-    {
-    }
+    basic_outstream(writable_type w) : m_writable(std::move(w)) {}
 
     basic_outstream(const basic_outstream&) = delete;
     basic_outstream& operator=(const basic_outstream&) = delete;
@@ -50,14 +47,21 @@ public:
               typename = std::enable_if_t<!detail::check_string_tag<T>::value>>
     basic_outstream& write(const T& elem, writer_options<T> opt = {})
     {
-        m_writer.write(elem, std::move(opt));
+        if (m_eof) {
+            SPIO_THROW(end_of_file, "io::writer::write: EOF reached");
+        }
+        m_eof = !type<T>::write(*this, elem, std::move(opt));
         return *this;
     }
     template <typename T,
               typename = std::enable_if_t<detail::check_string_tag<T>::value>>
     basic_outstream& write(T elem, writer_options<T> opt = {})
     {
-        m_writer.write(elem, std::move(opt));
+        if (m_eof) {
+            SPIO_THROW(end_of_file, "io::writer::write: EOF reached");
+        }
+        m_eof =
+            !type<detail::string_tag<T>>::write(*this, elem, std::move(opt));
         return *this;
     }
     template <typename T,
@@ -67,25 +71,45 @@ public:
     basic_outstream& write(const T (&elem)[N],
                            writer_options<const T (&)[N]> opt = {})
     {
-        m_writer.write(elem, std::move(opt));
+        if (m_eof) {
+            SPIO_THROW(end_of_file, "io::writer::write: EOF reached");
+        }
+        m_eof = !type<detail::string_tag<const T(&)[N], N>>::write(
+            *this, elem, std::move(opt));
         return *this;
     }
 
     template <typename T>
     basic_outstream& write_raw(const T& elem)
     {
-        m_writer.write_raw(elem);
+        return write_raw(make_span<1>(&elem));
+    }
+    template <typename T, span_extent_type N>
+    basic_outstream& write_raw(span<T, N> elems)
+    {
+        if (m_eof) {
+            SPIO_THROW(end_of_file, "io::writer::write: EOF reached");
+        }
+        auto error = m_writable.write(elems);
+        if (error.is_eof()) {
+            m_eof = true;
+        }
+        if (error) {
+            SPIO_THROW_EC(error);
+        }
         return *this;
     }
 
     virtual basic_outstream& put(char_type ch)
     {
-        m_writer.write_raw(ch);
-        return *this;
+        return write_raw(ch);
     }
     virtual basic_outstream& flush()
     {
-        m_writer.flush();
+        auto error = get_writable().flush();
+        if (error) {
+            SPIO_THROW_EC(error);
+        }
         return *this;
     }
 
@@ -93,6 +117,21 @@ public:
     {
         put(static_cast<char_type>('\n'));
         return *this;
+    }
+
+    virtual bool eof() const
+    {
+        return m_eof;
+    }
+    template <typename Then>
+    auto eof_then(Then&& f)
+    {
+        return f(eof(), *this);
+    }
+
+    operator bool() const
+    {
+        return !eof();
     }
 
 #if SPIO_USE_FMT
@@ -106,7 +145,7 @@ public:
     }
 #endif
 
-    template <typename = std::enable_if_t<!std::is_const<writer_type>::value>>
+    template <typename = std::enable_if_t<!std::is_const<writable_type>::value>>
     writable_type& get_writable()
     {
         return m_writable;
@@ -116,20 +155,15 @@ public:
         return m_writable;
     }
 
-    template <typename = std::enable_if_t<!std::is_const<writer_type>::value>>
-    writer_type& get_writer()
-    {
-        return m_writer;
-    }
-    const writer_type& get_writer() const
-    {
-        return m_writer;
-    }
-
 protected:
-    writable_type m_writable;
-    writer_type m_writer;
+    writable_type m_writable{};
+    bool m_eof{false};
 };
+
+#if SPIO_HAS_DEDUCTION_GUIDES
+template <typename Writable>
+basic_outstream(Writable& r)->basic_outstream<Writable>;
+#endif
 
 template <typename CharT>
 class basic_file_outstream
@@ -138,7 +172,6 @@ class basic_file_outstream
 
 public:
     using writable_type = typename base_type::writable_type;
-    using writer_type = typename base_type::writer_type;
     using char_type = typename base_type::char_type;
 
     using basic_outstream<basic_writable_file<CharT>>::basic_outstream;
@@ -160,7 +193,6 @@ class basic_buffer_outstream
 
 public:
     using writable_type = typename base_type::writable_type;
-    using writer_type = typename base_type::writer_type;
     using char_type = typename base_type::char_type;
     using buffer_type = typename writable_type::buffer_type;
 
