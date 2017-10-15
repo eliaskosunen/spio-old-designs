@@ -42,7 +42,7 @@ public:
     bool read(T& elem, reader_options<T> opt = {})
     {
         if (m_eof) {
-            SPIO_THROW(end_of_file, "EOF reached at " __FILE__ ":" SPIO_LINE);
+            SPIO_THROW(end_of_file, "io::reader::read: EOF reached");
         }
         return type<T>::read(*this, elem, std::move(opt));
     }
@@ -50,7 +50,7 @@ public:
     bool read(span<T> elem, reader_options<span<T>> opt = {})
     {
         if (m_eof) {
-            SPIO_THROW(end_of_file, "EOF reached at " __FILE__ ":" SPIO_LINE);
+            SPIO_THROW(end_of_file, "io::reader::read: EOF reached");
         }
         return type<span<T>>::read(*this, elem, std::move(opt));
     }
@@ -64,7 +64,7 @@ public:
     bool read_raw(span<T> elems)
     {
         if (m_eof) {
-            SPIO_THROW(end_of_file, "EOF reached at " __FILE__ ":" SPIO_LINE);
+            SPIO_THROW(end_of_file, "io::reader::read_raw: EOF reached");
         }
         auto error = _read(elems, elements{elems.length()});
         if (error.is_eof()) {

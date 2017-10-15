@@ -94,8 +94,9 @@ public:
         return m_reader.eof();
     }
     template <typename Then>
-    auto eof_then(Then&& f) {
-        return f(eof(), *this);  
+    auto eof_then(Then&& f)
+    {
+        return f(eof(), *this);
     }
 
     virtual bool fail() const
@@ -103,7 +104,8 @@ public:
         return m_fail;
     }
     template <typename Then>
-    auto fail_then(Then&& f) {
+    auto fail_then(Then&& f)
+    {
         return f(fail(), *this);
     }
 
@@ -131,9 +133,10 @@ public:
     }
 
 protected:
-    basic_instream& _do(bool r) {
-        if(!m_fail && r) {
-            m_fail = r; 
+    basic_instream& _do(bool r)
+    {
+        if (!m_fail && r) {
+            m_fail = r;
         }
         return *this;
     }
@@ -154,12 +157,19 @@ public:
 
     using basic_instream<basic_readable_file<CharT>>::basic_instream;
     basic_file_instream() : base_type(readable_type{}) {}
-    basic_file_instream(file_wrapper file) : base_type(std::move(file)) {}
-    basic_file_instream(const char* filename) : base_type(filename) {}
+    basic_file_instream(stdio_filehandle file)
+        : base_type({}), m_file(std::move(file))
+    {
+        base_type::m_readable = readable_type{&m_file};
+    }
+
+private:
+    stdio_filehandle m_file{};
 };
 
 template <typename CharT>
-class basic_buffer_instream : public basic_instream<basic_readable_buffer<CharT>> {
+class basic_buffer_instream
+    : public basic_instream<basic_readable_buffer<CharT>> {
     using base_type = basic_instream<basic_readable_buffer<CharT>>;
 
 public:
@@ -173,10 +183,19 @@ public:
     basic_buffer_instream(buffer_type b) : base_type(b) {}
 };
 
+template <typename CharT>
+class basic_stdin_instream : public basic_file_instream<CharT> {
+public:
+    basic_stdin_instream() : basic_file_instream<CharT>(stdin) {}
+};
+
 using file_instream = basic_file_instream<char>;
 using file_winstream = basic_file_instream<wchar_t>;
 using buffer_instream = basic_buffer_instream<char>;
 using buffer_winstream = basic_buffer_instream<wchar_t>;
+
+using sin = basic_stdin_instream<char>;
+using wsin = basic_stdin_instream<wchar_t>;
 }  // namespace io
 
 #include "instream.impl.h"

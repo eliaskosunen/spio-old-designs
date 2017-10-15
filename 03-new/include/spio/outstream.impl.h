@@ -21,16 +21,15 @@
 #include "fmt.h"
 
 namespace io {
+#if SPIO_USE_FMT
 template <typename Writable>
 template <typename... Args>
 basic_outstream<Writable>& basic_outstream<Writable>::print(const char* format,
-                                                            Args&&... args)
+                                                            const Args&... args)
 {
-    static_assert(SPIO_USE_FMT,
-                  "fmtlib (SPIO_USE_FMT) required in order to call "
-                  "basic_outstream::print");
-    auto str = fmt::format(format, std::forward<Args>(args)...);
+    auto str = fmt::format(format, args...);
     write(str.c_str());
     return *this;
 }
+#endif
 }  // namespace io
