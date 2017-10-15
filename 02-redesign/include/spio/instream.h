@@ -23,20 +23,17 @@
 
 #include "config.h"
 #include "readable.h"
-#include "reader.h"
+#include "reader_options.h"
+#include "type.h"
 
 namespace io {
 template <typename Readable>
 class basic_instream {
 public:
     using readable_type = Readable;
-    using reader_type = reader<readable_type>;
-    using char_type = typename reader_type::char_type;
+    using char_type = typename readable_type::value_type;
 
-    basic_instream(readable_type r)
-        : m_readable(std::move(r)), m_reader(m_readable)
-    {
-    }
+    basic_instream(readable_type r) : m_readable(std::move(r)) {}
 
     basic_instream(const basic_instream&) = delete;
     basic_instream& operator=(const basic_instream&) = delete;
@@ -48,50 +45,85 @@ public:
     template <typename T>
     basic_instream& read(T& elem, reader_options<T> opt = {})
     {
-        return _do(m_reader.read(elem, std::move(opt)));
+        if (eof()) {
+            SPIO_THROW(end_of_file, "io::reader::read: EOF reached");
+        }
+        m_eof = !type<T>::read(*this, elem, std::move(opt));
+        return *this;
     }
-    template <typename T>
-    basic_instream& read(span<T> elem, reader_options<span<T>> opt = {})
+    template <typename T, span_extent_type N>
+    basic_instream& read(span<T, N> elem, reader_options<span<T, N>> opt = {})
     {
-        return _do(m_reader.read(std::move(elem), std::move(opt)));
+        if (eof()) {
+            SPIO_THROW(end_of_file, "io::reader::read: EOF reached");
+        }
+        m_eof = !type<span<T, N>>::read(*this, elem, std::move(opt));
+        return *this;
     }
 
     template <typename T>
     basic_instream& read_raw(T& elem)
     {
-        return _do(m_reader.read_raw(elem));
+        return read_raw(make_span<1>(&elem));
     }
-    template <typename T>
-    basic_instream& read_raw(span<T> elem)
+    template <typename T, span_extent_type N>
+    basic_instream& read_raw(span<T, N> elems)
     {
-        return _do(m_reader.read_raw(elem));
+        if (eof()) {
+            SPIO_THROW(end_of_file, "io::reader::read_raw: EOF reached");
+        }
+        auto error = _read(elems, elements{elems.length()});
+        if (error.is_eof()) {
+            m_eof = true;
+        }
+        if (error) {
+            SPIO_THROW_EC(error);
+        }
+        return *this;
     }
 
     virtual basic_instream& get(char_type& ch)
     {
-        return _do(m_reader.read_raw(ch));
+        return read_raw(ch);
     }
 
-    template <typename T>
-    basic_instream& getline(span<T> s, char_type delim = char_type{'\n'})
+    template <typename T, span_extent_type N>
+    basic_instream& getline(span<T, N> s, char_type delim = char_type{'\n'})
     {
-        return _do(m_reader.getline(s, delim));
+        reader_options<span<T, N>> opt = {make_span<1>(&delim)};
+        return read(s, opt);
     }
 
-    template <typename Element = char_type>
+    template <typename ElementT = char_type>
     basic_instream& ignore(std::size_t count = 1)
     {
-        return _do(m_reader.ignore(count));
+        SPIO_ASSERT(sizeof(ElementT) * count % sizeof(char_type) == 0,
+                    "sizeof(ElementT) * count must be divisible by "
+                    "sizeof(char_type) in reader::ignore");
+        vector<char_type> arr(sizeof(ElementT) * count / sizeof(char_type));
+        return read_raw(make_span(arr));
     }
     template <typename Element = char_type>
     basic_instream& ignore(std::size_t count, char_type delim)
     {
-        return _do(m_reader.ignore(count, delim));
+        char_type ch{};
+        for (std::size_t i = 0; i < count; ++i) {
+            if (!get(ch)) {
+                return false;
+            }
+            if (ch == delim) {
+                break;
+            }
+        }
+        return *this;
     }
+
+    template <typename T>
+    void push(T elem);
 
     virtual bool eof() const
     {
-        return m_reader.eof();
+        return m_eof;
     }
     template <typename Then>
     auto eof_then(Then&& f)
@@ -99,52 +131,37 @@ public:
         return f(eof(), *this);
     }
 
-    virtual bool fail() const
+    operator bool() const
     {
-        return m_fail;
-    }
-    template <typename Then>
-    auto fail_then(Then&& f)
-    {
-        return f(fail(), *this);
+        return !eof();
     }
 
     template <typename... T>
     basic_instream& scan(T&&... args);
 
-    template <typename = std::enable_if_t<!std::is_const<reader_type>::value>>
-    reader_type& get_reader()
-    {
-        return m_reader;
-    }
-    const reader_type& get_reader() const
-    {
-        return m_reader;
-    }
-
     template <typename = std::enable_if_t<!std::is_const<readable_type>::value>>
     readable_type& get_readable()
     {
-        return m_reader.get_readable();
+        return m_readable;
     }
     const readable_type& get_readable() const
     {
-        return m_reader.get_readable();
+        return m_readable;
     }
 
 protected:
-    basic_instream& _do(bool r)
-    {
-        if (!m_fail && r) {
-            m_fail = r;
-        }
-        return *this;
-    }
+    template <typename T, span_extent_type N>
+    error _read(span<T, N> s, elements length);
 
-    readable_type m_readable;
-    reader_type m_reader;
-    bool m_fail{false};
+    readable_type m_readable{};
+    vector<char> m_buffer{};
+    bool m_eof{false};
 };
+
+#if SPIO_HAS_DEDUCTION_GUIDES
+template <typename Readable>
+basic_instream(Readable& r)->basic_instream<Readable>;
+#endif
 
 template <typename CharT>
 class basic_file_instream : public basic_instream<basic_readable_file<CharT>> {
@@ -152,7 +169,6 @@ class basic_file_instream : public basic_instream<basic_readable_file<CharT>> {
 
 public:
     using readable_type = typename base_type::readable_type;
-    using reader_type = typename base_type::reader_type;
     using char_type = typename base_type::char_type;
 
     using basic_instream<basic_readable_file<CharT>>::basic_instream;
@@ -174,7 +190,6 @@ class basic_buffer_instream
 
 public:
     using readable_type = typename base_type::readable_type;
-    using reader_type = typename base_type::reader_type;
     using char_type = typename base_type::char_type;
     using buffer_type = typename readable_type::buffer_type;
 

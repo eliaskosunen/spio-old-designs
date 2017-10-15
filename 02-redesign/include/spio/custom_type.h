@@ -37,11 +37,11 @@ struct custom_write;
 template <typename T>
 struct custom_write {
     template <typename Writer>
-    static void write(Writer& w, const T& val, writer_options<T> opt)
+    static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
         SPIO_UNUSED(opt);
         const auto str = fmt::format("{}", val);
-        w.write(str.c_str());
+        return w.write(str.c_str());
     }
 };
 #endif
@@ -63,9 +63,9 @@ struct custom_write<std::basic_string<CharT, Allocator>> {
     using type = std::basic_string<CharT, Allocator>;
 
     template <typename Writer>
-    static void write(Writer& p, const type& val, writer_options<type> opt) {
+    static bool write(Writer& p, const type& val, writer_options<type> opt) {
         SPIO_UNUSED(opt);
-        p.write(val.c_str());
+        return p.write(val.c_str());
     }
 };
 #endif
