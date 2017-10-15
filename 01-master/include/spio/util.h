@@ -189,7 +189,11 @@ public:
         return m_file.close();
     }
 
-    constexpr operator bool() const {
+#if defined(__GNUC__) && __GNUC__ < 7
+    operator bool() const
+#else
+    constexpr operator bool() const
+#endif
         return m_file.operator bool();
     }
 
