@@ -3,6 +3,7 @@
 *.py
 build/
 *.svg
+./test.cpp
 
 ###
 ### https://github.com/github/gitignore/blob/master/C%2B%2B.gitignore 
