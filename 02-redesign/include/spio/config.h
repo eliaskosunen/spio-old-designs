@@ -25,10 +25,6 @@
 // Options
 //
 
-#ifndef SPIO_HEADER_ONLY
-#define SPIO_HEADER_ONLY 1
-#endif
-
 #ifndef SPIO_USE_STREAMS
 #define SPIO_USE_STREAMS 1
 #endif
@@ -105,11 +101,7 @@
 // Definitions
 //
 
-#if SPIO_HEADER_ONLY
 #define SPIO_INLINE inline
-#else
-#define SPIO_INLINE
-#endif
 
 #if !SPIO_USE_STL
 #if !defined(SPIO_VECTOR) || !defined(SPIO_ARRAY)

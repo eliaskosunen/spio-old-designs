@@ -26,11 +26,10 @@ TEST_CASE("readable_buffer")
 {
     std::string buf = "Lorem";
     io::readable_buffer r(io::make_span(buf));
-    REQUIRE(r.is_valid());
     SUBCASE("read_elem")
     {
         char c = '\0';
-        auto error = r.read(&c);
+        auto error = r.read(c);
         CHECK_FALSE(error);
         CHECK_FALSE(io::is_eof(error));
         if (error) {
@@ -42,7 +41,6 @@ TEST_CASE("readable_buffer")
     {
         std::vector<char> buf2 = {0x7f, 0x20, 0};
         io::readable_buffer r2(io::make_span(buf2));
-        REQUIRE(r2.is_valid());
 
         std::array<char, 2> b{{0}};
         auto error = r2.read(io::make_span(b), io::bytes{2});
@@ -93,11 +91,10 @@ TEST_CASE("readable_wbuffer")
 {
     std::wstring buf = L"Lorem";
     io::readable_wbuffer r(io::make_span(buf));
-    REQUIRE(r.is_valid());
     SUBCASE("read_elem")
     {
         wchar_t c = 0;
-        auto error = r.read(&c);
+        auto error = r.read(c);
         CHECK_FALSE(error);
         CHECK_FALSE(io::is_eof(error));
         if (error) {
@@ -109,7 +106,6 @@ TEST_CASE("readable_wbuffer")
     {
         std::vector<wchar_t> buf2 = {0x7f, 0xff, 0x42, 0x20, 0};
         io::readable_wbuffer r2(io::make_span(buf2));
-        REQUIRE(r2.is_valid());
 
         std::array<char, 4> b{{0}};
         auto error =

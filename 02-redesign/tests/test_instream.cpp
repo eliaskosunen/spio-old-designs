@@ -26,28 +26,33 @@ TEST_CASE("file_instream")
 {
     SUBCASE("read")
     {
-        io::file_instream f("file.txt");
+        io::owned_stdio_filehandle h("file.txt", io::stdio_filehandle::READ |
+                                               io::stdio_filehandle::BINARY);
+        REQUIRE(h);
+        io::file_instream f{h.get()};
         std::vector<char> str(20, '\0');
-#if defined(__GNUC__) && __GNUC__ >= 7 && SPIO_HAS_DEDUCTION_GUIDES
-        f.read(io::span{str});
-#else
-        f.read(io::span<char>{str});
-#endif
+        f.read(io::make_span(str));
         CHECK_EQ(std::strcmp("Lorem", str.data()), 0);
     }
     SUBCASE("getline")
     {
-        io::file_instream f("file.txt");
+        io::owned_stdio_filehandle h("file.txt", io::stdio_filehandle::READ |
+                                               io::stdio_filehandle::BINARY);
+        REQUIRE(h);
+        io::file_instream f{h.get()};
         std::vector<char> str(20, '\0');
-        f.getline(io::span<char>{str});
+        f.getline(io::make_span(str));
         CHECK_EQ(std::strcmp("Lorem ipsum", str.data()), 0);
     }
     SUBCASE("scan")
     {
-        io::file_instream f("file.txt");
+        io::owned_stdio_filehandle h("file.txt", io::stdio_filehandle::READ |
+                                               io::stdio_filehandle::BINARY);
+        REQUIRE(h);
+        io::file_instream f{h.get()};
         std::vector<char> str(20, '\0');
         std::vector<char> str2(20, '\0');
-        f.scan(io::span<char>{str}, io::span<char>{str2});
+        f.scan(io::make_span(str), io::make_span(str2));
         CHECK_EQ(std::strcmp("Lorem", str.data()), 0);
         CHECK_EQ(std::strcmp("ipsum", str2.data()), 0);
     }

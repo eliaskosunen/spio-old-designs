@@ -48,8 +48,6 @@ template <typename InputIt>
 constexpr std::size_t distance_nonneg(InputIt first, InputIt last);
 
 using span_extent_type = std::ptrdiff_t;
-/* constexpr auto dynamic_extent = std::numeric_limits<span_extent_type>::max();
- */
 constexpr auto dynamic_extent = -1;
 
 template <typename ValueType, span_extent_type Extent = dynamic_extent>
@@ -726,6 +724,12 @@ public:
         return reverse_iterator{cbegin()};
     }
 
+    constexpr span<std::add_const_t<ElementType>, Extent> as_const_span() const
+        noexcept
+    {
+        return {const_cast<std::add_const_t<ElementType>*>(data()), size()};
+    }
+
 private:
     detail::storage_type<ElementType, Extent> m_storage;
 
@@ -741,31 +745,57 @@ private:
 
 #if SPIO_HAS_DEDUCTION_GUIDES
 template <typename Container>
-span(Container& c) -> span<typename Container::value_type>;
+span(Container& c)->span<typename Container::value_type>;
 
 template <typename Container>
-span(const Container& c) -> span<typename Container::value_type>;
+span(const Container& c)->span<typename Container::value_type>;
 #endif
 
-template <typename Element>
+template <typename Element,
+          typename = std::enable_if_t<!std::is_const<Element>::value>>
 constexpr auto make_span(Element* ptr, typename span<Element>::index_type count)
 {
     return span<Element>(ptr, count);
 }
 
 template <typename Element>
+constexpr auto make_span(const Element* ptr,
+                         typename span<const Element>::index_type count)
+{
+    return span<const Element>(ptr, count);
+}
+
+template <typename Element,
+          typename = std::enable_if_t<!std::is_const<Element>::value>>
 constexpr auto make_span(Element* first, Element* last)
 {
     return span<Element>(first, last);
 }
 
-template <typename Element, std::size_t N, typename = std::enable_if_t<N != 0>>
+template <typename Element>
+constexpr auto make_span(const Element* first, const Element* last)
+{
+    return span<const Element>(first, last);
+}
+
+template <typename Element,
+          std::size_t N,
+          typename = std::enable_if_t<N != 0 && !std::is_const<Element>::value>>
 constexpr auto make_span(Element (&arr)[N])
 {
     return span<Element, static_cast<span_extent_type>(N)>(arr);
 }
 
-template <typename Container>
+template <typename Element, std::size_t N, typename = std::enable_if_t<N != 0>>
+constexpr auto make_span(const Element (&arr)[N])
+{
+    return span<const Element, static_cast<span_extent_type>(N)>(arr);
+}
+
+template <typename Container,
+          typename = std::enable_if_t<
+              !std::is_const<typename Container::value_type>::value &&
+              !std::is_const<Container>::value>>
 constexpr auto make_span(Container& c)
 {
     return span<typename Container::value_type>(&*c.begin(), &*c.end());
@@ -809,33 +839,6 @@ as_writable_bytes(span<ElementType, Extent> s) noexcept
             span_extent_type{sizeof(ElementType)} * s.size()};
 }
 
-namespace detail {
-#if SPIO_HAS_IF_CONSTEXPR
-    template <typename Element, span_extent_type Extent>
-    auto copy_contiguous_storage(const span<Element, Extent>& s)
-    {
-        if constexpr (Extent == dynamic_extent) {
-            return vector<uint8_t>(sizeof(Element) * s.size(), 0);
-        }
-        else {
-            return array<uint8_t, sizeof(Element) * Extent>{{0}};
-        }
-    }
-#else
-    template <typename Element, span_extent_type Extent>
-    auto copy_contiguous_storage(const span<Element, Extent>&)
-    {
-        return array<uint8_t, sizeof(Element) * Extent>{{0}};
-    }
-
-    template <typename Element>
-    auto copy_contiguous_storage(const span<Element, dynamic_extent>& s)
-    {
-        return vector<uint8_t>(sizeof(Element) * s.size(), 0);
-    }
-#endif
-}  // namespace detail
-
 template <typename ElementFrom,
           typename ElementTo,
           span_extent_type ExtentFrom,
@@ -860,13 +863,6 @@ void copy_contiguous(span<ElementFrom, ExtentFrom> from,
         auto from_bytes = as_bytes(from);
         auto to_bytes = as_writable_bytes(to);
         copy(from_bytes.begin(), from_bytes.end(), to_bytes.begin());
-        /* auto bytes = detail::copy_contiguous_storage(from); */
-        /* copy(reinterpret_cast<uint8_t*>(&from[0]), */
-        /*      (reinterpret_cast<uint8_t*>(&from[0])) + bytes.size(), */
-        /*      bytes.begin()); */
-
-        /* copy(reinterpret_cast<ElementTo*>(&*bytes.begin()), */
-        /*      reinterpret_cast<ElementTo*>(&*bytes.end()), to.begin()); */
     }
 }  // namespace io
 }  // namespace io

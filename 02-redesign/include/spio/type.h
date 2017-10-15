@@ -23,6 +23,7 @@
 
 #include <cmath>
 #include "config.h"
+#include "custom_type.h"
 #include "reader_options.h"
 #include "stl.h"
 #include "util.h"
@@ -30,7 +31,20 @@
 
 namespace io {
 template <typename T, typename Enable = void>
-struct type;
+struct type {
+    template <typename Reader>
+    static bool read(Reader& p, T& val, reader_options<T> opt)
+    {
+        return custom_read<T>::read(p, val, opt);
+    }
+
+    template <typename Writer>
+    static void write(Writer& w, const T& val, writer_options<T> opt)
+    {
+        custom_write<T>::write(w, val, opt);
+    }
+};
+
 
 template <typename T>
 struct type<
@@ -50,7 +64,7 @@ struct type<
     }
 
     template <typename Writer>
-    static void write(Writer& w, T val, writer_options<T> opt)
+    static void write(Writer& w, const T& val, writer_options<T> opt)
     {
         SPIO_UNUSED(opt);
         w.write_raw(val);
@@ -104,7 +118,7 @@ struct type<T,
     }
 
     template <typename Writer>
-    static void write(Writer& w, T val, writer_options<T> opt)
+    static void write(Writer& w, const T& val, writer_options<T> opt)
     {
         SPIO_UNUSED(opt);
         w.write_raw(val);
@@ -126,15 +140,15 @@ struct type<detail::string_tag<T, N>> {
                       writer_options<T> opt)
     {
         SPIO_UNUSED(opt);
+        auto ptr = string_type::make_pointer(val);
 #if SPIO_HAS_IF_CONSTEXPR
         if constexpr (N != 0) {
-            return w.write(make_span(&val, N));
+            return w.write(make_span(ptr, N));
         }
         else {
 #else
         {
 #endif
-            auto ptr = string_type::make_pointer(val);
             const auto len = [&]() -> span_extent_type {
                 if (N != 0) {
                     return N;
@@ -224,28 +238,15 @@ struct type<T,
     }
 
     template <typename Writer>
-    static void write(Writer& w, T val, writer_options<T> opt)
+    static void write(Writer& w, const T& val, writer_options<T> opt)
     {
         using char_type = typename Writer::char_type;
         array<char_type, max_digits<std::remove_reference_t<T>>() + 1> buf{};
         buf.fill(char_type{0});
         auto s = make_span(buf);
         int_to_char<char_type>(val, s, opt.base);
-        /* buf[0] = '1'; */
-        /* buf[1] = '2'; */
-        /* buf[2] = '3'; */
-        /* buf[3] = '\0'; */
-        const auto len = [&]() {
-            return distance(s.begin(), find(s.begin(), s.end(), '\0'));
-            /* for (auto i = 0; i < s.length(); ++i) { */
-            /*     if (s[i] == '\0') { */
-            /*         return i; */
-            /*     } */
-            /* } */
-            /* SPIO_THROW(assertion_failure, */
-            /*            "Unreachable: (probably) a bug in int_to_char"); */
-        }();
-        w.write(s.first(len));
+        const auto len = distance(s.begin(), find(s.begin(), s.end(), '\0'));
+        w.write(s.first(len).as_const_span());
     }
 };
 
@@ -342,7 +343,7 @@ struct type<T,
     }
 
     template <typename Writer>
-    static void write(Writer& w, T val, writer_options<T> opt)
+    static void write(Writer& w, const T& val, writer_options<T> opt)
     {
         using char_type = typename Writer::char_type;
 
@@ -363,6 +364,22 @@ struct type<T,
         }
 
         SPIO_UNUSED(opt);
+    }
+};
+
+template <typename T>
+struct type<T*> {
+    template <typename Reader>
+    static bool read(Reader& p, T*& val, reader_options<T*> opt) = delete;
+
+    template <typename Writer>
+    static void write(Writer& w, const T* val, writer_options<T*> opt)
+    {
+        SPIO_UNUSED(opt);
+
+        writer_options<std::intptr_t> o;
+        o.base = 16;
+        w.write(static_cast<std::intptr_t>(val), o);
     }
 };
 
@@ -402,7 +419,7 @@ struct type<bool> {
     }
 
     template <typename Writer>
-    static void write(Writer& w, bool val, writer_options<bool> opt)
+    static void write(Writer& w, const bool& val, writer_options<bool> opt)
     {
         if (opt.alpha) {
             w.write(val ? "true" : "false");

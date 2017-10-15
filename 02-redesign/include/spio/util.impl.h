@@ -24,97 +24,10 @@
 #include "util.h"
 
 namespace io {
-namespace detail {
-    template <typename T, typename Deleter>
-    constexpr maybe_owned_ptr<T, Deleter>::maybe_owned_ptr(T* o,
-                                                           bool owned) noexcept
-        : m_obj(o), m_owned(owned)
-    {
-    }
-    template <typename T, typename Deleter>
-    constexpr maybe_owned_ptr<T, Deleter>::maybe_owned_ptr(
-        std::nullptr_t o) noexcept
-        : m_obj(o), m_owned(false)
-    {
-    }
-    template <typename T, typename Deleter>
-    template <typename D>
-    maybe_owned_ptr<T, Deleter>::maybe_owned_ptr(T* o, bool owned, D&& deleter)
-        : m_obj(o),
-          m_deleter(std::forward<decltype(deleter)>(deleter)),
-          m_owned(owned)
-    {
-    }
-
-    template <typename T, typename Deleter>
-    constexpr maybe_owned_ptr<T, Deleter>::maybe_owned_ptr(
-        maybe_owned_ptr&& other) noexcept
-        : m_obj(std::move(other.m_obj)),
-          m_deleter(std::move(other.m_deleter)),
-          m_owned(std::move(other.m_owned))
-    {
-        other.m_obj = nullptr;
-        other.m_owned = false;
-    }
-    template <typename T, typename Deleter>
-    constexpr maybe_owned_ptr<T, Deleter>& maybe_owned_ptr<T, Deleter>::
-    operator=(maybe_owned_ptr&& other) noexcept
-    {
-        m_obj = std::move(other.m_obj);
-        m_deleter = std::move(other.m_deleter);
-        m_owned = std::move(other.m_owned);
-
-        other.m_obj = nullptr;
-        other.m_owned = false;
-
-        return *this;
-    }
-
-    template <typename T, typename Deleter>
-    maybe_owned_ptr<T, Deleter>::~maybe_owned_ptr() noexcept
-    {
-        if (m_owned) {
-            if (!m_obj) {
-                std::fprintf(stderr, "Owned ptr is null");
-                std::terminate();
-            }
-            m_deleter(m_obj);
-        }
-        m_obj = nullptr;
-    }
-
-    template <typename T, typename Deleter>
-    constexpr bool maybe_owned_ptr<T, Deleter>::has_value() const
-    {
-        return m_obj;
-    }
-    template <typename T, typename Deleter>
-    constexpr maybe_owned_ptr<T, Deleter>::operator bool() const
-    {
-        return has_value();
-    }
-
-    template <typename T, typename Deleter>
-    constexpr T* maybe_owned_ptr<T, Deleter>::value() const
-    {
-        return m_obj;
-    }
-    template <typename T, typename Deleter>
-    constexpr void maybe_owned_ptr<T, Deleter>::value(T* val)
-    {
-        m_obj = val;
-    }
-    template <typename T, typename Deleter>
-    constexpr bool maybe_owned_ptr<T, Deleter>::owned() const
-    {
-        return m_owned;
-    }
-    template <typename T, typename Deleter>
-    constexpr void maybe_owned_ptr<T, Deleter>::owned(bool val)
-    {
-        m_owned = val;
-    }
-}  // namespace detail
+SPIO_INLINE bool is_eof(error c)
+{
+    return c.is_eof();
+}
 
 template <typename InputIt>
 constexpr std::size_t distance_nonneg(InputIt first, InputIt last)
@@ -231,31 +144,6 @@ constexpr void int_to_char(IntT value, span<CharT> result, int base)
     assert(base >= 2 && base <= 36);
 
     detail::itoa(value, &result[0], base);
-    /* auto casted_base = static_cast<IntT>(base); */
-    /* auto it = result.begin(); */
-
-    /* IntT tmpval; */
-    /* do { */
-    /*     tmpval = value; */
-    /*     value /= casted_base; */
-    /*     *it++ = */
-    /*         "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstu"
-     */
-    /*         "vwxyz"[35 + (tmpval - value * casted_base)]; */
-    /* } while (value); */
-
-    /* if (tmpval < 0) { */
-    /*     *it++ = '-'; */
-    /* } */
-    /* *it-- = '\0'; */
-
-    /* CharT tmpchar; */
-    /* auto it1 = result.begin(); */
-    /* while (it1 < it) { */
-    /*     tmpchar = *it; */
-    /*     *it-- = *it1; */
-    /*     *it1++ = tmpchar; */
-    /* } */
 }
 
 template <typename IntT>

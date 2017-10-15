@@ -19,17 +19,19 @@
 // SOFTWARE.
 
 #include <iostream>
-#include "spio.h"
 #include "doctest.h"
+#include "spio.h"
 
 TEST_CASE("readable_file")
 {
-    io::readable_file r("file.txt");
-    REQUIRE(r.is_valid());
+    io::owned_stdio_filehandle f(
+        "file.txt", io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+    REQUIRE(f);
+    io::readable_file r(f.get());
     SUBCASE("read_elem")
     {
         char c = '\0';
-        auto error = r.read(&c);
+        auto error = r.read(c);
         CHECK_FALSE(error);
         CHECK_FALSE(io::is_eof(error));
         if (error) {
@@ -52,14 +54,17 @@ TEST_CASE("readable_file")
 }
 TEST_CASE("readable_wfile")
 {
-    io::readable_wfile r("wchar.utf32.txt");
-    REQUIRE(r.is_valid());
+    io::owned_stdio_filehandle f(
+        "wchar.utf32.txt",
+        io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+    REQUIRE(f);
+    io::readable_wfile r(f.get());
     // Dismiss BOM
     r.skip();
     SUBCASE("read_elem")
     {
         wchar_t c = L'\0';
-        auto error = r.read(&c);
+        auto error = r.read(c);
         CHECK_FALSE(error);
         CHECK_FALSE(io::is_eof(error));
         if (error) {

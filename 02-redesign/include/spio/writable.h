@@ -53,7 +53,7 @@ public:
         return m_buffer;
     }
 
-    error set(file_wrapper& file);
+    error set(stdio_filehandle& file);
 
     static file_buffering disable();
     static file_buffering full(std::size_t len = BUFSIZ, bool external = false);
@@ -74,25 +74,29 @@ public:
     using implementation_type = ImplT;
 
 #define THIS static_cast<ImplT*>(this)
-#define CONST_THIS static_cast<const ImplT*>(this)
 
-    template <typename T>
-    error write(span<T> buf, characters length)
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf)
+    {
+        return THIS->write(std::move(buf));
+    }
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf, characters length)
     {
         return THIS->write(std::move(buf), length);
     }
-    template <typename T>
-    error write(span<T> buf, elements length)
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf, elements length)
     {
         return THIS->write(std::move(buf), length);
     }
-    template <typename T>
-    error write(span<T> buf, bytes length)
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf, bytes length)
     {
         return THIS->write(std::move(buf), length);
     }
-    template <typename T>
-    error write(span<T> buf, bytes_contiguous length)
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf, bytes_contiguous length)
     {
         return THIS->write(std::move(buf), length);
     }
@@ -102,13 +106,7 @@ public:
         return THIS->flush();
     }
 
-    constexpr bool is_valid() const
-    {
-        return CONST_THIS->is_valid();
-    }
-
 #undef THIS
-#undef CONST_THIS
 };
 
 #ifndef SPIO_FWRITE
@@ -127,35 +125,39 @@ public:
 
     basic_writable_file() = default;
     /*implicit*/ basic_writable_file(
-        file_wrapper file,
+        stdio_filehandle* file,
         file_buffering&& buffering = file_buffering{});
-    basic_writable_file(const char* filename,
-                        bool append,
-                        file_buffering&& buffering = file_buffering{});
 
-    template <typename T>
-    error write(span<T> buf, characters length);
-    template <typename T>
-    error write(span<T> buf, elements length);
-    template <typename T>
-    error write(span<T> buf, bytes length);
-    template <typename T>
-    error write(span<T> buf, bytes_contiguous length);
-    error write(CharT* c);
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf);
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf, characters length);
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf, elements length);
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf, bytes length);
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf, bytes_contiguous length);
+    error write(CharT c);
 
     error flush() noexcept;
 
-    constexpr bool is_valid() const
+    stdio_filehandle& get_file()
     {
-        return valid;
+        assert(m_file);
+        return *m_file;
+    }
+    const stdio_filehandle& get_file() const
+    {
+        assert(m_file);
+        return *m_file;
     }
 
 private:
     error get_error(quantity_type read_count, quantity_type expected) const;
 
-    file_wrapper m_file{};
+    stdio_filehandle* m_file{nullptr};
     file_buffering m_buffering{file_buffering{}};
-    bool valid{false};
 };
 
 template <typename T>
@@ -172,7 +174,8 @@ class span_writable_buffer {
 public:
     using span_type = span<T, Extent>;
     using value_type = typename span_type::value_type;
-    using size_type = typename span_type::size_type;
+    using size_type = typename span_type::index_type;
+    using difference_type = typename span_type::difference_type;
     using reference = value_type&;
     using const_reference = std::add_const_t<reference>;
 
@@ -244,6 +247,13 @@ public:
         ++m_it;
     }
 
+    constexpr void resize(std::size_t size)
+    {
+        if (size > max_size()) {
+            return;
+        }
+    }
+
 private:
     span<T, Extent> m_buf{};
     typename decltype(m_buf)::iterator m_it{};
@@ -271,15 +281,17 @@ public:
 
     constexpr basic_writable_buffer(buffer_type b = buffer_type{});
 
-    template <typename T>
-    error write(span<T> buf, characters length);
-    template <typename T>
-    error write(span<T> buf, elements length);
-    template <typename T>
-    error write(span<T> buf, bytes length);
-    template <typename T>
-    error write(span<T> buf, bytes_contiguous length);
-    error write(CharT* c);
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf);
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf, characters length);
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf, elements length);
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf, bytes length);
+    template <typename T, span_extent_type N>
+    error write(span<T, N> buf, bytes_contiguous length);
+    error write(CharT c);
 
     error flush() noexcept
     {
@@ -309,14 +321,8 @@ public:
         return std::move(m_buffer);
     }
 
-    constexpr bool is_valid() const
-    {
-        return valid;
-    }
-
 private:
     buffer_type m_buffer{};
-    bool valid{true};
 };
 
 using writable_file = basic_writable_file<char>;
@@ -338,8 +344,5 @@ using basic_writable_static_buffer =
 }  // namespace io
 
 #include "writable.impl.h"
-#if SPIO_HEADER_ONLY
-#include "writable.cpp"
-#endif
 
 #endif  // SPIO_WRITABLE_H
