@@ -116,7 +116,11 @@ public:
     {
         return m_handle != nullptr;
     }
+#if defined(__GNUC__) && __GNUC__ < 7
+    operator bool() const
+#else
     constexpr operator bool() const
+#endif
     {
         return good();
     }
