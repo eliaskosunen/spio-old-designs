@@ -41,7 +41,7 @@ struct custom_write {
     {
         SPIO_UNUSED(opt);
         const auto str = fmt::format("{}", val);
-        return w.write(str.c_str());
+        return w.write(make_span(str.c_str(), str.size()));
     }
 };
 #endif
@@ -52,9 +52,10 @@ struct custom_read<std::basic_string<CharT, Allocator>> {
     using type = std::basic_string<CharT, Allocator>;
 
     template <typename Reader>
-    static bool read(Reader& p, type& val, reader_options<type> opt) {
+    static bool read(Reader& p, type& val, reader_options<type> opt)
+    {
         SPIO_UNUSED(opt);
-        return p.read(make_span(val));
+        return p.read({val});
     }
 };
 
@@ -63,9 +64,11 @@ struct custom_write<std::basic_string<CharT, Allocator>> {
     using type = std::basic_string<CharT, Allocator>;
 
     template <typename Writer>
-    static bool write(Writer& p, const type& val, writer_options<type> opt) {
+    static bool write(Writer& p, const type& val, writer_options<type> opt)
+    {
         SPIO_UNUSED(opt);
-        return p.write(val.c_str());
+        return p.write(
+            make_span(val.c_str(), static_cast<span_extent_type>(val.size())));
     }
 };
 #endif

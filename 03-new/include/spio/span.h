@@ -43,10 +43,6 @@
 #include "stl.h"
 
 namespace io {
-// Forward declare to avoid inclusion and circular dependency of "span.h"
-template <typename InputIt>
-constexpr std::size_t distance_nonneg(InputIt first, InputIt last);
-
 using span_extent_type = std::ptrdiff_t;
 constexpr auto dynamic_extent = -1;
 
@@ -228,16 +224,16 @@ namespace detail {
     };
 
     template <class T>
-    struct is_std_array_oracle : std::false_type {
+    struct is_stl_array_oracle : std::false_type {
     };
 
     template <class ElementType, std::size_t Extent>
-    struct is_std_array_oracle<io::array<ElementType, Extent>>
+    struct is_stl_array_oracle<stl::array<ElementType, Extent>>
         : std::true_type {
     };
 
     template <class T>
-    struct is_std_array : public is_std_array_oracle<std::remove_cv_t<T>> {
+    struct is_stl_array : public is_stl_array_oracle<std::remove_cv_t<T>> {
     };
 }  // namespace detail
 
@@ -267,68 +263,65 @@ public:
 
         friend span_type;
 
-        constexpr iterator(const span_type& s) : m_span(s) {}
-        constexpr iterator(const span_type& s, index_type i) noexcept
-            : m_span(s), m_index(i)
+        constexpr iterator(span_type& s) : m_span(&s) {}
+        constexpr iterator(span_type& s, index_type i) noexcept
+            : m_span(&s), m_index(i)
         {
             assert(i >= 0 && i <= s.length());
         }
 
         constexpr reference operator*() noexcept
         {
-            return m_span[m_index];
+            return m_span->operator[](m_index);
         }
         constexpr pointer operator->() noexcept
         {
-            return m_span._at_ptr(m_index);
+            return m_span->_at_ptr(m_index);
         }
 
         constexpr pointer operator[](index_type idx) noexcept
         {
-            return m_span[idx];
+            return m_span->operator[](idx);
         }
 
         constexpr span_type& get_span() noexcept
         {
-            return m_span;
+            return *m_span;
         }
         constexpr const span_type& get_span() const noexcept
         {
-            return m_span;
+            return *m_span;
         }
         constexpr index_type get_index() const noexcept
         {
             return m_index;
         }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Weffc++"
         constexpr iterator& operator++() noexcept
         {
-            assert(m_index >= 0 && m_index < m_span.size());
+            assert(m_index >= 0 && m_index < m_span->size());
             ++m_index;
             return *this;
         }
         constexpr iterator& operator--() noexcept
         {
-            assert(m_index > 0 && m_index <= m_span.size());
+            assert(m_index > 0 && m_index <= m_span->size());
             --m_index;
             return *this;
         }
 
-        constexpr iterator operator++(int)noexcept
+        constexpr const iterator operator++(int)noexcept
         {
             auto ret = *this;
             ++(*this);
             return ret;
         }
-        constexpr iterator operator--(int)noexcept
+        constexpr const iterator operator--(int)noexcept
         {
             auto ret = *this;
             --(*this);
             return ret;
         }
-#pragma GCC diagnostic pop
 
         constexpr iterator operator+(difference_type n) const noexcept
         {
@@ -344,13 +337,13 @@ public:
         }
         constexpr iterator& operator+=(difference_type n) noexcept
         {
-            assert((m_index + n) >= 0 && (m_index + n) <= m_span.size());
+            assert((m_index + n) >= 0 && (m_index + n) <= m_span->size());
             m_index += n;
             return *this;
         }
         constexpr iterator& operator-=(difference_type n) noexcept
         {
-            return *this -= -n;
+            return *this += -n;
         }
 
         template <typename T>
@@ -358,12 +351,12 @@ public:
             const detail::span_iterator_base<T>& r) const
         {
             auto rhs = static_cast<const T&>(r);
-            assert(m_span.data() == rhs.m_span.data());
+            assert(m_span->data() == rhs.m_span->data());
             return static_cast<difference_type>(m_index - rhs.m_index);
         }
 
     private:
-        const span_type& m_span;
+        span_type* m_span;
         index_type m_index{0};
     };
 
@@ -380,64 +373,61 @@ public:
 
         friend span_type;
 
-        constexpr const_iterator(const span_type& s) : m_span(s) {}
+        constexpr const_iterator(const span_type& s) : m_span(&s) {}
         constexpr const_iterator(const span_type& s, index_type i) noexcept
-            : m_span(s), m_index(i)
+            : m_span(&s), m_index(i)
         {
             assert(i >= 0 && i <= s.length());
         }
 
         constexpr reference operator*() const noexcept
         {
-            return m_span[m_index];
+            return m_span->operator[](m_index);
         }
         constexpr pointer operator->() const noexcept
         {
-            return m_span._at_ptr(m_index);
+            return m_span->_at_ptr(m_index);
         }
 
         constexpr pointer operator[](index_type idx) const noexcept
         {
-            return m_span[idx];
+            return m_span->operator[](idx);
         }
 
         constexpr const span_type& get_span() const noexcept
         {
-            return m_span;
+            return *m_span;
         }
         constexpr index_type get_index() const noexcept
         {
             return m_index;
         }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Weffc++"
         constexpr const_iterator& operator++() noexcept
         {
-            assert(m_index >= 0 && m_index < m_span.size());
+            assert(m_index >= 0 && m_index < m_span->size());
             ++m_index;
             return *this;
         }
         constexpr const_iterator& operator--() noexcept
         {
-            assert(m_index > 0 && m_index <= m_span.size());
+            assert(m_index > 0 && m_index <= m_span->size());
             --m_index;
             return *this;
         }
 
-        constexpr const_iterator operator++(int)noexcept
+        constexpr const const_iterator operator++(int)noexcept
         {
             auto ret = *this;
             ++(*this);
             return ret;
         }
-        constexpr const_iterator operator--(int)noexcept
+        constexpr const const_iterator operator--(int)noexcept
         {
             auto ret = *this;
             --(*this);
             return ret;
         }
-#pragma GCC diagnostic pop
 
         constexpr const_iterator operator+(difference_type n) const noexcept
         {
@@ -453,7 +443,7 @@ public:
         }
         constexpr const_iterator& operator+=(difference_type n) noexcept
         {
-            assert((m_index + n) >= 0 && (m_index + n) <= m_span.size());
+            assert((m_index + n) >= 0 && (m_index + n) <= m_span->size());
             m_index += n;
             return *this;
         }
@@ -467,12 +457,12 @@ public:
             const detail::span_iterator_base<T>& r) const
         {
             auto rhs = static_cast<const T&>(r);
-            assert(m_span.data() == rhs.m_span.data());
+            assert(m_span->data() == rhs.m_span->data());
             return static_cast<difference_type>(m_index - rhs.m_index);
         }
 
     private:
-        const span_type& m_span;
+        const span_type* m_span;
         index_type m_index{0};
     };
 
@@ -494,28 +484,44 @@ public:
         assert(Extent == dynamic_extent || count == Extent);
     }
     constexpr span(pointer firstElem, pointer lastElem)
-        : m_storage(firstElem, distance(firstElem, lastElem))
+        : m_storage(firstElem, stl::distance(firstElem, lastElem))
     {
         assert(Extent == dynamic_extent || size() == Extent);
     }
+    template <typename InputIt,
+              typename = decltype(*std::declval<InputIt&>(),
+                                  ++std::declval<InputIt&>(),
+                                  void())>
+    constexpr span(InputIt first, InputIt last)
+        : span(&*first, stl::distance(first, last))
+    {
+    }
     template <
         size_t N,
-        typename = std::enable_if_t<Extent == dynamic_extent || N == Extent>>
-    constexpr span(element_type (&arr)[N]) noexcept
+        typename = std::enable_if_t<(Extent == dynamic_extent || N == Extent) &&
+                                    !std::is_const<element_type>::value>>
+    constexpr span(value_type (&arr)[N]) noexcept
+        : m_storage(std::addressof(arr[0]), N)
+    {
+    }
+    template <
+        size_t N,
+        typename = std::enable_if_t<(Extent == dynamic_extent || N == Extent)>>
+    constexpr span(const value_type (&arr)[N]) noexcept
         : m_storage(std::addressof(arr[0]), N)
     {
     }
 
     template <std::size_t N,
               typename ArrayElement = std::remove_const_t<element_type>>
-    constexpr span(array<ArrayElement, N>& arr) noexcept
+    constexpr span(stl::array<ArrayElement, N>& arr) noexcept
         : m_storage(std::addressof(arr[0]), N)
     {
     }
 
     template <std::size_t N>
     constexpr span(
-        const array<std::remove_const_t<element_type>, N>& arr) noexcept
+        const stl::array<std::remove_const_t<element_type>, N>& arr) noexcept
         : m_storage(std::addressof(arr[0]), N)
     {
     }
@@ -524,7 +530,7 @@ public:
         typename Container,
         typename = std::enable_if_t<
             !detail::is_span<Container>::value &&
-            !detail::is_std_array<Container>::value &&
+            !detail::is_stl_array<Container>::value &&
             std::is_convertible<typename Container::pointer, pointer>::value &&
             std::is_convertible<
                 typename Container::pointer,
@@ -749,6 +755,10 @@ span(Container& c)->span<typename Container::value_type>;
 
 template <typename Container>
 span(const Container& c)->span<typename Container::value_type>;
+
+template <typename ElementType, std::size_t N>
+span(ElementType (&arr)[N])
+    ->span<ElementType, static_cast<span_extent_type>(N)>;
 #endif
 
 template <typename Element,
@@ -778,6 +788,16 @@ constexpr auto make_span(const Element* first, const Element* last)
     return span<const Element>(first, last);
 }
 
+template <typename InputIt,
+          typename = decltype(*std::declval<InputIt&>(),
+                              ++std::declval<InputIt&>(),
+                              void())>
+constexpr auto make_span(InputIt first, InputIt last)
+{
+    return span<typename std::iterator_traits<InputIt>::value_type>(first,
+                                                                    last);
+}
+
 template <typename Element,
           std::size_t N,
           typename = std::enable_if_t<N != 0 && !std::is_const<Element>::value>>
@@ -798,7 +818,8 @@ template <typename Container,
               !std::is_const<Container>::value>>
 constexpr auto make_span(Container& c)
 {
-    return span<typename Container::value_type>(&*c.begin(), &*c.end());
+    return span<typename Container::value_type>(&*c.begin(),
+                                                &*(c.end() - 1) + 1);
 }
 
 template <typename Container>
@@ -815,8 +836,7 @@ constexpr auto make_span(Element* ptr)
     return span<Element, N>(ptr, N);
 }
 
-template <span_extent_type N,
-          typename Element>
+template <span_extent_type N, typename Element>
 constexpr auto make_span(const Element* ptr)
 {
     return span<const Element, N>(ptr, N);
@@ -824,16 +844,19 @@ constexpr auto make_span(const Element* ptr)
 
 template <span_extent_type N,
           typename Container,
-          typename = std::enable_if_t<!std::is_const<typename Container::value_type>::value>>
+          typename = std::enable_if_t<
+              !std::is_const<typename Container::value_type>::value &&
+              !std::is_const<Container>::value>>
 constexpr auto make_span(Container& c)
 {
+    assert(stl::distance(c.begin(), c.end()) >= N);
     return span<typename Container::value_type, N>(&*c.begin(), N);
 }
 
-template <span_extent_type N,
-          typename Container>
+template <span_extent_type N, typename Container>
 constexpr auto make_span(const Container& c)
 {
+    assert(stl::distance(c.begin(), c.end()) >= N);
     return span<const typename Container::value_type, N>(&*c.begin(), N);
 }
 
@@ -843,26 +866,69 @@ namespace detail {
 #else
     using span_as_bytes_type = unsigned char;
 #endif
+}  // namespace detail
+
+#ifdef _MSC_VER
+template <typename ElementType, span_extent_type N>
+inline constexpr span<const detail::span_as_bytes_type> as_bytes(
+    span<ElementType, N> s) noexcept
+{
+    return {reinterpret_cast<const detail::span_as_bytes_type*>(s.data()),
+            static_cast<span_extent_type>(sizeof(ElementType)) * s.size()};
+}
+template <typename ElementType,
+          span_extent_type N,
+          typename = std::enable_if_t<!std::is_const<ElementType>::value>>
+inline constexpr span<detail::span_as_bytes_type> as_writable_bytes(
+    span<ElementType, N> s) noexcept
+{
+    return {reinterpret_cast<detail::span_as_bytes_type*>(s.data()),
+            static_cast<span_extent_type>(sizeof(ElementType)) * s.size()};
 }
 
+template <typename ElementFrom,
+          typename ElementTo,
+          span_extent_type ExtentFrom,
+          span_extent_type ExtentTo>
+void copy_contiguous(span<ElementFrom, ExtentFrom> from,
+                     span<ElementTo, ExtentTo> to)
+{
+    assert(from.size_bytes() <= to.size_bytes());
+
+#if SPIO_HAS_IF_CONSTEXPR
+    if constexpr (sizeof(ElementFrom) == sizeof(ElementTo))
+#else
+    if (sizeof(ElementFrom) == sizeof(ElementTo))
+#endif
+    {
+        stl::copy(from.begin(), from.end(), to.begin());
+        return;
+    }
+    else {
+        auto from_bytes = as_bytes(from);
+        auto to_bytes = as_writable_bytes(to);
+        stl::copy(from_bytes.begin(), from_bytes.end(), to_bytes.begin());
+    }
+}
+
+#else
 template <typename ElementType, span_extent_type Extent>
-inline span<const detail::span_as_bytes_type,
-            (Extent == dynamic_extent)
-                ? dynamic_extent
-                : (span_extent_type{sizeof(ElementType)} * Extent)>
+inline constexpr span<const detail::span_as_bytes_type,
+                      (Extent == dynamic_extent)
+                          ? dynamic_extent
+                          : (span_extent_type{sizeof(ElementType)} * Extent)>
 as_bytes(span<ElementType, Extent> s) noexcept
 {
     return {reinterpret_cast<const detail::span_as_bytes_type*>(s.data()),
             span_extent_type{sizeof(ElementType)} * s.size()};
 }
-
 template <typename ElementType,
           span_extent_type Extent,
           typename = std::enable_if_t<!std::is_const<ElementType>::value>>
-inline span<detail::span_as_bytes_type,
-            (Extent == dynamic_extent)
-                ? dynamic_extent
-                : (span_extent_type{sizeof(ElementType)} * Extent)>
+inline constexpr span<detail::span_as_bytes_type,
+                      (Extent == dynamic_extent)
+                          ? dynamic_extent
+                          : (span_extent_type{sizeof(ElementType)} * Extent)>
 as_writable_bytes(span<ElementType, Extent> s) noexcept
 {
     return {reinterpret_cast<detail::span_as_bytes_type*>(s.data()),
@@ -882,19 +948,23 @@ void copy_contiguous(span<ElementFrom, ExtentFrom> from,
     assert(from.size_bytes() <= to.size_bytes());
 
 #if SPIO_HAS_IF_CONSTEXPR
-    if constexpr (sizeof(ElementFrom) == sizeof(ElementTo)) {
+    if constexpr (sizeof(ElementFrom) == sizeof(ElementTo))
 #else
-    if (sizeof(ElementFrom) == sizeof(ElementTo)) {
+    if (sizeof(ElementFrom) == sizeof(ElementTo))
 #endif
-        copy(from.begin(), from.end(), to.begin());
+    {
+        stl::copy(from.begin(), from.end(), to.begin());
         return;
     }
     else {
         auto from_bytes = as_bytes(from);
         auto to_bytes = as_writable_bytes(to);
-        copy(from_bytes.begin(), from_bytes.end(), to_bytes.begin());
+        stl::copy(from_bytes.begin(), from_bytes.end(), to_bytes.begin());
     }
-}  // namespace io
+}
+#endif
+
+// namespace io
 }  // namespace io
 
 namespace std {

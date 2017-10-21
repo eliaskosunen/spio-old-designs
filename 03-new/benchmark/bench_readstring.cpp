@@ -50,17 +50,19 @@ static void readstring_spio(benchmark::State& state)
 {
     try {
         std::string str(64, '\0');
-        auto s = io::make_span(&*str.begin(), &*(str.end() - 1));
+        auto s = io::make_span<63>(str);
         while (state.KeepRunning()) {
             state.PauseTiming();
             std::string data =
                 generate_string(static_cast<size_t>(state.range(0)));
             state.ResumeTiming();
 
-            io::buffer_instream p{io::make_span(data)};
+            /* io::buffer_instream p{io::make_span(data)}; */
             /* io::readable_buffer r(io::make_span(data)); */
             /* io::basic_instream<decltype(r)> p(r); */
-            while (!p.eof() && p.read(s)) {
+            io::readable_buffer buf{io::make_span(data)};
+            io::buffer_instream p{std::move(buf)};
+            while (p.read(s)) {
             }
         }
         state.SetBytesProcessed(state.iterations() *

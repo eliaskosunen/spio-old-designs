@@ -27,9 +27,10 @@
 #define FMT_HEADER_ONLY
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wswitch-enum"
-#pragma GCC diagnostic ignored "-Weffc++"
+#endif
 
 #if SPIO_USE_FMT
 #include "fmt/fmt/format.h"
@@ -38,6 +39,9 @@
 #if SPIO_USE_FMT_OSTREAM
 #include "fmt/fmt/ostream.h"
 #endif
+
+#if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
+#endif
 
 #endif  // SPIO_FMT_H

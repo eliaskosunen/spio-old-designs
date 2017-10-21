@@ -45,15 +45,16 @@ template <typename CharT>
 constexpr bool is_space(CharT c, span<CharT> spaces)
 {
     if (spaces.empty()) {
-        auto arr =
-            array<CharT, 5>{{static_cast<CharT>(' '), static_cast<CharT>('\n'),
-                             static_cast<CharT>('\t'), static_cast<CharT>('\r'),
-                             static_cast<CharT>('\v')}};
+        auto arr = stl::array<CharT, 5>{
+            {static_cast<CharT>(' '), static_cast<CharT>('\n'),
+             static_cast<CharT>('\t'), static_cast<CharT>('\r'),
+             static_cast<CharT>('\v')}};
         return is_space(c, make_span(arr));
     }
     for (auto& s : spaces) {
-        if (c == s)
+        if (c == s) {
             return true;
+        }
     }
     return false;
 }
@@ -62,7 +63,6 @@ template <typename CharT>
 constexpr bool is_digit(CharT c, int base)
 {
     assert(base >= 2 && base <= 36);
-    assert(c >= '0');
     if (base <= 10) {
         return c >= '0' && c <= '0' + (base - 1);
     }
@@ -95,9 +95,15 @@ namespace detail {
     {
         {
             IntT sign{0};
-            if ((sign = n) < 0) /* record sign */
+
+#if SPIO_HAS_IF_CONSTEXPR
+            if constexpr (std::is_signed<IntT>::value)
+#endif
             {
-                n = -n; /* make n positive */
+                if ((sign = n) < 0) /* record sign */
+                {
+                    n = -n; /* make n positive */
+                }
             }
 
             IntT i = 0;
@@ -126,6 +132,7 @@ namespace detail {
                 }
                 return i;
             }
+
         };
         auto reverse = [&len](CharT* str) {
             for (std::size_t i = 0, j = len(str) - 1; i < j; i++, j--) {
@@ -156,7 +163,7 @@ constexpr int max_digits() noexcept
         i /= 10;
         digits++;
     }
-#if SPIO_HAS_IF_CONSTEXPR
+#if SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V
     if constexpr (std::is_signed_v<IntT>) {
 #else
     if (std::is_signed<IntT>::value) {
@@ -169,23 +176,33 @@ constexpr int max_digits() noexcept
 }
 
 namespace detail {
+    template <typename A, typename B>
+    static constexpr bool is_same()
+    {
+#if SPIO_HAS_TYPE_TRAITS_V
+        return std::is_same_v<A, B>;
+#else
+        return std::is_same<A, B>::value;
+#endif
+    }
+
 #if SPIO_HAS_IF_CONSTEXPR
     template <typename FloatingT>
     static constexpr auto powersOf10()
     {
         using T = std::decay_t<FloatingT>;
-        if constexpr (std::is_same_v<T, float>) {
-            return array<float, 6>{
+        if constexpr (is_same<T, float>()) {
+            return stl::array<float, 6>{
                 {10.f, 100.f, 1.0e4f, 1.0e8f, 1.0e16f, 1.0e32f}};
         }
-        else if constexpr (std::is_same_v<T, double>) {
-            return array<double, 9>{{10., 100., 1.0e4, 1.0e8, 1.0e16, 1.0e32,
-                                     1.0e64, 1.0e128, 1.0e256}};
+        if constexpr (is_same<T, double>()) {
+            return stl::array<double, 9>{{10., 100., 1.0e4, 1.0e8, 1.0e16,
+                                          1.0e32, 1.0e64, 1.0e128, 1.0e256}};
         }
         else {
-            return array<long double, 11>{{10.l, 100.l, 1.0e4l, 1.0e8l, 1.0e16l,
-                                           1.0e32l, 1.0e64l, 1.0e128l, 1.0e256l,
-                                           1.0e512l, 1.0e1024l}};
+            return stl::array<long double, 11>{
+                {10.l, 100.l, 1.0e4l, 1.0e8l, 1.0e16l, 1.0e32l, 1.0e64l,
+                 1.0e128l, 1.0e256l, 1.0e512l, 1.0e1024l}};
         }
     }
 
@@ -193,10 +210,10 @@ namespace detail {
     static constexpr auto maxExponent()
     {
         using T = std::decay_t<FloatingT>;
-        if constexpr (std::is_same_v<T, float>) {
+        if constexpr (is_same<T, float>()) {
             return 63;
         }
-        else if constexpr (std::is_same_v<T, double>) {
+        if constexpr (is_same<T, double>()) {
             return 511;
         }
         else {
@@ -207,20 +224,27 @@ namespace detail {
     template <typename FloatingT>
     constexpr auto powersOf10()
     {
-        return array<long double, 11>{{10.l, 100.l, 1.0e4l, 1.0e8l, 1.0e16l,
-                                       1.0e32l, 1.0e64l, 1.0e128l, 1.0e256l,
-                                       1.0e512l, 1.0e1024l}};
+#ifdef _MSC_VER
+        return stl::array<long double, 11>{{10.l, 100.l, 1.0e4l, 1.0e8l,
+                                            1.0e16l, 1.0e32l, 1.0e64l, 1.0e128l,
+                                            1.0e256l}};
+#else
+        return stl::array<long double, 11>{{10.l, 100.l, 1.0e4l, 1.0e8l,
+                                            1.0e16l, 1.0e32l, 1.0e64l, 1.0e128l,
+                                            1.0e256l, 1.0e512l, 1.0e1024l}};
+#endif
     }
     template <>
     constexpr auto powersOf10<float>()
     {
-        return array<float, 6>{{10.f, 100.f, 1.0e4f, 1.0e8f, 1.0e16f, 1.0e32f}};
+        return stl::array<float, 6>{
+            {10.f, 100.f, 1.0e4f, 1.0e8f, 1.0e16f, 1.0e32f}};
     }
     template <>
     constexpr auto powersOf10<double>()
     {
-        return array<double, 9>{{10., 100., 1.0e4, 1.0e8, 1.0e16, 1.0e32,
-                                 1.0e64, 1.0e128, 1.0e256}};
+        return stl::array<double, 9>{{10., 100., 1.0e4, 1.0e8, 1.0e16, 1.0e32,
+                                      1.0e64, 1.0e128, 1.0e256}};
     }
 
     template <typename FloatingT>

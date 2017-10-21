@@ -91,7 +91,7 @@ class failure : public std::exception {
 public:
     explicit failure(error e) : failure(e, e.to_string()) {}
     explicit failure(error e, const char* message)
-        : exception(), m_error(e), m_message(strlen(message) + 1)
+        : m_error(e), m_message(strlen(message) + 1)
     {
         strcpy(&m_message[0], message);
     }
@@ -108,7 +108,7 @@ public:
 
 private:
     error m_error;
-    vector<char> m_message;
+    stl::vector<char> m_message;
 };
 
 #define SPIO_THROW_EC(ec) throw ::io::failure(ec, ::io::error(ec).to_string())
@@ -116,8 +116,12 @@ private:
 #else
 class failure {
 };
-#define SPIO_THROW_EC(ec) assert(false && ec.to_string())
-#define SPIO_THROW(ec, msg) assert(false && (msg))
+#define SPIO_THROW_EC(ec)            \
+    assert(false && ec.to_string()); \
+    std::terminate();
+#define SPIO_THROW(ec, msg) \
+    assert(false && (msg)); \
+    std::terminate();
 #endif
 
 #if SPIO_THROW_ON_ASSERT

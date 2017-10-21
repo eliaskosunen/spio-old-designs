@@ -21,6 +21,7 @@
 #ifndef SPIO_UTIL_H
 #define SPIO_UTIL_H
 
+#include <cstdio>
 #include <cstring>
 #include <limits>
 #include "config.h"
@@ -29,38 +30,42 @@
 #include "stl.h"
 
 namespace io {
+namespace detail {
+    using std_file = std::FILE;
+}  // namespace detail
+
 class stdio_filehandle {
-    static std::FILE* s_open(const char* filename, const char* mode)
+    static detail::std_file* s_open(const char* filename, const char* mode)
     {
         return std::fopen(filename, mode);
     }
-    static std::FILE* s_open(const char* filename, uint32_t mode)
+    static detail::std_file* s_open(const char* filename, uint32_t mode)
     {
-        bool r = mode & READ;
-        bool a = mode & APPEND;
-        bool e = mode & EXTENDED;
-        bool b = mode & BINARY;
+        bool r = (mode & READ) != 0;
+        bool a = (mode & APPEND) != 0;
+        bool e = (mode & EXTENDED) != 0;
+        bool b = (mode & BINARY) != 0;
 
-        vector<char> str{};
-        str.reserve(4);
+        stl::array<char, 4> str{};
+        auto it = str.begin();
 
         if (r) {
-            str.push_back('r');
+            *it++ = 'r';
         }
         else if (a) {
-            str.push_back('a');
+            *it++ = 'a';
         }
         else {
-            str.push_back('w');
+            *it++ = 'w';
         }
 
         if (b) {
-            str.push_back('b');
+            *it++ = 'b';
         }
         if (e) {
-            str.push_back('+');
+            *it++ = '+';
         }
-        str.push_back('\0');
+        *it = '\0';
 
         return s_open(filename, &str[0]);
     }
@@ -75,7 +80,7 @@ public:
     };
 
     stdio_filehandle() = default;
-    stdio_filehandle(std::FILE* ptr) : m_handle(ptr) {}
+    stdio_filehandle(detail::std_file* ptr) : m_handle(ptr) {}
     stdio_filehandle(const char* filename, const char* mode)
         : m_handle(s_open(filename, mode))
     {
@@ -84,7 +89,6 @@ public:
         : m_handle(s_open(filename, mode))
     {
     }
-
 
     stdio_filehandle(const stdio_filehandle&) = default;
     stdio_filehandle& operator=(const stdio_filehandle&) = default;
@@ -153,7 +157,7 @@ public:
     }
 
 private:
-    std::FILE* m_handle{nullptr};
+    detail::std_file* m_handle{nullptr};
 };
 
 struct owned_stdio_filehandle {
@@ -171,21 +175,26 @@ public:
     owned_stdio_filehandle(const owned_stdio_filehandle&) = delete;
     owned_stdio_filehandle& operator=(const owned_stdio_filehandle&) = delete;
     owned_stdio_filehandle(owned_stdio_filehandle&&) noexcept = default;
-    owned_stdio_filehandle& operator=(owned_stdio_filehandle&&) noexcept = default;
-    ~owned_stdio_filehandle() noexcept {
-        if(m_file) {
+    owned_stdio_filehandle& operator=(owned_stdio_filehandle&&) noexcept =
+        default;
+    ~owned_stdio_filehandle() noexcept
+    {
+        if (m_file) {
             m_file.close();
         }
     }
 
-    bool open(const char* filename, const char* mode) {
+    bool open(const char* filename, const char* mode)
+    {
         return m_file.open(filename, mode);
     }
-    bool open(const char* filename, uint32_t mode) {
+    bool open(const char* filename, uint32_t mode)
+    {
         return m_file.open(filename, mode);
     }
 
-    void close() {
+    void close()
+    {
         return m_file.close();
     }
 
@@ -198,7 +207,8 @@ public:
         return m_file.operator bool();
     }
 
-    stdio_filehandle* get() {
+    stdio_filehandle* get()
+    {
         return &m_file;
     }
 
@@ -214,7 +224,7 @@ constexpr std::size_t distance_nonneg(InputIt first, InputIt last);
 
 using quantity_type = span_extent_type;
 namespace detail {
-#if !SPIO_HAS_IF_CONSTEXPR
+#if !(SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V)
     template <bool Signed>
     struct quantity_base_signed {
         constexpr quantity_base_signed(quantity_type n) : m_n(n) {}
@@ -276,7 +286,7 @@ namespace detail {
             return m_n;
         }
 
-#if SPIO_HAS_IF_CONSTEXPR
+#if SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V
         constexpr auto get_signed() const noexcept
         {
             if constexpr (std::is_signed_v<quantity_type>) {
@@ -313,32 +323,22 @@ struct bytes_contiguous : detail::quantity_base {
     using quantity_base::quantity_base;
 };
 
-#if SPIO_HAS_LOGICAL_TRAITS
-template <typename... B>
-using disjunction = std::disjunction<B...>;
-#else
-template <typename...>
-struct disjunction : std::false_type {
-};
-template <typename B1>
-struct disjunction<B1> : B1 {
-};
-template <typename B1, typename... Bn>
-struct disjunction<B1, Bn...>
-    : std::conditional_t<bool(B1::value), B1, disjunction<Bn...>> {
-};
-#endif
-
-template <typename T, typename... Ts>
-struct contains : disjunction<std::is_same<T, Ts>...> {
-};
-
 namespace detail {
     template <typename T, std::size_t N = 0, typename Enable = void>
     struct string_tag : std::false_type {
         using type = T;
         static constexpr auto size = N;
     };
+
+#if 0
+	template <typename T>
+	struct string_tag<
+		T(&)[], 0, std::enable_if_t<std::is_array<T>::value && !std::is_const<T>::value && contains<std::decay_t<T>, char, wchar_t, char16_t, char32_t>::value>
+	> : std::false_type {
+		using type = T(&)[];
+		static constexpr auto size = 0;
+	};
+#endif
 
     template <typename T, std::size_t N>
     struct string_tag<
@@ -351,6 +351,23 @@ namespace detail {
         using pointer = const T*;
         using char_type = std::decay_t<T>;
         static constexpr auto size = N;
+
+        static constexpr pointer make_pointer(type v)
+        {
+            return &v[0];
+        }
+    };
+    template <typename T>
+    struct string_tag<
+        const T (&)[],
+        0,
+        std::enable_if_t<
+            contains<std::decay_t<T>, char, wchar_t, char16_t, char32_t>::
+                value>> : std::true_type {
+        using type = const T*;
+        using pointer = const T*;
+        using char_type = std::decay_t<T>;
+        static constexpr auto size = 0;
 
         static constexpr pointer make_pointer(type v)
         {
@@ -403,7 +420,7 @@ template <typename IntT, typename CharT>
 constexpr IntT char_to_int(CharT c, int base = 10);
 
 template <typename CharT, typename IntT>
-constexpr void int_to_char(IntT i, span<CharT> result, int base = 10);
+constexpr void int_to_char(IntT value, span<CharT> result, int base = 10);
 
 template <typename IntT>
 constexpr int max_digits() noexcept;

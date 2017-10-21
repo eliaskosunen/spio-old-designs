@@ -55,12 +55,16 @@ static void readint_spio(benchmark::State& state)
             io::buffer_instream p{io::make_span(data)};
             /* io::readable_buffer r(io::make_span(data)); */
             /* io::basic_instream<decltype(r)> p(r); */
+            /* io::readable_buffer buf{io::make_span(data)}; */
+            /* io::buffer_instream p{std::move(buf)}; */
             T num;
-            while (!p.eof() && p.read(num)) {
+            while (!p.eof()) {
+                p.read(num);
             }
         }
         state.SetBytesProcessed(state.iterations() *
-                                static_cast<size_t>(state.range(0)) * sizeof(T));
+                                static_cast<size_t>(state.range(0)) *
+                                sizeof(T));
     }
     catch (const io::failure& f) {
         state.SkipWithError(f.what());
