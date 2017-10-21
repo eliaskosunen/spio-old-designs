@@ -28,9 +28,7 @@ TEST_CASE("span")
     {
         std::array<int, 10> a{{0}};
         std::iota(a.begin(), a.end(), 0);
-        io::span<decltype(a)::value_type,
-                 static_cast<io::span_extent_type>(a.size())>
-            s(a.begin(), a.end());
+		io::span<int, 10> s(&*a.begin(), &*a.begin() + 10);
         io::span<decltype(a)::value_type,
                  static_cast<io::span_extent_type>(a.size())>
             s2(&a[0], static_cast<io::span_extent_type>(a.size()));
@@ -51,8 +49,8 @@ TEST_CASE("span")
         std::fill(a.begin(), a.end() - 1, 0xffff);
         a[9] = 0;
         std::array<uint32_t, 5> b{{0}};
-        io::span<uint16_t, 10> sa{a.begin(), a.end()};
-        io::span<uint32_t, 5> sb{b.begin(), b.end()};
+        io::span<uint16_t, 10> sa{&*a.begin(), &*a.begin() + 10};
+        io::span<uint32_t, 5> sb{&*b.begin(), &*b.begin() + 5};
         io::copy_contiguous(sa, sb);
         CHECK(b[0] == 0xffffffff);
         CHECK(b[3] == 0xffffffff);

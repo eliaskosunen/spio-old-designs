@@ -33,7 +33,7 @@ public:
     using readable_type = Readable;
     using char_type = typename readable_type::value_type;
 
-    basic_instream(readable_type r) : m_readable(std::move(r)) {}
+    explicit basic_instream(readable_type r) : m_readable(std::move(r)) {}
 
     basic_instream(const basic_instream&) = delete;
     basic_instream& operator=(const basic_instream&) = delete;
@@ -82,7 +82,7 @@ public:
         return *this;
     }
 
-    virtual basic_instream& get(char_type& ch)
+    basic_instream& get(char_type& ch)
     {
         return read_raw(ch);
     }
@@ -100,7 +100,8 @@ public:
         SPIO_ASSERT(sizeof(ElementT) * count % sizeof(char_type) == 0,
                     "sizeof(ElementT) * count must be divisible by "
                     "sizeof(char_type) in reader::ignore");
-        vector<char_type> arr(sizeof(ElementT) * count / sizeof(char_type));
+        stl::vector<char_type> arr(sizeof(ElementT) * count /
+                                   sizeof(char_type));
         return read_raw(make_span(arr));
     }
     template <typename Element = char_type>
@@ -108,10 +109,7 @@ public:
     {
         char_type ch{};
         for (std::size_t i = 0; i < count; ++i) {
-            if (!get(ch)) {
-                return false;
-            }
-            if (ch == delim) {
+            if (!get(ch) || ch == delim) {
                 break;
             }
         }
@@ -120,8 +118,10 @@ public:
 
     template <typename T>
     void push(T elem);
+    template <typename T, span_extent_type N>
+    void push(span<T, N> elems);
 
-    virtual bool eof() const
+    bool eof() const
     {
         return m_eof;
     }
@@ -154,14 +154,14 @@ protected:
     error _read(span<T, N> s, elements length);
 
     readable_type m_readable{};
-    vector<char> m_buffer{};
+    stl::vector<char> m_buffer{};
     bool m_eof{false};
 };
 
-#if SPIO_HAS_DEDUCTION_GUIDES
-template <typename Readable>
-basic_instream(Readable& r)->basic_instream<Readable>;
-#endif
+/* #if SPIO_HAS_DEDUCTION_GUIDES */
+/* template <typename Readable> */
+/* basic_instream(Readable& r)->basic_instream<Readable>; */
+/* #endif */
 
 template <typename CharT>
 class basic_file_instream : public basic_instream<basic_readable_file<CharT>> {
@@ -171,10 +171,12 @@ public:
     using readable_type = typename base_type::readable_type;
     using char_type = typename base_type::char_type;
 
-    using basic_instream<basic_readable_file<CharT>>::basic_instream;
     basic_file_instream() : base_type(readable_type{}) {}
-    basic_file_instream(stdio_filehandle file)
-        : base_type({}), m_file(std::move(file))
+    explicit basic_file_instream(readable_type r)
+        : base_type(std::move(r)), m_file(base_type::m_readable.get_file())
+    {
+    }
+    basic_file_instream(stdio_filehandle file) : base_type({}), m_file(file)
     {
         base_type::m_readable = readable_type{&m_file};
     }
@@ -193,9 +195,12 @@ public:
     using char_type = typename base_type::char_type;
     using buffer_type = typename readable_type::buffer_type;
 
-    using basic_instream<basic_readable_buffer<CharT>>::basic_instream;
     basic_buffer_instream() : base_type(readable_type{}) {}
-    basic_buffer_instream(buffer_type b) : base_type(b) {}
+    explicit basic_buffer_instream(readable_type r) : base_type(std::move(r)) {}
+    basic_buffer_instream(buffer_type b)
+        : basic_buffer_instream(readable_type{std::move(b)})
+    {
+    }
 };
 
 template <typename CharT>

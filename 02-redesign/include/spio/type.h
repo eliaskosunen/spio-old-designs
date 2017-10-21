@@ -86,31 +86,40 @@ struct type<T,
         span<char_type> s =
             make_span(reinterpret_cast<char_type*>(&val[0]),
                       val.size_bytes() / quantity_type{sizeof(char_type)});
-        {
-            auto it = s.begin();
-            while (it != s.end()) {
-                char_type c{};
-                if (p.eof()) {
-                    break;
-                }
-                if (!p.read(c)) {
-                    if (!is_space(c, opt.spaces)) {
-                        *it = c;
-                    }
-                    ++it;
-                    break;
-                }
-                if (is_space(c, opt.spaces)) {
-                    if (it == s.begin()) {
-                        continue;
-                    }
-                    break;
-                }
-                *it = c;
-                ++it;
+
+        char_type ch{};
+        while (p.get(ch)) {
+            if (!is_space(ch, opt.spaces)) {
+                p.push(ch);
+                break;
             }
-            if (it != s.end()) {
-                *it = '\0';
+        }
+
+        stl::vector<char_type> str(s.size_us(), '\0');
+        auto strspan = make_span(str);
+        p.read_raw(strspan);
+        auto end = [&]() {
+            for (std::ptrdiff_t i = 0; i < strspan.size(); ++i) {
+                if (is_space(strspan[i], opt.spaces)) {
+                    return i;
+                }
+            }
+            return strspan.size();
+        }();
+        auto bytespan =
+            as_bytes(make_span(&*strspan.begin(), &*strspan.begin() + end));
+        copy_contiguous(bytespan, as_writable_bytes(s));
+        if (end + 1 < strspan.size()) {
+#if SPIO_HAS_IF_CONSTEXPR
+        /* if constexpr (Reader::readable_type::is_trivially_rewindable) { */
+        /*     p.get_readable().rewind( */
+        /*         stl::distance(strspan.begin() + end + 1, strspan.end())); */
+        /* } */
+        /* else */
+#endif
+            {
+                p.push(make_span(&*strspan.begin() + end + 1,
+                                 &*strspan.begin() + strspan.size()));
             }
         }
         return !p.eof();
@@ -144,15 +153,14 @@ struct type<detail::string_tag<T, N>> {
         if constexpr (N != 0) {
             return w.write(make_span<N>(ptr));
         }
-        else {
-#else
-        {
+        else
 #endif
+        {
             const auto len = [&]() -> span_extent_type {
                 if (N != 0) {
                     return N;
                 }
-                else if (sizeof(T) == 1) {
+                if (sizeof(T) == 1) {
                     return static_cast<span_extent_type>(strlen(ptr));
                 }
                 else {
@@ -185,54 +193,77 @@ struct type<T,
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
         using char_type = typename Reader::char_type;
-        char_type c{};
-        p.read(c);
-        if (is_space(c)) {
-            if (p.eof()) {
-                return false;
-            }
-            return p.read(val);
-        }
+        constexpr auto n = max_digits<std::remove_reference_t<T>>() + 1;
+        stl::array<char_type, n> buf{};
+        buf.fill(0);
+        p.read(make_span<n>(buf));
 
         T tmp = 0;
-        const bool sign = [&]() {
+        auto it = buf.begin();
+        if (is_space(*it)) {
 #if SPIO_HAS_IF_CONSTEXPR
+        /* if constexpr (Reader::readable_type::is_trivially_rewindable) { */
+        /*     p.get_readable().rewind(stl::distance(it + 1, buf.end())); */
+        /* } */
+        /* else */
+#endif
+            {
+                p.push(make_span(it + 1, buf.end()));
+            }
+            return !p.eof();
+        }
+        const bool sign = [&]() {
+#if SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V
             if constexpr (std::is_unsigned_v<T>) {
 #else
             if (std::is_unsigned<T>::value) {
 #endif
-                if (c == '-') {
+                if (*it == '-') {
                     SPIO_THROW(
                         invalid_input,
                         "Cannot read a signed integer into an unsigned value");
                 }
             }
             else {
-                if (c == '-')
+                if (*it == '-') {
                     return false;
+                }
             }
-            if (c == '+')
+            if (*it == '+') {
                 return true;
-            if (is_digit(c, opt.base)) {
+            }
+            if (is_digit(*it, opt.base)) {
                 tmp = tmp * static_cast<T>(opt.base) -
-                      char_to_int<T>(c, opt.base);
+                      char_to_int<T>(*it, opt.base);
                 return true;
             }
             SPIO_THROW(invalid_input, "Invalid first character in integer");
         }();
-        while (!p.eof()) {
-            p.read(c);
-            if (is_digit(c, opt.base)) {
+        ++it;
+
+        for (; it != buf.end(); ++it) {
+            if (is_digit(*it, opt.base)) {
                 tmp = tmp * static_cast<T>(opt.base) -
-                      char_to_int<T>(c, opt.base);
+                      char_to_int<T>(*it, opt.base);
             }
             else {
                 break;
             }
         }
-        if (sign)
+        if (sign) {
             tmp = -tmp;
+        }
         val = tmp;
+        /* #if SPIO_HAS_IF_CONSTEXPR */
+        /*         if constexpr (Reader::readable_type::is_trivially_rewindable)
+         * { */
+        /*             p.get_readable().rewind(stl::distance(it, buf.end())); */
+        /*         } */
+        /*         else */
+        /* #endif */
+        {
+            p.push(make_span(&*it, &*buf.begin() + buf.size()));
+        }
         return !p.eof();
     }
 
@@ -240,22 +271,24 @@ struct type<T,
     static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
         using char_type = typename Writer::char_type;
-        array<char_type, max_digits<std::remove_reference_t<T>>() + 1> buf{};
+        constexpr auto n = max_digits<std::remove_reference_t<T>>() + 1;
+        stl::array<char_type, n> buf{};
         buf.fill(char_type{0});
-        auto s = make_span(buf);
+        auto s = make_span<n>(buf);
         int_to_char<char_type>(val, s, opt.base);
-        const auto len = distance(s.begin(), find(s.begin(), s.end(), '\0'));
+        const auto len =
+            stl::distance(s.begin(), stl::find(s.begin(), s.end(), '\0'));
         return w.write(s.first(len).as_const_span());
     }
-};
+};  // namespace io
 
 namespace detail {
 #if SPIO_HAS_IF_CONSTEXPR
     template <typename T>
     auto floating_write_arr(T val)
     {
-        vector<char> arr([&]() {
-            if constexpr (std::is_same_v<std::decay_t<T>, long double>) {
+        stl::vector<char> arr([&]() {
+            if constexpr (std::is_same<std::decay_t<T>, long double>::value) {
                 return static_cast<std::size_t>(
                     std::snprintf(nullptr, 0, "%Lf", val));
             }
@@ -263,8 +296,13 @@ namespace detail {
                 return static_cast<std::size_t>(
                     std::snprintf(nullptr, 0, "%f", val));
             }
+
         }() + 1);
+#if SPIO_HAS_TYPE_TRAITS_V
         if constexpr (std::is_same_v<std::decay_t<T>, long double>) {
+#else
+        if constexpr (std::is_same<std::decay_t<T>, long double>::value) {
+#endif
             std::snprintf(&arr[0], arr.size(), "%Lf", val);
         }
         else {
@@ -276,7 +314,7 @@ namespace detail {
     template <typename T>
     auto floating_write_arr(T val)
     {
-        vector<char> arr(
+        stl::vector<char> arr(
             static_cast<std::size_t>(std::snprintf(nullptr, 0, "%f", val)) + 1);
         std::snprintf(&arr[0], arr.size(), "%f", val);
         return arr;
@@ -285,14 +323,14 @@ namespace detail {
     template <>
     inline auto floating_write_arr(long double val)
     {
-        vector<char> arr(
+        stl::vector<char> arr(
             static_cast<std::size_t>(std::snprintf(nullptr, 0, "%Lf", val)) +
             1);
         std::snprintf(&arr[0], arr.size(), "%Lf", val);
         return arr;
     }
 #endif
-}
+}  // namespace detail
 
 template <typename T>
 struct type<T,
@@ -302,7 +340,7 @@ struct type<T,
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
         using char_type = typename Reader::char_type;
-        array<char_type, 64> buf{};
+        stl::array<char_type, 64> buf{};
         buf.fill(char_type{0});
 
         bool point = false;
@@ -333,7 +371,7 @@ struct type<T,
 
         char_type* end = &buf[0];
         T tmp = str_to_floating<T, char_type>(&buf[0], &end);
-        if (end != find(buf.begin(), buf.end(), 0)) {
+        if (&*stl::find(buf.begin(), buf.end(), 0) != end) {
             SPIO_THROW(invalid_input, "Failed to parse floating-point value");
         }
         val = tmp;
@@ -356,7 +394,7 @@ struct type<T,
             return w.write(char_span);
         }
         else {
-            vector<char_type> buf{};
+            stl::vector<char_type> buf{};
             buf.reserve(char_span.size_us());
             for (auto& c : char_span) {
                 buf.push_back(static_cast<char_type>(c));
@@ -376,9 +414,10 @@ struct type<T*> {
     {
         SPIO_UNUSED(opt);
 
-        writer_options<std::intptr_t> o;
+        writer_options<std::uintptr_t> o;
         o.base = 16;
-        return w.write(static_cast<std::intptr_t>(val), o);
+        const void* ptr = val;
+        return w.write(reinterpret_cast<std::uintptr_t>(ptr), o);
     }
 };
 
@@ -389,12 +428,21 @@ struct type<bool> {
     {
         if (opt.alpha) {
             using char_type = typename Reader::char_type;
-            array<char_type, 5> buf{};
-            auto ret = p.read(make_span(buf));
+            stl::array<char_type, 5> buf{};
+            auto ret = p.read(make_span<5>(buf));
             if (buf[0] == 't' && buf[1] == 'r' && buf[2] == 'u' &&
                 buf[3] == 'e') {
                 val = true;
-                p.push(buf[4]);
+#if SPIO_HAS_IF_CONSTEXPR
+                /* if constexpr (Reader::readable_type::is_trivially_rewindable)
+                 * { */
+                /*     p.get_readable().rewind(1); */
+                /* } */
+                /* else */
+#endif
+                {
+                    p.push(buf[4]);
+                }
                 return ret;
             }
             if (buf[0] == 'f' && buf[1] == 'a' && buf[2] == 'l' &&
@@ -423,9 +471,7 @@ struct type<bool> {
         if (opt.alpha) {
             return w.write(val ? "true" : "false");
         }
-        else {
-            return w.write(val ? 1 : 0);
-        }
+        return w.write(val ? 1 : 0);
     }
 };
 }  // namespace io

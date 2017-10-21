@@ -34,7 +34,7 @@ public:
     using writable_type = Writable;
     using char_type = typename writable_type::value_type;
 
-    basic_outstream(writable_type w) : m_writable(std::move(w)) {}
+    explicit basic_outstream(writable_type w) : m_writable(std::move(w)) {}
 
     basic_outstream(const basic_outstream&) = delete;
     basic_outstream& operator=(const basic_outstream&) = delete;
@@ -53,6 +53,7 @@ public:
         m_eof = !type<T>::write(*this, elem, std::move(opt));
         return *this;
     }
+#ifndef _MSC_VER  // Visual Studio really can't handle templates
     template <typename T,
               typename = std::enable_if_t<detail::check_string_tag<T>::value>>
     basic_outstream& write(T elem, writer_options<T> opt = {})
@@ -78,6 +79,7 @@ public:
             *this, elem, std::move(opt));
         return *this;
     }
+#endif
 
     template <typename T>
     basic_outstream& write_raw(const T& elem)
@@ -100,11 +102,11 @@ public:
         return *this;
     }
 
-    virtual basic_outstream& put(char_type ch)
+    basic_outstream& put(char_type ch)
     {
         return write_raw(ch);
     }
-    virtual basic_outstream& flush()
+    basic_outstream& flush()
     {
         auto error = get_writable().flush();
         if (error) {
@@ -113,13 +115,13 @@ public:
         return *this;
     }
 
-    virtual basic_outstream& ln()
+    basic_outstream& ln()
     {
         put(static_cast<char_type>('\n'));
         return *this;
     }
 
-    virtual bool eof() const
+    bool eof() const
     {
         return m_eof;
     }
@@ -174,10 +176,9 @@ public:
     using writable_type = typename base_type::writable_type;
     using char_type = typename base_type::char_type;
 
-    using basic_outstream<basic_writable_file<CharT>>::basic_outstream;
     basic_file_outstream() : base_type(writable_type{}) {}
-    basic_file_outstream(stdio_filehandle file)
-        : base_type({}), m_file(std::move(file))
+    explicit basic_file_outstream(writable_type w) : base_type(std::move(w)) {}
+    basic_file_outstream(stdio_filehandle file) : base_type({}), m_file(file)
     {
         base_type::m_writable = writable_type{&m_file};
     }
@@ -196,10 +197,11 @@ public:
     using char_type = typename base_type::char_type;
     using buffer_type = typename writable_type::buffer_type;
 
-    using basic_outstream<
-        basic_writable_buffer<CharT, BufferT>>::basic_outstream;
     basic_buffer_outstream() : base_type(writable_type{}) {}
-    basic_buffer_outstream(buffer_type b) : base_type(b) {}
+    explicit basic_buffer_outstream(writable_type w) : base_type(std::move(w))
+    {
+    }
+    basic_buffer_outstream(buffer_type b) : base_type(std::move(b)) {}
 };
 
 template <typename CharT>
@@ -226,4 +228,4 @@ using wserr = basic_stderr_outstream<wchar_t>;
 
 #include "outstream.impl.h"
 
-#endif  // SPIO_INSTREAM_H
+#endif  // SPIO_OUTSTREAM_H

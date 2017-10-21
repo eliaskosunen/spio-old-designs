@@ -22,18 +22,19 @@
 #define SPIO_SPIO_H
 
 #include "config.h"
-#include "util.h"
 #include "error.h"
-#include "stl.h"
 #include "readable.h"
+#include "span.h"
+#include "stl.h"
+#include "util.h"
 #include "writable.h"
 
 #if SPIO_USE_STREAMS
-#include "type.h"
+#include "custom_type.h"
+#include "fmt.h"
 #include "instream.h"
 #include "outstream.h"
-#include "fmt.h"
-#include "custom_type.h"
+#include "type.h"
 #endif
 
-#endif // SPIO_SPIO_H
+#endif  // SPIO_SPIO_H
