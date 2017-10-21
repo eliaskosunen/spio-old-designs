@@ -48,7 +48,7 @@ public:
     {
         return m_use;
     }
-    vector<char>& get_buffer()
+    stl::vector<char>& get_buffer()
     {
         return m_buffer;
     }
@@ -60,9 +60,9 @@ public:
     static file_buffering line(std::size_t len = BUFSIZ, bool external = false);
 
 private:
-    static vector<char> _initialize_buffer(bool use, std::size_t len);
+    static stl::vector<char> _initialize_buffer(bool use, std::size_t len);
 
-    vector<char> m_buffer{};
+    stl::vector<char> m_buffer{};
     std::size_t m_length{BUFSIZ};
     mode_type m_mode{BUFFER_FULL};
     bool m_use{false};
@@ -73,7 +73,7 @@ class basic_writable_base {
 public:
     using implementation_type = ImplT;
 
-#define THIS static_cast<ImplT*>(this)
+#define THIS (static_cast<ImplT*>(this))
 
     template <typename T, span_extent_type N>
     error write(span<T, N> buf)
@@ -161,8 +161,8 @@ private:
 };
 
 template <typename T>
-struct dynamic_writable_buffer : public vector<T> {
-    using vector<T>::vector;
+struct dynamic_writable_buffer : public stl::vector<T> {
+    using stl::vector<T>::vector;
 
     constexpr bool is_end()
     {
@@ -256,20 +256,20 @@ public:
 
 private:
     span<T, Extent> m_buf{};
-    typename decltype(m_buf)::iterator m_it{};
+    typename span<T, Extent>::iterator m_it{};
 };
 template <typename T,
           std::size_t N,
           span_extent_type Extent = static_cast<span_extent_type>(N)>
 class static_writable_buffer : public span_writable_buffer<T, Extent> {
 public:
-    static_writable_buffer(array<T, N> a = {})
+    static_writable_buffer(stl::array<T, N> a = {})
         : m_buf(std::move(a)), span_writable_buffer<T, Extent>(m_buf)
     {
     }
 
 private:
-    array<T, N> m_buf{};
+    stl::array<T, N> m_buf{};
 };
 
 template <typename CharT, typename BufferT = dynamic_writable_buffer<CharT>>
