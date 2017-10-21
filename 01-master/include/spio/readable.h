@@ -31,7 +31,7 @@ class basic_readable_base {
 public:
     using implementation_type = ImplT;
 
-#define THIS static_cast<ImplT*>(this)
+#define THIS (static_cast<ImplT*>(this))
 
     template <typename T, span_extent_type N>
     error read(span<T, N> buf)
@@ -75,6 +75,7 @@ class basic_readable_file
     : public basic_readable_base<basic_readable_file<CharT>> {
 public:
     using value_type = CharT;
+    static constexpr bool is_trivially_rewindable = false;
 
     static_assert(
         std::is_trivially_copyable<CharT>::value,
@@ -114,15 +115,16 @@ private:
     stdio_filehandle* m_file{nullptr};
 };
 
-template <typename CharT>
+template <typename CharT, span_extent_type BufferExtent = dynamic_extent>
 class basic_readable_buffer
     : public basic_readable_base<basic_readable_buffer<CharT>> {
 public:
     using value_type = CharT;
-    using buffer_type = span<CharT>;
+    using buffer_type = span<CharT, BufferExtent>;
+    static constexpr bool is_trivially_rewindable = true;
 
     constexpr basic_readable_buffer() = default;
-    basic_readable_buffer(buffer_type buf);
+    explicit basic_readable_buffer(buffer_type buf);
 
     template <typename T, span_extent_type N>
     error read(span<T, N> buf);
@@ -138,6 +140,8 @@ public:
 
     error skip();
 
+    error rewind(typename buffer_type::difference_type steps = 1);
+
     buffer_type& get_buffer()
     {
         return m_buffer;
@@ -147,9 +151,18 @@ public:
         return m_buffer;
     }
 
+    auto& get_iterator()
+    {
+        return m_it;
+    }
+    const auto& get_iterator() const
+    {
+        return m_it;
+    }
+
 private:
-    buffer_type m_buffer;
-    typename buffer_type::iterator m_it;
+    buffer_type m_buffer{};
+    typename buffer_type::iterator m_it{m_buffer.begin()};
 };
 
 using readable_file = basic_readable_file<char>;

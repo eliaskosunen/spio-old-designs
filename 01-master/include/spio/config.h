@@ -61,37 +61,37 @@
 // Compatibility
 //
 
-#if defined(__cpp_if_constexpr) || __cplusplus >= 201703L
+#if defined(__cpp_if_constexpr)
 #define SPIO_HAS_IF_CONSTEXPR 1
 #else
 #define SPIO_HAS_IF_CONSTEXPR 0
 #endif
 
-#if defined(__cpp_lib_type_trait_variable_templates) || __cplusplus >= 201703L
+#if defined(__cpp_lib_type_trait_variable_templates)
 #define SPIO_HAS_TYPE_TRAITS_V 1
 #else
 #define SPIO_HAS_TYPE_TRAITS_V 0
 #endif
 
-#if defined(__cpp_lib_experimental_logical_traits) || __cplusplus >= 201703L
+#if defined(__cpp_lib_experimental_logical_traits)
 #define SPIO_HAS_LOGICAL_TRAITS 1
 #else
 #define SPIO_HAS_LOGICAL_TRAITS 0
 #endif
 
-#if defined(__cpp_lib_byte) || __cplusplus >= 201703L
+#if defined(__cpp_lib_byte)
 #define SPIO_HAS_BYTE 1
 #else
 #define SPIO_HAS_BYTE 0
 #endif
 
-#if defined(__cpp_fold_expression) || __cplusplus >= 201703L
+#if defined(__cpp_fold_expression)
 #define SPIO_HAS_FOLD_EXPRESSIONS 1
 #else
 #define SPIO_HAS_FOLD_EXPRESSIONS 0
 #endif
 
-#if defined(__cpp_deduction_guides) || __cplusplus >= 201703L
+#if defined(__cpp_deduction_guides)
 #define SPIO_HAS_DEDUCTION_GUIDES 1
 #else
 #define SPIO_HAS_DEDUCTION_GUIDES 0
@@ -112,5 +112,29 @@
 #define SPIO_STRINGIZE_DETAIL(x) #x
 #define SPIO_STRINGIZE(x) SPIO_STRINGIZE_DETAIL(x)
 #define SPIO_LINE SPIO_STRINGIZE(__LINE__)
+
+#include <type_traits>
+
+namespace io {
+#if SPIO_HAS_LOGICAL_TRAITS
+template <typename... B>
+using disjunction = std::disjunction<B...>;
+#else
+template <typename...>
+struct disjunction : std::false_type {
+};
+template <typename B1>
+struct disjunction<B1> : B1 {
+};
+template <typename B1, typename... Bn>
+struct disjunction<B1, Bn...>
+    : std::conditional_t<bool(B1::value), B1, disjunction<Bn...>> {
+};
+#endif
+
+template <typename T, typename... Ts>
+struct contains : disjunction<std::is_same<T, Ts>...> {
+};
+}  // namespace io
 
 #endif  // SPIO_CONFIG_H

@@ -55,7 +55,19 @@ template <typename T>
 void basic_instream<Readable>::push(T elem)
 {
     auto chars = reinterpret_cast<char*>(&elem);
-    m_buffer.insert(m_buffer.end(), chars, chars + sizeof(T));
+    m_buffer.insert(m_buffer.begin(), chars, chars + sizeof(T));
+    m_eof = false;
+}
+
+template <typename Readable>
+template <typename T, span_extent_type N>
+void basic_instream<Readable>::push(span<T, N> elems)
+{
+    if (elems.empty()) {
+        return;
+    }
+    auto chars = reinterpret_cast<char*>(&elems[0]);
+    m_buffer.insert(m_buffer.begin(), chars, chars + elems.size_bytes());
     m_eof = false;
 }
 
@@ -92,4 +104,4 @@ basic_instream<Readable>& basic_instream<Readable>::scan(T&&... args)
     return *this;
 }
 #endif
-}
+}  // namespace io

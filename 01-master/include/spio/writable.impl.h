@@ -22,11 +22,12 @@
 #include "writable.h"
 
 namespace io {
-SPIO_INLINE vector<char> file_buffering::_initialize_buffer(bool use,
-                                                            std::size_t len)
+SPIO_INLINE stl::vector<char> file_buffering::_initialize_buffer(
+    bool use,
+    std::size_t len)
 {
     if (use) {
-        return std::vector<char>(len);
+        return stl::vector<char>(len);
     }
     return {};
 }
