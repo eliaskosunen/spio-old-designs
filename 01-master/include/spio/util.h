@@ -424,6 +424,14 @@ constexpr void int_to_char(IntT value, span<CharT> result, int base = 10);
 
 template <typename IntT>
 constexpr int max_digits() noexcept;
+
+template <typename CharT>
+constexpr std::ptrdiff_t strlen(const CharT* str) noexcept;
+template <typename T, span_extent_type N>
+constexpr std::ptrdiff_t strlen(span<T, N> str) noexcept;
+
+template <typename CharT>
+constexpr CharT* strcpy(CharT* dest, CharT* src) noexcept;
 }  // namespace io
 
 #include "util.impl.h"
