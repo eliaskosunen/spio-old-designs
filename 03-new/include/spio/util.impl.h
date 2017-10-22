@@ -45,18 +45,10 @@ template <typename CharT>
 constexpr bool is_space(CharT c, span<CharT> spaces)
 {
     if (spaces.empty()) {
-        auto arr = stl::array<CharT, 5>{
-            {static_cast<CharT>(' '), static_cast<CharT>('\n'),
-             static_cast<CharT>('\t'), static_cast<CharT>('\r'),
-             static_cast<CharT>('\v')}};
-        return is_space(c, make_span(arr));
+        //       space         \n        \t         \r         \v
+        return c == 32 || c == 10 || c == 9 || c == 13 || c == 11;
     }
-    for (auto& s : spaces) {
-        if (c == s) {
-            return true;
-        }
-    }
-    return false;
+    return stl::find(spaces.begin(), spaces.end(), c) != spaces.end();
 }
 
 template <typename CharT>
@@ -118,24 +110,8 @@ namespace detail {
             s[i] = '\0';
         }
 
-        auto len = [](CharT* str) {
-#if SPIO_HAS_IF_CONSTEXPR
-            if constexpr (sizeof(CharT) == 1) {
-#else
-            if (sizeof(CharT) == 1) {
-#endif
-                return strlen(str);
-            }
-            else {
-                std::size_t i = 0;
-                for (; str[i] != '\0'; ++i) {
-                }
-                return i;
-            }
-
-        };
-        auto reverse = [&len](CharT* str) {
-            for (std::size_t i = 0, j = len(str) - 1; i < j; i++, j--) {
+        auto reverse = [](CharT* str) {
+            for (auto i = 0l, j = strlen(str) - 1; i < j; i++, j--) {
                 CharT tmp = str[i];
                 str[i] = str[j];
                 str[j] = tmp;
@@ -173,6 +149,33 @@ constexpr int max_digits() noexcept
     else {
         return digits;
     }
+}
+
+template <typename CharT>
+constexpr std::ptrdiff_t strlen(const CharT* str) noexcept
+{
+    const CharT* s;
+    for (s = str; *s; ++s) {
+    }
+    return (s - str);
+}
+template <typename T, span_extent_type N>
+constexpr std::ptrdiff_t strlen(span<T, N> str) noexcept
+{
+    auto it = stl::find(str.begin(), str.end(), static_cast<T>('\0'));
+    if (it == str.end()) {
+        return str.size();
+    }
+    return stl::distance(str.begin(), it);
+}
+
+template <typename CharT>
+constexpr CharT* strcpy(CharT* dest, CharT* src) noexcept
+{
+    auto orig = dest;
+    while ((*dest++ = *src++) != static_cast<CharT>('\0')) {
+    }
+    return orig;
 }
 
 namespace detail {
