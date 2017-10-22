@@ -29,7 +29,7 @@ basic_outstream<Writable>& basic_outstream<Writable>::print(const char* format,
                                                             const Args&... args)
 {
     auto str = fmt::format(format, args...);
-    write(make_span(&str[0], static_cast<span_extent_type>(strlen(&str[0]))));
+    write(make_span(&str[0], strlen(&str[0])));
     return *this;
 }
 #endif

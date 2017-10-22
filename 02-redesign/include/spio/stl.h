@@ -32,11 +32,6 @@
 #include <iterator>
 
 namespace io {
-namespace stl {
-    using std::strcpy;
-    using std::strlen;
-}  // namespace stl
-
 #if SPIO_USE_STL
 #define SPIO_STL_NS ::std
 

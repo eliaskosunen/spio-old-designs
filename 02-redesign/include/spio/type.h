@@ -94,12 +94,16 @@ struct type<T,
                 break;
             }
         }
+        if (p.eof()) {
+            return false;
+        }
 
         stl::vector<char_type> str(s.size_us(), '\0');
         auto strspan = make_span(str);
         p.read_raw(strspan);
-        auto end = [&]() {
-            for (std::ptrdiff_t i = 0; i < strspan.size(); ++i) {
+        const auto str_len = strlen(strspan);
+        const auto end = [&]() {
+            for (std::ptrdiff_t i = 0; i < str_len; ++i) {
                 if (is_space(strspan[i], opt.spaces)) {
                     return i;
                 }
@@ -107,9 +111,9 @@ struct type<T,
             return strspan.size();
         }();
         auto bytespan =
-            as_bytes(make_span(&*strspan.begin(), &*strspan.begin() + end));
+            as_bytes(make_span(strspan.begin(), strspan.begin() + end));
         copy_contiguous(bytespan, as_writable_bytes(s));
-        if (end + 1 < strspan.size()) {
+        if (end + 1 < str_len) {
 #if SPIO_HAS_IF_CONSTEXPR
         /* if constexpr (Reader::readable_type::is_trivially_rewindable) { */
         /*     p.get_readable().rewind( */
@@ -118,8 +122,8 @@ struct type<T,
         /* else */
 #endif
             {
-                p.push(make_span(&*strspan.begin() + end + 1,
-                                 &*strspan.begin() + strspan.size()));
+                p.push(make_span(strspan.begin() + end + 1,
+                                 strspan.begin() + str_len));
             }
         }
         return !p.eof();
@@ -160,18 +164,7 @@ struct type<detail::string_tag<T, N>> {
                 if (N != 0) {
                     return N;
                 }
-                if (sizeof(T) == 1) {
-                    return static_cast<span_extent_type>(strlen(ptr));
-                }
-                else {
-                    for (auto i = 0;; ++i) {
-                        if (*(ptr + i) ==
-                            typename string_type::char_type{'\0'}) {
-                            return i;
-                        }
-                    }
-                    return 0;
-                }
+                return strlen(ptr);
             }();
             return w.write(make_span(ptr, len));
         }
@@ -193,6 +186,18 @@ struct type<T,
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
         using char_type = typename Reader::char_type;
+
+        char_type ch{};
+        while (p.read(ch)) {
+            if (!is_space(ch)) {
+                p.push(ch);
+                break;
+            }
+        }
+        if (p.eof()) {
+            return false;
+        }
+
         constexpr auto n = max_digits<std::remove_reference_t<T>>() + 1;
         stl::array<char_type, n> buf{};
         buf.fill(0);
@@ -200,18 +205,6 @@ struct type<T,
 
         T tmp = 0;
         auto it = buf.begin();
-        if (is_space(*it)) {
-#if SPIO_HAS_IF_CONSTEXPR
-        /* if constexpr (Reader::readable_type::is_trivially_rewindable) { */
-        /*     p.get_readable().rewind(stl::distance(it + 1, buf.end())); */
-        /* } */
-        /* else */
-#endif
-            {
-                p.push(make_span(it + 1, buf.end()));
-            }
-            return !p.eof();
-        }
         const bool sign = [&]() {
 #if SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V
             if constexpr (std::is_unsigned_v<T>) {
@@ -237,7 +230,11 @@ struct type<T,
                       char_to_int<T>(*it, opt.base);
                 return true;
             }
-            SPIO_THROW(invalid_input, "Invalid first character in integer");
+            stl::vector<char> errbuf(128, '\0');
+            std::snprintf(&errbuf[0], 128,
+                          "Invalid first character in integer: %x",
+                          static_cast<int>(*it));
+            SPIO_THROW(invalid_input, &errbuf[0]);
         }();
         ++it;
 
@@ -261,8 +258,16 @@ struct type<T,
         /*         } */
         /*         else */
         /* #endif */
-        {
-            p.push(make_span(&*it, &*buf.begin() + buf.size()));
+        if (it != buf.end()) {
+            const auto end = [&]() {
+                for (auto i = it; i != buf.end(); ++i) {
+                    if (*i == '\0') {
+                        return i;
+                    }
+                }
+                return buf.end();
+            }();
+            p.push(make_span(it, end));
         }
         return !p.eof();
     }
@@ -276,9 +281,7 @@ struct type<T,
         buf.fill(char_type{0});
         auto s = make_span<n>(buf);
         int_to_char<char_type>(val, s, opt.base);
-        const auto len =
-            stl::distance(s.begin(), stl::find(s.begin(), s.end(), '\0'));
-        return w.write(s.first(len).as_const_span());
+        return w.write(s.first(strlen(s)).as_const_span());
     }
 };  // namespace io
 
@@ -385,8 +388,7 @@ struct type<T,
         using char_type = typename Writer::char_type;
 
         auto arr = detail::floating_write_arr(val);
-        auto char_span =
-            make_span(&arr[0], static_cast<span_extent_type>(strlen(&arr[0])));
+        auto char_span = make_span(&arr[0], strlen(&arr[0]));
 
         SPIO_UNUSED(opt);
 
