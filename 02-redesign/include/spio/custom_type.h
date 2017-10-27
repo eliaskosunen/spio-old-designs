@@ -74,16 +74,4 @@ struct custom_write<std::basic_string<CharT, Allocator>> {
 #endif
 }  // namespace io
 
-/* #if SPIO_USE_FMT */
-/* namespace fmt { */
-/* template <typename T, typename CharT> */
-/* void format_arg(fmt::BasicFormatter<CharT>& f, */
-/*                 const CharT*& format_str, */
-/*                 const T& val) */
-/* { */
-/*     io::custom_write<T>::write_fmt(f, format_str, val); */
-/* } */
-/* }  // namespace fmt */
-/* #endif */
-
 #endif  // SPIO_CUSTOM_TYPE_H

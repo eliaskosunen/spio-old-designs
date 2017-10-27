@@ -89,7 +89,7 @@ TEST_CASE("instream int")
         io::buffer_instream p{std::move(r)};
 
         int val;
-        CHECK_THROWS_AS(p.read(val), const io::failure&);
+        CHECK_THROWS_AS(p.read(val), io::failure);
     }
 }
 TEST_CASE("instream uint")
@@ -111,7 +111,7 @@ TEST_CASE("instream uint")
         io::buffer_instream p{std::move(r)};
 
         uint32_t val;
-        CHECK_THROWS_AS(p.read(val), const io::failure&);
+        CHECK_THROWS_AS(p.read(val), io::failure);
     }
     SUBCASE("error")
     {
@@ -120,7 +120,7 @@ TEST_CASE("instream uint")
         io::buffer_instream p{std::move(r)};
 
         uint32_t val;
-        CHECK_THROWS_AS(p.read(val), const io::failure&);
+        CHECK_THROWS_AS(p.read(val), io::failure);
     }
 }
 TEST_CASE("instream float")
@@ -142,7 +142,7 @@ TEST_CASE("instream float")
         io::buffer_instream p{std::move(r)};
 
         double val;
-        CHECK_THROWS_AS(p.read(val), const io::failure&);
+        CHECK_THROWS_AS(p.read(val), io::failure);
     }
 }
 TEST_CASE("instream string")

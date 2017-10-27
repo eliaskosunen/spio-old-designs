@@ -5,6 +5,7 @@ build/
 *.svg
 ./test.cpp
 compile_commands.json
+callgrind*
 
 ###
 ### https://github.com/github/gitignore/blob/master/C%2B%2B.gitignore 
