@@ -163,9 +163,10 @@ protected:
 /* basic_instream(Readable& r)->basic_instream<Readable>; */
 /* #endif */
 
-template <typename CharT>
-class basic_file_instream : public basic_instream<basic_readable_file<CharT>> {
-    using base_type = basic_instream<basic_readable_file<CharT>>;
+template <typename CharT, class FileHandle = filehandle>
+class basic_file_instream
+    : public basic_instream<basic_readable_file<CharT, FileHandle>> {
+    using base_type = basic_instream<basic_readable_file<CharT, FileHandle>>;
 
 public:
     using readable_type = typename base_type::readable_type;
@@ -173,16 +174,16 @@ public:
 
     basic_file_instream() : base_type(readable_type{}) {}
     explicit basic_file_instream(readable_type r)
-        : base_type(std::move(r)), m_file(base_type::m_readable.get_file())
+        : base_type(std::move(r)), m_file(*base_type::m_readable.get_file())
     {
     }
-    basic_file_instream(stdio_filehandle file) : base_type({}), m_file(file)
+    basic_file_instream(FileHandle file) : base_type({}), m_file(file)
     {
         base_type::m_readable = readable_type{&m_file};
     }
 
 private:
-    stdio_filehandle m_file{};
+    FileHandle m_file{};
 };
 
 template <typename CharT>
