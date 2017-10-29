@@ -23,6 +23,7 @@
 
 #include "config.h"
 #include "error.h"
+#include "filehandle.h"
 #include "util.h"
 
 namespace io {
@@ -66,11 +67,7 @@ public:
 #undef THIS
 };
 
-#ifndef SPIO_FREAD
-#define SPIO_FREAD ::std::fread
-#endif
-
-template <typename CharT>
+template <typename CharT, typename FileHandle = filehandle>
 class basic_readable_file
     : public basic_readable_base<basic_readable_file<CharT>> {
 public:
@@ -82,7 +79,7 @@ public:
         "basic_readable_file<CharT>: CharT must be TriviallyCopyable");
 
     basic_readable_file() = default;
-    /*implicit*/ basic_readable_file(stdio_filehandle* file);
+    /*implicit*/ basic_readable_file(FileHandle* file);
 
     template <typename T, span_extent_type N>
     error read(span<T, N> buf);
@@ -98,21 +95,19 @@ public:
 
     error skip();
 
-    stdio_filehandle& get_file()
+    FileHandle* get_file()
     {
-        assert(m_file);
-        return *m_file;
+        return m_file;
     }
-    const stdio_filehandle& get_file() const
+    const FileHandle* get_file() const
     {
-        assert(m_file);
-        return *m_file;
+        return m_file;
     }
 
 private:
     error get_error(quantity_type read_count, quantity_type expected) const;
 
-    stdio_filehandle* m_file{nullptr};
+    FileHandle* m_file{nullptr};
 };
 
 template <typename CharT, span_extent_type BufferExtent = dynamic_extent>
@@ -164,6 +159,12 @@ private:
     buffer_type m_buffer{};
     typename buffer_type::iterator m_it{m_buffer.begin()};
 };
+
+template <typename CharT>
+using basic_readable_stdio_file = basic_readable_file<CharT, stdio_filehandle>;
+template <typename CharT>
+using basic_readable_native_file =
+    basic_readable_file<CharT, native_filehandle>;
 
 using readable_file = basic_readable_file<char>;
 using readable_wfile = basic_readable_file<wchar_t>;

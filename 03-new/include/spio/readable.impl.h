@@ -22,8 +22,8 @@
 #include "readable.h"
 
 namespace io {
-template <typename CharT>
-basic_readable_file<CharT>::basic_readable_file(stdio_filehandle* file)
+template <typename CharT, typename FileHandle>
+basic_readable_file<CharT, FileHandle>::basic_readable_file(FileHandle* file)
     : m_file(file)
 {
     if (!m_file) {
@@ -31,16 +31,17 @@ basic_readable_file<CharT>::basic_readable_file(stdio_filehandle* file)
     }
 }
 
-template <typename CharT>
+template <typename CharT, typename FileHandle>
 template <typename T, span_extent_type N>
-error basic_readable_file<CharT>::read(span<T, N> buf)
+error basic_readable_file<CharT, FileHandle>::read(span<T, N> buf)
 {
     return write(buf, elements{buf.length()});
 }
 
-template <typename CharT>
+template <typename CharT, typename FileHandle>
 template <typename T, span_extent_type N>
-error basic_readable_file<CharT>::read(span<T, N> buf, characters length)
+error basic_readable_file<CharT, FileHandle>::read(span<T, N> buf,
+                                                   characters length)
 {
     assert(m_file);
     SPIO_ASSERT(
@@ -59,14 +60,13 @@ error basic_readable_file<CharT>::read(span<T, N> buf, characters length)
 #else
         if (sizeof(CharT) == 1) {
 #endif
-            return SPIO_FREAD(&buf[0], 1, length.get_unsigned(), m_file->get());
+            return m_file->read(&buf[0], length.get_unsigned());
         }
         else {
             stl::vector<char> char_buf(length.get_unsigned() * sizeof(CharT),
                                        0);
-            const auto r = SPIO_FREAD(&char_buf[0], 1,
-                                      length.get_unsigned() * sizeof(CharT),
-                                      m_file->get());
+            const auto r = m_file->read(&char_buf[0],
+                                        length.get_unsigned() * sizeof(CharT));
             for (auto i = 0; i < length; ++i) {
                 buf[i] = *reinterpret_cast<T*>(
                     &char_buf[static_cast<std::size_t>(i) * sizeof(CharT)]);
@@ -77,53 +77,56 @@ error basic_readable_file<CharT>::read(span<T, N> buf, characters length)
     return get_error(static_cast<quantity_type>(ret), length);
 }
 
-template <typename CharT>
+template <typename CharT, typename FileHandle>
 template <typename T, span_extent_type N>
-error basic_readable_file<CharT>::read(span<T, N> buf, elements length)
+error basic_readable_file<CharT, FileHandle>::read(span<T, N> buf,
+                                                   elements length)
 {
     return read(buf, characters{length * quantity_type{sizeof(T)} /
                                 quantity_type{sizeof(CharT)}});
 }
 
-template <typename CharT>
+template <typename CharT, typename FileHandle>
 template <typename T, span_extent_type N>
-error basic_readable_file<CharT>::read(span<T, N> buf, bytes length)
+error basic_readable_file<CharT, FileHandle>::read(span<T, N> buf, bytes length)
 {
     SPIO_ASSERT(length <= buf.size(), "buf is not big enough");
     return read(buf,
                 characters{length / static_cast<quantity_type>(sizeof(CharT))});
 }
 
-template <typename CharT>
+template <typename CharT, typename FileHandle>
 template <typename T, span_extent_type N>
-error basic_readable_file<CharT>::read(span<T, N> buf, bytes_contiguous length)
+error basic_readable_file<CharT, FileHandle>::read(span<T, N> buf,
+                                                   bytes_contiguous length)
 {
     assert(m_file);
     SPIO_ASSERT(length % sizeof(CharT) == 0,
                 "Length is not divisible by sizeof CharT");
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
     auto char_buf = as_writable_bytes(buf).first(length);
-    const auto ret = SPIO_FREAD(&char_buf[0], 1, length, m_file->get());
+    const auto ret = m_file->read(&char_buf[0], length);
     return get_error(ret, length);
 }
 
-template <typename CharT>
-error basic_readable_file<CharT>::read(CharT& c)
+template <typename CharT, typename FileHandle>
+error basic_readable_file<CharT, FileHandle>::read(CharT& c)
 {
     span<CharT> s{&c, 1};
     return read(s, characters{1});
 }
 
-template <typename CharT>
-error basic_readable_file<CharT>::skip()
+template <typename CharT, typename FileHandle>
+error basic_readable_file<CharT, FileHandle>::skip()
 {
     CharT c = 0;
     return read(c);
 }
 
-template <typename CharT>
-error basic_readable_file<CharT>::get_error(quantity_type read_count,
-                                            quantity_type expected) const
+template <typename CharT, typename FileHandle>
+error basic_readable_file<CharT, FileHandle>::get_error(
+    quantity_type read_count,
+    quantity_type expected) const
 {
     assert(m_file);
     if (read_count == expected) {
@@ -218,7 +221,7 @@ error basic_readable_buffer<CharT, BufferExtent>::read(span<T, N> buf,
         return end_of_file;
     }
     const auto add = length / static_cast<quantity_type>(sizeof(CharT));
-        auto s = span<CharT>(m_it, m_it + add);
+    auto s = span<CharT>(m_it, m_it + add);
     copy_contiguous(s, buf);
     advance(m_it, add);
     return {};
