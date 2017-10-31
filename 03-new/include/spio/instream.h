@@ -179,7 +179,7 @@ public:
     }
     basic_file_instream(FileHandle file) : base_type({}), m_file(file)
     {
-        base_type::m_readable = readable_type{&m_file};
+        base_type::m_readable = readable_type{m_file};
     }
 
 private:

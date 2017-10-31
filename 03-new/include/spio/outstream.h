@@ -167,10 +167,10 @@ template <typename Writable>
 basic_outstream(Writable& r)->basic_outstream<Writable>;
 #endif
 
-template <typename CharT>
+template <typename CharT, typename FileHandle = filehandle>
 class basic_file_outstream
-    : public basic_outstream<basic_writable_file<CharT>> {
-    using base_type = basic_outstream<basic_writable_file<CharT>>;
+    : public basic_outstream<basic_writable_file<CharT, FileHandle>> {
+    using base_type = basic_outstream<basic_writable_file<CharT, FileHandle>>;
 
 public:
     using writable_type = typename base_type::writable_type;
@@ -178,13 +178,13 @@ public:
 
     basic_file_outstream() : base_type(writable_type{}) {}
     explicit basic_file_outstream(writable_type w) : base_type(std::move(w)) {}
-    basic_file_outstream(stdio_filehandle file) : base_type({}), m_file(file)
+    basic_file_outstream(FileHandle file) : base_type({}), m_file(file)
     {
-        base_type::m_writable = writable_type{&m_file};
+        base_type::m_writable = writable_type{m_file};
     }
 
 private:
-    stdio_filehandle m_file{};
+    FileHandle m_file{};
 };
 
 template <typename CharT, typename BufferT = dynamic_writable_buffer<CharT>>
@@ -205,14 +205,22 @@ public:
 };
 
 template <typename CharT>
-class basic_stdout_outstream : public basic_file_outstream<CharT> {
+class basic_stdout_outstream
+    : public basic_file_outstream<CharT, stdio_filehandle> {
 public:
-    basic_stdout_outstream() : basic_file_outstream<CharT>(stdout) {}
+    basic_stdout_outstream()
+        : basic_file_outstream<CharT, stdio_filehandle>(stdout)
+    {
+    }
 };
 template <typename CharT>
-class basic_stderr_outstream : public basic_file_outstream<CharT> {
+class basic_stderr_outstream
+    : public basic_file_outstream<CharT, stdio_filehandle> {
 public:
-    basic_stderr_outstream() : basic_file_outstream<CharT>(stderr) {}
+    basic_stderr_outstream()
+        : basic_file_outstream<CharT, stdio_filehandle>(stderr)
+    {
+    }
 };
 
 using file_outstream = basic_file_outstream<char>;

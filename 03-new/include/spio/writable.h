@@ -24,50 +24,11 @@
 #include <cstdio>
 #include "config.h"
 #include "error.h"
+#include "filehandle.h"
 #include "stl.h"
 #include "util.h"
 
 namespace io {
-class file_buffering {
-public:
-    enum mode_type {
-        BUFFER_FULL = _IOFBF,
-        BUFFER_LINE = _IOLBF,
-        BUFFER_NONE = _IONBF
-    };
-
-    file_buffering() = default;
-    file_buffering(bool use_buffer, mode_type m, std::size_t len = BUFSIZ);
-
-    // C++14 defect not fixed in gcc 5/6
-#if defined(__GNUC__) && __GNUC__ < 7
-    bool use() const
-#else
-    constexpr bool use() const
-#endif
-    {
-        return m_use;
-    }
-    stl::vector<char>& get_buffer()
-    {
-        return m_buffer;
-    }
-
-    error set(stdio_filehandle& file);
-
-    static file_buffering disable();
-    static file_buffering full(std::size_t len = BUFSIZ, bool external = false);
-    static file_buffering line(std::size_t len = BUFSIZ, bool external = false);
-
-private:
-    static stl::vector<char> _initialize_buffer(bool use, std::size_t len);
-
-    stl::vector<char> m_buffer{};
-    std::size_t m_length{BUFSIZ};
-    mode_type m_mode{BUFFER_FULL};
-    bool m_use{false};
-};
-
 template <typename ImplT>
 class basic_writable_base {
 public:
@@ -109,11 +70,7 @@ public:
 #undef THIS
 };
 
-#ifndef SPIO_FWRITE
-#define SPIO_FWRITE ::std::fwrite
-#endif
-
-template <typename CharT>
+template <typename CharT, typename FileHandle = filehandle>
 class basic_writable_file
     : public basic_writable_base<basic_writable_file<CharT>> {
 public:
@@ -124,9 +81,7 @@ public:
         "basic_writable_file<CharT>: CharT must be TriviallyCopyable");
 
     basic_writable_file() = default;
-    /*implicit*/ basic_writable_file(
-        stdio_filehandle* file,
-        file_buffering&& buffering = file_buffering{});
+    /*implicit*/ basic_writable_file(FileHandle file);
 
     template <typename T, span_extent_type N>
     error write(span<T, N> buf);
@@ -142,22 +97,19 @@ public:
 
     error flush() noexcept;
 
-    stdio_filehandle& get_file()
+    FileHandle& get_file()
     {
-        assert(m_file);
-        return *m_file;
+        return m_file;
     }
-    const stdio_filehandle& get_file() const
+    const FileHandle& get_file() const
     {
-        assert(m_file);
-        return *m_file;
+        return m_file;
     }
 
 private:
     error get_error(quantity_type read_count, quantity_type expected) const;
 
-    stdio_filehandle* m_file{nullptr};
-    file_buffering m_buffering{file_buffering{}};
+    FileHandle m_file{};
 };
 
 template <typename T>
@@ -324,6 +276,11 @@ public:
 private:
     buffer_type m_buffer{};
 };
+
+template <typename CharT>
+using basic_writable_native_file = basic_writable_file<char, native_filehandle>;
+template <typename CharT>
+using basic_writable_stdio_file = basic_writable_file<char, stdio_filehandle>;
 
 using writable_file = basic_writable_file<char>;
 using writable_wfile = basic_writable_file<wchar_t>;
