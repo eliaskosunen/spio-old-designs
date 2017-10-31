@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 #include <iostream>
+#include <memory>
 #include "doctest.h"
 #include "spio.h"
 
@@ -26,8 +27,8 @@ TEST_CASE("file_instream")
 {
     SUBCASE("read")
     {
-        io::owned_stdio_filehandle h("file.txt", io::open_mode::READ,
-                                     io::open_flags::BINARY);
+        io::owned_filehandle h("file.txt", io::open_mode::READ,
+                               io::open_flags::BINARY);
         REQUIRE(h);
         io::file_instream f{h.get()};
         std::vector<char> str(20, '\0');
@@ -36,8 +37,8 @@ TEST_CASE("file_instream")
     }
     SUBCASE("getline")
     {
-        io::owned_stdio_filehandle h("file.txt", io::open_mode::READ,
-                                     io::open_flags::BINARY);
+        io::owned_filehandle h("file.txt", io::open_mode::READ,
+                               io::open_flags::BINARY);
         REQUIRE(h);
         io::file_instream f{h.get()};
         std::vector<char> str(20, '\0');
@@ -46,8 +47,8 @@ TEST_CASE("file_instream")
     }
     SUBCASE("scan")
     {
-        io::owned_stdio_filehandle h("file.txt", io::open_mode::READ,
-                                     io::open_flags::BINARY);
+        io::owned_filehandle h("file.txt", io::open_mode::READ,
+                               io::open_flags::BINARY);
         REQUIRE(h);
         io::file_instream f{h.get()};
         std::vector<char> str(20, '\0');

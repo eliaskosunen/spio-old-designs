@@ -22,78 +22,26 @@
 #include "writable.h"
 
 namespace io {
-SPIO_INLINE stl::vector<char> file_buffering::_initialize_buffer(
-    bool use,
-    std::size_t len)
-{
-    if (use) {
-        return stl::vector<char>(len);
-    }
-    return {};
-}
-
-SPIO_INLINE file_buffering::file_buffering(bool use_buffer,
-                                           mode_type m,
-                                           std::size_t len)
-    : m_buffer(_initialize_buffer(use_buffer, len)),
-      m_length(len),
-      m_mode(m),
-      m_use(true)
-{
-}
-
-SPIO_INLINE error file_buffering::set(stdio_filehandle& file)
-{
-    if (!file) {
-        return invalid_argument;
-    }
-    auto buf = [&]() -> char* {
-        if (use()) {
-            return &get_buffer()[0];
-        }
-        return nullptr;
-    }();
-    if (std::setvbuf(file.get(), buf, static_cast<int>(m_mode), m_length) !=
-        0) {
-        return io_error;
-    }
-    return {};
-}
-
-SPIO_INLINE file_buffering file_buffering::disable()
-{
-    return file_buffering(false, BUFFER_NONE, 0);
-}
-SPIO_INLINE file_buffering file_buffering::full(std::size_t len, bool external)
-{
-    return file_buffering(external, BUFFER_FULL, len);
-}
-SPIO_INLINE file_buffering file_buffering::line(std::size_t len, bool external)
-{
-    return file_buffering(external, BUFFER_LINE, len);
-}
-
-template <typename CharT>
-basic_writable_file<CharT>::basic_writable_file(stdio_filehandle* file,
-                                                file_buffering&& buffering)
-    : m_file(file), m_buffering(std::move(buffering))
+template <typename CharT, typename FileHandle>
+basic_writable_file<CharT, FileHandle>::basic_writable_file(FileHandle file)
+    : m_file(file)
 {
     if (!m_file) {
         SPIO_THROW(invalid_argument, "Nullptr file given");
     }
-    m_buffering.set(*file);
 }
 
-template <typename CharT>
+template <typename CharT, typename FileHandle>
 template <typename T, span_extent_type N>
-error basic_writable_file<CharT>::write(span<T, N> buf)
+error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf)
 {
     return write(buf, elements{buf.length()});
 }
 
-template <typename CharT>
+template <typename CharT, typename FileHandle>
 template <typename T, span_extent_type N>
-error basic_writable_file<CharT>::write(span<T, N> buf, characters length)
+error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
+                                                    characters length)
 {
     assert(m_file);
     SPIO_ASSERT(length <= buf.size(), "buf is not big enough");
@@ -110,46 +58,47 @@ error basic_writable_file<CharT>::write(span<T, N> buf, characters length)
 #else
         if (sizeof(CharT) == 1) {
 #endif
-            return SPIO_FWRITE(&buf[0], 1, length.get_unsigned(),
-                               m_file->get());
+            return m_file.write(&buf[0], length.get_unsigned());
         }
         else {
             auto char_buf =
                 as_bytes(buf).first(length * quantity_type{sizeof(T)});
-            return SPIO_FWRITE(&char_buf[0], 1,
-                               length.get_unsigned() * sizeof(T),
-                               m_file->get()) /
+            return m_file.write(&char_buf[0],
+                                length.get_unsigned() * sizeof(T)) /
                    sizeof(T);
         }
     }();
     return get_error(static_cast<quantity_type>(ret), length);
 }
 
-template <typename CharT>
+template <typename CharT, typename FileHandle>
 template <typename T, span_extent_type N>
-error basic_writable_file<CharT>::write(span<T, N> buf, elements length)
+error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
+                                                    elements length)
 {
     return write(buf, characters{length * quantity_type{sizeof(T)} /
                                  quantity_type{sizeof(CharT)}});
 }
 
-template <typename CharT>
+template <typename CharT, typename FileHandle>
 template <typename T, span_extent_type N>
-error basic_writable_file<CharT>::write(span<T, N> buf, bytes length)
+error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
+                                                    bytes length)
 {
     return write(buf, characters{length * quantity_type{sizeof(CharT)}});
 }
 
-template <typename CharT>
+template <typename CharT, typename FileHandle>
 template <typename T, span_extent_type N>
-error basic_writable_file<CharT>::write(span<T, N> buf, bytes_contiguous length)
+error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
+                                                    bytes_contiguous length)
 {
     assert(m_file);
     SPIO_ASSERT(length % sizeof(CharT) == 0,
                 "Length is not divisible by sizeof CharT");
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
     auto char_buf = as_bytes(buf).first(length);
-    const auto ret = SPIO_FWRITE(&char_buf[0], 1, length, m_file->get());
+    const auto ret = m_file.write(&char_buf[0], length);
 #if SPIO_HAS_IF_CONSTEXPR
     if constexpr (sizeof(T) == 1) {
 #else
@@ -163,32 +112,36 @@ error basic_writable_file<CharT>::write(span<T, N> buf, bytes_contiguous length)
     return get_error(ret, length);
 }
 
-template <typename CharT>
-error basic_writable_file<CharT>::write(CharT c)
+template <typename CharT, typename FileHandle>
+error basic_writable_file<CharT, FileHandle>::write(CharT c)
 {
     span<CharT> s{&c, 1};
     return write(s, characters{1});
 }
 
-template <typename CharT>
-error basic_writable_file<CharT>::get_error(quantity_type read_count,
-                                            quantity_type expected) const
+template <typename CharT, typename FileHandle>
+error basic_writable_file<CharT, FileHandle>::get_error(
+    quantity_type read_count,
+    quantity_type expected) const
 {
     assert(m_file);
     if (read_count == expected) {
         return {};
     }
-    if (m_file->error()) {
+    if (m_file.eof()) {
+        return end_of_file;
+    }
+    if (m_file.error()) {
         return io_error;
     }
     return default_error;
 }
 
-template <typename CharT>
-error basic_writable_file<CharT>::flush() noexcept
+template <typename CharT, typename FileHandle>
+error basic_writable_file<CharT, FileHandle>::flush() noexcept
 {
     assert(m_file);
-    if (!m_file->flush()) {
+    if (!m_file.flush()) {
         return io_error;
     }
     return {};

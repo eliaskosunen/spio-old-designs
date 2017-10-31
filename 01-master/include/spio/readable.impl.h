@@ -23,7 +23,7 @@
 
 namespace io {
 template <typename CharT, typename FileHandle>
-basic_readable_file<CharT, FileHandle>::basic_readable_file(FileHandle* file)
+basic_readable_file<CharT, FileHandle>::basic_readable_file(FileHandle file)
     : m_file(file)
 {
     if (!m_file) {
@@ -60,12 +60,12 @@ error basic_readable_file<CharT, FileHandle>::read(span<T, N> buf,
 #else
         if (sizeof(CharT) == 1) {
 #endif
-            return m_file->read(&buf[0], length.get_unsigned());
+            return m_file.read(&buf[0], length.get_unsigned());
         }
         else {
             stl::vector<char> char_buf(length.get_unsigned() * sizeof(CharT),
                                        0);
-            const auto r = m_file->read(&char_buf[0],
+            const auto r = m_file.read(&char_buf[0],
                                         length.get_unsigned() * sizeof(CharT));
             for (auto i = 0; i < length; ++i) {
                 buf[i] = *reinterpret_cast<T*>(
@@ -105,7 +105,7 @@ error basic_readable_file<CharT, FileHandle>::read(span<T, N> buf,
                 "Length is not divisible by sizeof CharT");
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
     auto char_buf = as_writable_bytes(buf).first(length);
-    const auto ret = m_file->read(&char_buf[0], length);
+    const auto ret = m_file.read(&char_buf[0], length);
     return get_error(ret, length);
 }
 
@@ -132,10 +132,10 @@ error basic_readable_file<CharT, FileHandle>::get_error(
     if (read_count == expected) {
         return {};
     }
-    if (m_file->error()) {
+    if (m_file.error()) {
         return io_error;
     }
-    if (m_file->eof()) {
+    if (m_file.eof()) {
         return end_of_file;
     }
     return default_error;
