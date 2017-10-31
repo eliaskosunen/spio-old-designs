@@ -298,15 +298,13 @@ native_filehandle::s_open(const char* filename, uint32_t mode, uint32_t flags)
         f |= O_APPEND;
     }
 
-    int fd = os_filehandle::invalid;
     if (f & O_CREAT) {
-        fd = ::open(filename, f,
-                    S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);  // 0644
+        return ::open(filename, f,
+                      S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);  // 0644
     }
     else {
-        fd = ::open(filename, f);
+        return ::open(filename, f);
     }
-    return fd;
 }
 
 inline bool native_filehandle::open(const char* file,
@@ -359,6 +357,9 @@ inline std::size_t native_filehandle::read(void* ptr, std::size_t bytes)
 {
     assert(good());
     auto ret = ::read(get(), ptr, bytes);
+    if (ret == 0) {
+        m_handle.eof = bytes != 0;
+    }
     if (ret == -1) {
         ret = 0;
     }
@@ -374,7 +375,45 @@ inline std::size_t native_filehandle::write(const void* ptr, std::size_t bytes)
     return static_cast<std::size_t>(ret);
 }
 #elif SPIO_WIN32
+inline os_filehandle::handle_type
+native_filehandle::s_open(const char* filename, uint32_t mode, uint32_t flags)
+{
+    bool r = (mode & open_mode::READ) != 0;
+    bool w = (mode & open_mode::WRITE) != 0;
+    bool a = (flags & open_flags::APPEND) != 0;
+    bool e = (flags & open_flags::EXTENDED) != 0;
+    bool b = (flags & open_flags::BINARY) != 0;
 
+    DWORD open_type = 0;
+    if (r) {
+        open_type |= GENERIC_READ;
+    }
+    if (w) {
+        open_type |= GENERIC_WRITE;
+    }
+    DWORD open_flags = 0;
+    if (a) {
+        open_type |= OPEN_ALWAYS;
+    }
+    else {
+        open_type |= CREATE_ALWAYS;
+    }
+    return ::CreateFile(filename, open_type, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                        NULL, open_flags, FILE_ATTRIBUTE_NORMAL, NULL);
+}
+inline bool native_filehandle::open(const char* file,
+                                    uint32_t mode,
+                                    uint32_t flags)
+{
+    assert(!good());
+    get() = s_open(file, mode, flags);
+    return good();
+}
+inline void native_filehandle::close()
+{
+    assert(good());
+    ::CloseHandle(get());
+}
 #endif
 
 using filehandle = native_filehandle;
