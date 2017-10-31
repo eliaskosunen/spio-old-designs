@@ -186,66 +186,6 @@ private:
     detail::std_file* m_handle{nullptr};
 };
 
-class owned_stdio_filehandle {
-public:
-    owned_stdio_filehandle() = default;
-    owned_stdio_filehandle(const char* filename, const char* mode)
-        : m_file(filename, mode)
-    {
-    }
-    owned_stdio_filehandle(const char* filename,
-                           uint32_t mode,
-                           uint32_t flags = open_flags::NONE)
-        : m_file(filename, mode, flags)
-    {
-    }
-
-    owned_stdio_filehandle(const owned_stdio_filehandle&) = delete;
-    owned_stdio_filehandle& operator=(const owned_stdio_filehandle&) = delete;
-    owned_stdio_filehandle(owned_stdio_filehandle&&) noexcept = default;
-    owned_stdio_filehandle& operator=(owned_stdio_filehandle&&) noexcept =
-        default;
-    ~owned_stdio_filehandle() noexcept
-    {
-        if (m_file) {
-            m_file.close();
-        }
-    }
-
-    bool open(const char* filename, const char* mode)
-    {
-        return m_file.open(filename, mode);
-    }
-    bool open(const char* filename,
-              uint32_t mode,
-              uint32_t flags = open_flags::NONE)
-    {
-        return m_file.open(filename, mode, flags);
-    }
-
-    void close()
-    {
-        return m_file.close();
-    }
-
-#if defined(__GNUC__) && __GNUC__ < 7
-    operator bool() const
-#else
-    constexpr operator bool() const
-#endif
-    {
-        return m_file.operator bool();
-    }
-
-    stdio_filehandle* get()
-    {
-        return &m_file;
-    }
-
-private:
-    stdio_filehandle m_file{};
-};
-
 #if SPIO_HAS_NATIVE_FILEIO
 struct os_filehandle {
 #if SPIO_POSIX
@@ -437,11 +377,74 @@ inline std::size_t native_filehandle::write(const void* ptr, std::size_t bytes)
 
 #endif
 
-/* using filehandle = native_filehandle; */
-using filehandle = stdio_filehandle;
+using filehandle = native_filehandle;
+/* using filehandle = stdio_filehandle; */
 #else
 using filehandle = stdio_filehandle;
-#endif  // SPIO_HAS_NATIVE_IO
+#endif  // SPIO_HAS_NATIVE_FILEIO
+
+template <typename FileHandle>
+class basic_owned_filehandle {
+public:
+    basic_owned_filehandle() = default;
+    basic_owned_filehandle(const char* filename,
+                           uint32_t mode,
+                           uint32_t flags = open_flags::NONE)
+        : m_file(filename, mode, flags)
+    {
+    }
+
+    basic_owned_filehandle(const basic_owned_filehandle&) = delete;
+    basic_owned_filehandle& operator=(const basic_owned_filehandle&) = delete;
+    basic_owned_filehandle(basic_owned_filehandle&&) noexcept = default;
+    basic_owned_filehandle& operator=(basic_owned_filehandle&&) noexcept =
+        default;
+    ~basic_owned_filehandle() noexcept
+    {
+        if (m_file) {
+            m_file.close();
+        }
+    }
+
+    bool open(const char* filename,
+              uint32_t mode,
+              uint32_t flags = open_flags::NONE)
+    {
+        return m_file.open(filename, mode, flags);
+    }
+
+    void close()
+    {
+        return m_file.close();
+    }
+
+#if defined(__GNUC__) && __GNUC__ < 7
+    operator bool() const
+#else
+    constexpr operator bool() const
+#endif
+    {
+        return m_file.operator bool();
+    }
+
+    FileHandle& get()
+    {
+        return m_file;
+    }
+    const FileHandle& get() const
+    {
+        return m_file;
+    }
+
+private:
+    FileHandle m_file{};
+};
+
+using owned_stdio_filehandle = basic_owned_filehandle<stdio_filehandle>;
+using owned_filehandle = basic_owned_filehandle<filehandle>;
+#if SPIO_HAS_NATIVE_FILEIO
+using owned_native_filehandle = basic_owned_filehandle<native_filehandle>;
+#endif
 }  // namespace io
 
 #endif
