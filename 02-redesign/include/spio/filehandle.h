@@ -232,24 +232,24 @@ public:
               uint32_t flags = open_flags::NONE);
     void close();
 
-    constexpr bool good() const
+    constexpr bool good() const noexcept
     {
         return get() != os_filehandle::invalid;
     }
 #if defined(__GNUC__) && __GNUC__ < 7
-    operator bool() const
+    operator bool() const noexcept
 #else
-    constexpr operator bool() const
+    constexpr operator bool() const noexcept
 #endif
     {
         return good();
     }
 
-    os_filehandle::handle_type& get()
+    constexpr os_filehandle::handle_type& get() noexcept
     {
         return m_handle.get();
     }
-    const os_filehandle::handle_type& get() const
+    constexpr const os_filehandle::handle_type& get() const noexcept
     {
         return m_handle.get();
     }
