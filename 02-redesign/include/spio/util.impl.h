@@ -111,7 +111,7 @@ namespace detail {
         }
 
         auto reverse = [](CharT* str) {
-            for (auto i = 0l, j = strlen(str) - 1; i < j; i++, j--) {
+            for (std::ptrdiff_t i = 0, j = strlen(str) - 1; i < j; i++, j--) {
                 CharT tmp = str[i];
                 str[i] = str[j];
                 str[j] = tmp;
