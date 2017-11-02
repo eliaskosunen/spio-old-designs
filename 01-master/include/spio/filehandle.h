@@ -197,14 +197,16 @@ private:
 struct os_filehandle {
 #if SPIO_POSIX
     using handle_type = int;
-	static constexpr handle_type invalid() {
-		return -1;
-	}
+    static constexpr handle_type invalid()
+    {
+        return -1;
+    }
 #elif SPIO_WIN32
     using handle_type = HANDLE;
-	static handle_type invalid() {
-		return INVALID_HANDLE_VALUE;
-	}
+    static handle_type invalid()
+    {
+        return INVALID_HANDLE_VALUE;
+    }
 #endif
 
     handle_type h{invalid()};
@@ -393,7 +395,7 @@ native_filehandle::s_open(const char* filename, uint32_t mode, uint32_t flags)
     bool r = (mode & open_mode::READ) != 0;
     bool w = (mode & open_mode::WRITE) != 0;
     bool a = (flags & open_flags::APPEND) != 0;
-    //bool e = (flags & open_flags::EXTENDED) != 0;
+    // bool e = (flags & open_flags::EXTENDED) != 0;
     bool b = (flags & open_flags::BINARY) != 0;
 
     DWORD open_type = 0;
@@ -429,67 +431,68 @@ inline void native_filehandle::close()
 
 inline bool native_filehandle::error() const
 {
-	return ::GetLastError() != ERROR_SUCCESS;
+    return ::GetLastError() != ERROR_SUCCESS;
 }
 inline void native_filehandle::check_error() const
 {
-	DWORD errcode = ::GetLastError();
+    DWORD errcode = ::GetLastError();
     if (errcode == ERROR_SUCCESS) {
-		return;
+        return;
     }
 
-	LPSTR msgBuf = nullptr;
-	auto size = ::FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&msgBuf, 0, nullptr);
-	stl::vector<char> message(msgBuf, msgBuf + size);
-	::LocalFree(msgBuf);
-	SPIO_THROW_MSG(message.data());
+    LPSTR msgBuf = nullptr;
+    auto size = ::FormatMessageA(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+            FORMAT_MESSAGE_IGNORE_INSERTS,
+        nullptr, errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPSTR)&msgBuf, 0, nullptr);
+    stl::vector<char> message(msgBuf, msgBuf + size);
+    ::LocalFree(msgBuf);
+    SPIO_THROW_MSG(message.data());
 }
 
 inline bool native_filehandle::eof() const
 {
-	return m_handle.eof;
+    return m_handle.eof;
 }
 inline bool native_filehandle::flush()
 {
     assert(good());
-	return ::FlushFileBuffers(get());
+    return ::FlushFileBuffers(get());
 }
 
 inline std::size_t native_filehandle::read(void* ptr, std::size_t bytes)
 {
-	assert(good());
-	DWORD bytes_read = 0;
-	if (!::ReadFile(get(), ptr, bytes, &bytes_read, nullptr)) {
-		DWORD err = ::GetLastError();
-		if (err == ERROR_HANDLE_EOF)
-		{
-			m_handle.eof = true;
-		}
-		else {
-			SetLastError(err);
-		}
-		if (bytes_read == 0)
-		{
-			m_handle.eof = bytes != 0;
-		}
-		return 0;
-	}
-	else {
-		if (bytes_read == 0)
-		{
-			m_handle.eof = bytes != 0;
-		}
-	}
-	return bytes_read;
+    assert(good());
+    DWORD bytes_read = 0;
+    if (!::ReadFile(get(), ptr, bytes, &bytes_read, nullptr)) {
+        DWORD err = ::GetLastError();
+        if (err == ERROR_HANDLE_EOF) {
+            m_handle.eof = true;
+        }
+        else {
+            SetLastError(err);
+        }
+        if (bytes_read == 0) {
+            m_handle.eof = bytes != 0;
+        }
+        return 0;
+    }
+    else {
+        if (bytes_read == 0) {
+            m_handle.eof = bytes != 0;
+        }
+    }
+    return bytes_read;
 }
 inline std::size_t native_filehandle::write(const void* ptr, std::size_t bytes)
 {
-	assert(good());
-	DWORD bytes_written = 0;
-	if (!::WriteFile(get(), ptr, bytes, &bytes_written, nullptr)) {
-		return 0;
-	}
-	return bytes_written;
+    assert(good());
+    DWORD bytes_written = 0;
+    if (!::WriteFile(get(), ptr, bytes, &bytes_written, nullptr)) {
+        return 0;
+    }
+    return bytes_written;
 }
 #endif
 

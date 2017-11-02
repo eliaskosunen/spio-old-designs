@@ -66,7 +66,7 @@ error basic_readable_file<CharT, FileHandle>::read(span<T, N> buf,
             stl::vector<char> char_buf(length.get_unsigned() * sizeof(CharT),
                                        0);
             const auto r = m_file.read(&char_buf[0],
-                                        length.get_unsigned() * sizeof(CharT));
+                                       length.get_unsigned() * sizeof(CharT));
             for (auto i = 0; i < length; ++i) {
                 buf[i] = *reinterpret_cast<T*>(
                     &char_buf[static_cast<std::size_t>(i) * sizeof(CharT)]);
