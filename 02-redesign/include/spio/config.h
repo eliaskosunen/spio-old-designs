@@ -61,6 +61,28 @@
 // Compatibility
 //
 
+#if !defined(SPIO_POSIX) && !defined(SPIO_WIN32)
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#define SPIO_POSIX 1
+#define SPIO_WIN32 0
+#endif
+
+#ifdef _WIN32
+#define SPIO_POSIX 0
+#define SPIO_WIN32 1
+#endif
+#endif
+
+#if SPIO_POSIX && SPIO_WIN32
+#error Both SPIO_POSIX and SPIO_WIN32 detected
+#endif
+
+#if !SPIO_POSIX && !SPIO_WIN32
+#define SPIO_HAS_NATIVE_FILEIO 0
+#else
+#define SPIO_HAS_NATIVE_FILEIO 1
+#endif
+
 #if defined(__cpp_if_constexpr)
 #define SPIO_HAS_IF_CONSTEXPR 1
 #else
