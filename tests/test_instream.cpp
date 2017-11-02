@@ -28,7 +28,7 @@ TEST_CASE("file_instream")
     {
         io::owned_stdio_filehandle h(
             "file.txt",
-            io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+            io::stdio_filehandle::READ);
         REQUIRE(h);
         io::file_instream f{h.get()};
         std::vector<char> str(20, '\0');
@@ -39,7 +39,7 @@ TEST_CASE("file_instream")
     {
         io::owned_stdio_filehandle h(
             "file.txt",
-            io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+            io::stdio_filehandle::READ);
         REQUIRE(h);
         io::file_instream f{h.get()};
         std::vector<char> str(20, '\0');
@@ -50,7 +50,7 @@ TEST_CASE("file_instream")
     {
         io::owned_stdio_filehandle h(
             "file.txt",
-            io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+            io::stdio_filehandle::READ);
         REQUIRE(h);
         io::file_instream f{h.get()};
         std::vector<char> str(20, '\0');
