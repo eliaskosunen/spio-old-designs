@@ -1,6 +1,7 @@
 # spio
 
 [![Build Status](https://travis-ci.org/eliaskosunen/spio.svg?branch=master)](https://travis-ci.org/eliaskosunen/spio)
+[![Build status](https://ci.appveyor.com/api/projects/status/8inevtt3rbnx36ql/branch/master?svg=true)](https://ci.appveyor.com/project/varuna-lang/spio/branch/master)
 
 This library aims to to combine the speed of C standard IO with the functionality and safety of C++ iostreams. WIP
 

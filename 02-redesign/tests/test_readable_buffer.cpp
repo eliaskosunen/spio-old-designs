@@ -104,13 +104,13 @@ TEST_CASE("readable_wbuffer")
     }
     SUBCASE("read_bytes")
     {
-        std::vector<wchar_t> buf2 = {0x7f, 0xff, 0x42, 0x20, 0};
-        io::readable_wbuffer r2(io::make_span(buf2));
+        std::vector<char32_t> buf2 = {0x7f, 0xff, 0x42, 0x20, 0};
+        io::readable_buffer32 r2(io::make_span(buf2));
 
         std::array<char, 4> b{{0}};
         auto error =
-            r2.read(io::make_span(reinterpret_cast<wchar_t*>(&b[0]),
-                                  reinterpret_cast<wchar_t*>(&b[0]) + 2),
+            r2.read(io::make_span(reinterpret_cast<char32_t*>(&b[0]),
+                                  reinterpret_cast<char32_t*>(&b[0]) + 2),
                     io::bytes{4});
         CHECK_FALSE(error);
         CHECK_FALSE(io::is_eof(error));
