@@ -24,8 +24,8 @@
 
 TEST_CASE("writable_file")
 {
-    io::owned_stdio_filehandle f("write.txt", io::stdio_filehandle::WRITE |
-                                                  io::stdio_filehandle::BINARY);
+    io::owned_filehandle f("write.txt", io::open_mode::WRITE,
+                           io::open_flags::BINARY);
     REQUIRE(f);
     io::writable_file w(f.get());
     char ln = '\n';
@@ -42,9 +42,8 @@ TEST_CASE("writable_file")
             CHECK_FALSE(w.flush());
         }
         {
-            io::owned_stdio_filehandle h(
-                "write.txt",
-                io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+            io::owned_filehandle h("write.txt", io::open_mode::READ,
+                                   io::open_flags::BINARY);
             REQUIRE(h);
             io::readable_file r(h.get());
             auto error = r.read(c);
@@ -68,9 +67,8 @@ TEST_CASE("writable_file")
             CHECK_FALSE(w.flush());
         }
         {
-            io::owned_stdio_filehandle h(
-                "write.txt",
-                io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+            io::owned_filehandle h("write.txt", io::open_mode::READ,
+                                   io::open_flags::BINARY);
             REQUIRE(h);
             io::readable_file r(h.get());
             auto error = r.read(io::make_span(a), io::elements{4});
@@ -87,9 +85,8 @@ TEST_CASE("writable_wfile")
 {
     SUBCASE("write_elem")
     {
-        io::owned_stdio_filehandle f(
-            "write.utf32.txt",
-            io::stdio_filehandle::WRITE | io::stdio_filehandle::BINARY);
+        io::owned_filehandle f("write.utf32.txt", io::open_mode::WRITE,
+                               io::open_flags::BINARY);
         REQUIRE(f);
         io::writable_wfile w(f.get());
         wchar_t ln = L'\n';
@@ -105,9 +102,8 @@ TEST_CASE("writable_wfile")
             w.flush();
         }
         {
-            io::owned_stdio_filehandle h(
-                "write.utf32.txt",
-                io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+            io::owned_filehandle h("write.utf32.txt", io::open_mode::READ,
+                                   io::open_flags::BINARY);
             REQUIRE(h);
             io::readable_wfile r(h.get());
             auto error = r.read(c);
@@ -120,9 +116,8 @@ TEST_CASE("writable_wfile")
     }
     SUBCASE("write_range")
     {
-        io::owned_stdio_filehandle f(
-            "write.utf32.txt",
-            io::stdio_filehandle::WRITE | io::stdio_filehandle::BINARY);
+        io::owned_filehandle f("write.utf32.txt", io::open_mode::WRITE,
+                               io::open_flags::BINARY);
         REQUIRE(f);
         io::writable_wfile w(f.get());
         wchar_t ln = L'\n';
@@ -137,9 +132,8 @@ TEST_CASE("writable_wfile")
             CHECK_FALSE(w.flush());
         }
         {
-            io::owned_stdio_filehandle h(
-                "write.utf32.txt",
-                io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+            io::owned_filehandle h("write.utf32.txt", io::open_mode::READ,
+                                   io::open_flags::BINARY);
             REQUIRE(h);
             io::readable_wfile r(h.get());
             auto error = r.read(io::make_span(a), io::elements{4});
