@@ -154,8 +154,9 @@ constexpr int max_digits() noexcept
 template <typename CharT>
 constexpr std::ptrdiff_t strlen(const CharT* str) noexcept
 {
-    const CharT* s;
-    for (s = str; *s; ++s) {
+    assert(str);
+    const CharT* s = str;
+    for (; *s; ++s) {
     }
     return (s - str);
 }
