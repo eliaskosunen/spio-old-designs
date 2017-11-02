@@ -24,8 +24,8 @@
 
 TEST_CASE("readable_file")
 {
-    io::owned_stdio_filehandle f(
-        "file.txt", io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+    io::owned_filehandle f("file.txt", io::open_mode::READ,
+                           io::open_flags::BINARY);
     REQUIRE(f);
     io::readable_file r(f.get());
     SUBCASE("read_elem")
@@ -55,8 +55,7 @@ TEST_CASE("readable_file")
 #ifndef _WIN32
 TEST_CASE("readable_wfile")
 {
-    io::owned_stdio_filehandle f(
-        "wchar.utf32.txt", io::stdio_filehandle::READ);
+    io::owned_filehandle f("wchar.utf32.txt", io::open_mode::READ);
     REQUIRE(f);
     io::readable_wfile r(f.get());
     // Dismiss BOM

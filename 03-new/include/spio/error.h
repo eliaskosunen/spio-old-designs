@@ -38,7 +38,8 @@ enum error_code {
     io_error,
     assertion_failure,
     end_of_file,
-    default_error
+    default_error,
+    unknown_error
 };
 
 struct error {
@@ -76,6 +77,8 @@ struct error {
                 return "End of file";
             case default_error:
                 return "Default error";
+            case unknown_error:
+                return "Unknown error";
         }
         return "";
     }
@@ -111,11 +114,15 @@ private:
     stl::vector<char> m_message;
 };
 
+#define SPIO_THROW_MSG(msg) throw ::io::failure(default_error, msg)
 #define SPIO_THROW_EC(ec) throw ::io::failure(ec, ::io::error(ec).to_string())
 #define SPIO_THROW(ec, msg) throw ::io::failure(ec, msg)
 #else
 class failure {
 };
+#define SPIO_THROW_MSG(msg) \
+    assert(false && (msg)); \
+    std::terminate();
 #define SPIO_THROW_EC(ec)            \
     assert(false && ec.to_string()); \
     std::terminate();
