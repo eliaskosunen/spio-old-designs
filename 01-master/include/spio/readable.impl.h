@@ -67,10 +67,11 @@ error basic_readable_file<CharT>::read(span<T, N> buf, characters length)
             const auto r = SPIO_FREAD(&char_buf[0], 1,
                                       length.get_unsigned() * sizeof(CharT),
                                       m_file->get());
-            for (auto i = 0; i < length; ++i) {
+			copy_contiguous(make_span(char_buf), buf);
+            /*for (auto i = 0; i < length; ++i) {
                 buf[i] = *reinterpret_cast<T*>(
                     &char_buf[static_cast<std::size_t>(i) * sizeof(CharT)]);
-            }
+            }*/
             return r / sizeof(CharT);
         }
     }();
