@@ -52,11 +52,11 @@ TEST_CASE("readable_file")
         CHECK(std::equal(a.begin(), a.end(), "Lorem"));
     }
 }
+#ifndef _WIN32
 TEST_CASE("readable_wfile")
 {
     io::owned_stdio_filehandle f(
-        "wchar.utf32.txt",
-        io::stdio_filehandle::READ | io::stdio_filehandle::BINARY);
+        "wchar.utf32.txt", io::stdio_filehandle::READ);
     REQUIRE(f);
     io::readable_wfile r(f.get());
     // Dismiss BOM
@@ -85,3 +85,4 @@ TEST_CASE("readable_wfile")
         CHECK_EQ(std::wstring{a.data()}, L"Lorem");
     }
 }
+#endif

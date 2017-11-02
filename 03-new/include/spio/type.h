@@ -392,7 +392,12 @@ struct type<T,
 
         SPIO_UNUSED(opt);
 
-        if (sizeof(char_type) == 1) {
+#if SPIO_HAS_IF_CONSTEXPR
+        if constexpr (sizeof(char_type) == 1)
+#else
+        if (sizeof(char_type) == 1)
+#endif
+		{
             return w.write(char_span);
         }
         else {
