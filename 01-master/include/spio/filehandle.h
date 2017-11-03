@@ -445,7 +445,7 @@ inline void native_filehandle::check_error() const
         FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
             FORMAT_MESSAGE_IGNORE_INSERTS,
         nullptr, errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        (LPSTR)&msgBuf, 0, nullptr);
+        reinterpret_cast<LPSTR>(&msgBuf), 0, nullptr);
     stl::vector<char> message(msgBuf, msgBuf + size);
     ::LocalFree(msgBuf);
     SPIO_THROW_MSG(message.data());
@@ -489,7 +489,8 @@ inline std::size_t native_filehandle::write(const void* ptr, std::size_t bytes)
 {
     assert(good());
     DWORD bytes_written = 0;
-    if (!::WriteFile(get(), ptr, bytes, &bytes_written, nullptr)) {
+    if (!::WriteFile(get(), ptr, static_cast<DWORD>(bytes), &bytes_written,
+                     nullptr)) {
         return 0;
     }
     return bytes_written;
