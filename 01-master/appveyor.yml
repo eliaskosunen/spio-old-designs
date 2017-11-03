@@ -7,7 +7,7 @@ platform:
     - Win32
     - x64
 
-configuration: Release
+configuration: Debug
 
 environment:
     MSVC_DEFAULT_OPTIONS: ON
@@ -16,11 +16,8 @@ init:
     - cmake --version
     - msbuild /version
     - echo %platform%
-    - set arch=
-    - if "%platform"=="x64" ( set arch=" Win64")
-    - echo %arch%
-    - echo %APPVEYOR_BUILD_WORKER_IMAGE%
-    - if "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2017" ( set generator="Visual Studio 15 2017%arch%" )
+    - if "%platform%"=="x64" ( set generator="Visual Studio 15 2017 Win64")
+    - if "%platform%"=="Win32" ( set generator="Visual Studio 15 2017")
     - echo %generator%
 
 clone_folder: C:\projects\spio

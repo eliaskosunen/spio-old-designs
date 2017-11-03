@@ -111,7 +111,7 @@ namespace detail {
         }
 
         auto reverse = [](CharT* str) {
-            for (std::ptrdiff_t i = 0, j = strlen(str) - 1; i < j; i++, j--) {
+            for (std::ptrdiff_t i = 0, j = stl::strlen(str) - 1; i < j; i++, j--) {
                 CharT tmp = str[i];
                 str[i] = str[j];
                 str[j] = tmp;
@@ -149,34 +149,6 @@ constexpr int max_digits() noexcept
     else {
         return digits;
     }
-}
-
-template <typename CharT>
-constexpr std::ptrdiff_t strlen(const CharT* str) noexcept
-{
-    assert(str);
-    const CharT* s = str;
-    for (; *s; ++s) {
-    }
-    return (s - str);
-}
-template <typename T, span_extent_type N>
-constexpr std::ptrdiff_t strlen(span<T, N> str) noexcept
-{
-    auto it = stl::find(str.begin(), str.end(), static_cast<T>('\0'));
-    if (it == str.end()) {
-        return str.size();
-    }
-    return stl::distance(str.begin(), it);
-}
-
-template <typename CharT>
-constexpr CharT* strcpy(CharT* dest, CharT* src) noexcept
-{
-    auto orig = dest;
-    while ((*dest++ = *src++) != static_cast<CharT>('\0')) {
-    }
-    return orig;
 }
 
 namespace detail {

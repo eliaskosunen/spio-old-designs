@@ -101,7 +101,7 @@ struct type<T,
         stl::vector<char_type> str(s.size_us(), '\0');
         auto strspan = make_span(str);
         p.read_raw(strspan);
-        const auto str_len = strlen(strspan);
+        const auto str_len = stl::strlen(strspan);
         const auto end = [&]() {
             for (std::ptrdiff_t i = 0; i < str_len; ++i) {
                 if (is_space(strspan[i], opt.spaces)) {
@@ -164,7 +164,7 @@ struct type<detail::string_tag<T, N>> {
                 if (N != 0) {
                     return N;
                 }
-                return strlen(ptr);
+                return stl::strlen(ptr);
             }();
             return w.write(make_span(ptr, len));
         }
@@ -281,7 +281,7 @@ struct type<T,
         buf.fill(char_type{0});
         auto s = make_span<n>(buf);
         int_to_char<char_type>(val, s, opt.base);
-        return w.write(s.first(strlen(s)).as_const_span());
+        return w.write(s.first(stl::strlen(s)).as_const_span());
     }
 };  // namespace io
 
@@ -388,7 +388,7 @@ struct type<T,
         using char_type = typename Writer::char_type;
 
         auto arr = detail::floating_write_arr(val);
-        auto char_span = make_span(&arr[0], strlen(&arr[0]));
+        auto char_span = make_span(&arr[0], stl::strlen(&arr[0]));
 
         SPIO_UNUSED(opt);
 

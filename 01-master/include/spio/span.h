@@ -964,7 +964,17 @@ void copy_contiguous(span<ElementFrom, ExtentFrom> from,
 }
 #endif
 
-// namespace io
+namespace stl {
+    template <typename T, span_extent_type N>
+    constexpr std::ptrdiff_t strlen(span<T, N> str) noexcept
+    {
+        auto it = stl::find(str.begin(), str.end(), static_cast<T>('\0'));
+        if (it == str.end()) {
+            return str.size();
+        }
+        return stl::distance(str.begin(), it);
+    }
+}  // namespace stl
 }  // namespace io
 
 namespace std {
