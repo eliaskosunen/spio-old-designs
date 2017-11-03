@@ -54,6 +54,26 @@ namespace stl {
     using SPIO_STL_NS::equal;
     using SPIO_STL_NS::find;
     using SPIO_STL_NS::lexicographical_compare;
+
+    template <typename CharT>
+    constexpr std::ptrdiff_t strlen(const CharT* str) noexcept
+    {
+        assert(str);
+        const CharT* s = str;
+        for (; *s; ++s) {
+        }
+        return (s - str);
+    }
+    template <>
+    inline std::ptrdiff_t strlen(const char* str) noexcept
+    {
+        return static_cast<std::ptrdiff_t>(SPIO_STL_NS::strlen(str));
+    }
+    template <>
+    inline std::ptrdiff_t strlen(const wchar_t* str) noexcept
+    {
+        return static_cast<std::ptrdiff_t>(SPIO_STL_NS::wcslen(str));
+    }
 }  // namespace stl
 }  // namespace io
 
