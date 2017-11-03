@@ -396,7 +396,7 @@ native_filehandle::s_open(const char* filename, uint32_t mode, uint32_t flags)
     bool w = (mode & open_mode::WRITE) != 0;
     bool a = (flags & open_flags::APPEND) != 0;
     // bool e = (flags & open_flags::EXTENDED) != 0;
-    bool b = (flags & open_flags::BINARY) != 0;
+    // bool b = (flags & open_flags::BINARY) != 0;
 
     DWORD open_type = 0;
     if (r) {

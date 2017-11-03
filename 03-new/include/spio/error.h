@@ -94,9 +94,10 @@ class failure : public std::exception {
 public:
     explicit failure(error e) : failure(e, e.to_string()) {}
     explicit failure(error e, const char* message)
-        : m_error(e), m_message(strlen(message) + 1)
+        : m_error(e),
+          m_message(static_cast<std::size_t>(stl::strlen(message) + 1))
     {
-        strcpy(&m_message[0], message);
+        ::memcpy(&m_message[0], message, m_message.size());
     }
 
     const char* what() const noexcept override
