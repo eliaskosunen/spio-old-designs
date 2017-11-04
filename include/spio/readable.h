@@ -79,7 +79,7 @@ public:
         "basic_readable_file<CharT>: CharT must be TriviallyCopyable");
 
     basic_readable_file() = default;
-    /*implicit*/ basic_readable_file(FileHandle file);
+    /*implicit*/ basic_readable_file(FileHandle& file);
 
     template <typename T, span_extent_type N>
     error read(span<T, N> buf);
@@ -107,7 +107,7 @@ public:
 private:
     error get_error(quantity_type read_count, quantity_type expected) const;
 
-    FileHandle m_file{};
+    stl::reference_wrapper<FileHandle> m_file{};
 };
 
 template <typename CharT, span_extent_type BufferExtent = dynamic_extent>

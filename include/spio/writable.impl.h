@@ -23,10 +23,10 @@
 
 namespace io {
 template <typename CharT, typename FileHandle>
-basic_writable_file<CharT, FileHandle>::basic_writable_file(FileHandle file)
+basic_writable_file<CharT, FileHandle>::basic_writable_file(FileHandle& file)
     : m_file(file)
 {
-    if (!m_file) {
+    if (!file) {
         SPIO_THROW(invalid_argument, "Nullptr file given");
     }
 }
@@ -43,7 +43,7 @@ template <typename T, span_extent_type N>
 error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
                                                     characters length)
 {
-    assert(m_file);
+    assert(m_file.get());
     SPIO_ASSERT(length <= buf.size(), "buf is not big enough");
     static_assert(sizeof(T) <= sizeof(CharT),
                   "Truncation in basic_writable_file<CharT>::write: sizeof "
@@ -58,14 +58,12 @@ error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
 #else
         if (sizeof(CharT) == 1) {
 #endif
-            return m_file.write(&buf[0], length.get_unsigned());
+            return m_file.get().write(as_bytes(buf.first(length)));
         }
         else {
             auto char_buf =
                 as_bytes(buf).first(length * quantity_type{sizeof(T)});
-            return m_file.write(&char_buf[0],
-                                length.get_unsigned() * sizeof(T)) /
-                   sizeof(T);
+            return m_file.get().write(char_buf) / sizeof(T);
         }
     }();
     return get_error(static_cast<quantity_type>(ret), length);
@@ -93,12 +91,12 @@ template <typename T, span_extent_type N>
 error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
                                                     bytes_contiguous length)
 {
-    assert(m_file);
+    assert(m_file.get());
     SPIO_ASSERT(length % sizeof(CharT) == 0,
                 "Length is not divisible by sizeof CharT");
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
     auto char_buf = as_bytes(buf).first(length);
-    const auto ret = m_file.write(&char_buf[0], length);
+    const auto ret = m_file.get().write(char_buf);
 #if SPIO_HAS_IF_CONSTEXPR
     if constexpr (sizeof(T) == 1) {
 #else
@@ -124,14 +122,14 @@ error basic_writable_file<CharT, FileHandle>::get_error(
     quantity_type read_count,
     quantity_type expected) const
 {
-    assert(m_file);
+    assert(m_file.get());
     if (read_count == expected) {
         return {};
     }
-    if (m_file.eof()) {
+    if (m_file.get().eof()) {
         return end_of_file;
     }
-    if (m_file.error()) {
+    if (m_file.get().error()) {
         return io_error;
     }
     return default_error;
@@ -140,8 +138,8 @@ error basic_writable_file<CharT, FileHandle>::get_error(
 template <typename CharT, typename FileHandle>
 error basic_writable_file<CharT, FileHandle>::flush() noexcept
 {
-    assert(m_file);
-    if (!m_file.flush()) {
+    assert(m_file.get());
+    if (!m_file.get().flush()) {
         return io_error;
     }
     return {};

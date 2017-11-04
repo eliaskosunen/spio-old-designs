@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -27,37 +28,38 @@
 #include "benchmark/benchmark.h"
 #include "spio/spio.h"
 
-static std::string generate_string(size_t len)
-{
-    const std::vector<char> chars = {'0', '1', '2', '3',  '4', '5',
-                                     '6', '7', '8', '9',  ' ', ' ',
-                                     ' ', ' ', ' ', '\n', '\t'};
-    std::default_random_engine rng(std::random_device{}());
-    std::uniform_int_distribution<> dist(0, static_cast<int>(chars.size() - 1));
-
-    std::string str(len, '\0');
-    std::generate_n(str.begin(), len, [&chars, &dist, &rng]() {
-        return chars[static_cast<size_t>(dist(rng))];
-    });
-    return str;
-}
-
 template <typename T>
-static void readint_spio(benchmark::State& state)
+static void readint_spio_stdio(benchmark::State& state)
 {
     try {
         while (state.KeepRunning()) {
             state.PauseTiming();
-            std::string data =
-                generate_string(static_cast<size_t>(state.range(0)));
+            io::owned_stdio_filehandle h("integers.txt", io::open_mode::READ);
+            io::basic_file_instream<char, io::stdio_filehandle> p{h.get()};
             state.ResumeTiming();
 
-            io::readable_buffer buf{io::make_span(data)};
-            io::buffer_instream p{buf};
-            /* io::readable_buffer r(io::make_span(data)); */
-            /* io::basic_instream<decltype(r)> p(r); */
-            /* io::readable_buffer buf{io::make_span(data)}; */
-            /* io::buffer_instream p{std::move(buf)}; */
+            T num;
+            while (p.read(num)) {
+            }
+        }
+        state.SetBytesProcessed(state.iterations() *
+                                static_cast<size_t>(state.range(0)) *
+                                sizeof(T));
+    }
+    catch (const io::failure& f) {
+        state.SkipWithError(f.what());
+    }
+}
+template <typename T>
+static void readint_spio_native(benchmark::State& state)
+{
+    try {
+        while (state.KeepRunning()) {
+            state.PauseTiming();
+            io::owned_native_filehandle h("integers.txt", io::open_mode::READ);
+            io::basic_file_instream<char, io::native_filehandle> p{h.get()};
+            state.ResumeTiming();
+
             T num;
             while (p.read(num)) {
             }
@@ -75,13 +77,12 @@ static void readint_ios(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         state.PauseTiming();
-        std::string data = generate_string(static_cast<size_t>(state.range(0)));
+        std::ifstream fs("integers.txt");
         state.ResumeTiming();
 
-        std::stringstream ss(data);
         T num;
-        while (ss) {
-            ss >> num;
+        while (fs) {
+            fs >> num;
         }
     }
     state.SetBytesProcessed(state.iterations() *
@@ -92,47 +93,19 @@ static void readint_scanf(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         state.PauseTiming();
-        std::string data = generate_string(static_cast<size_t>(state.range(0)));
+        FILE* file = std::fopen("integers.txt", "r");
         state.ResumeTiming();
-        auto p = &data[0];
-        int n, total = 0;
-        long long i;
-        while (std::sscanf(p + total, "%*[^0123456789]%lld%n", &i, &n) != 0) {
-            total += n;
+
+        T num;
+        while (std::fscanf(file, "%d", &num) != 1 && !std::feof(file)) {
         }
-    }
-    state.SetBytesProcessed(state.iterations() *
-                            static_cast<size_t>(state.range(0)) * sizeof(T));
-}
-template <typename T>
-static void readint_strtol(benchmark::State& state)
-{
-    while (state.KeepRunning()) {
-        state.PauseTiming();
-        std::string data = generate_string(static_cast<size_t>(state.range(0)));
-        state.ResumeTiming();
-        auto p = &data[0];
-        long long num;
-        while (*p) {
-            if (std::isdigit(*p)) {
-                num = std::strtoll(p, &p, 10);
-            }
-            else {
-                p++;
-            }
-        }
-        SPIO_UNUSED(num);
+        std::fclose(file);
     }
     state.SetBytesProcessed(state.iterations() *
                             static_cast<size_t>(state.range(0)) * sizeof(T));
 }
 
-BENCHMARK_TEMPLATE(readint_spio, int)->Range(8, 8 << 6);
+BENCHMARK_TEMPLATE(readint_spio_stdio, int)->Range(8, 8 << 6);
+BENCHMARK_TEMPLATE(readint_spio_native, int)->Range(8, 8 << 6);
 BENCHMARK_TEMPLATE(readint_ios, int)->Range(8, 8 << 6);
 BENCHMARK_TEMPLATE(readint_scanf, int)->Range(8, 8 << 6);
-BENCHMARK_TEMPLATE(readint_strtol, int)->Range(8, 8 << 6);
-
-/* BENCHMARK_TEMPLATE(readint_spio, unsigned)->Range(8, 8 << 6); */
-/* BENCHMARK_TEMPLATE(readint_ios, unsigned)->Range(8, 8 << 6); */
-/* BENCHMARK_TEMPLATE(readint_scanf, unsigned)->Range(8, 8 << 6); */
-/* BENCHMARK_TEMPLATE(readint_strtol, unsigned)->Range(8, 8 << 6); */

@@ -26,6 +26,8 @@
 #if SPIO_USE_STL
 #include <algorithm>
 #include <array>
+#include <functional>
+#include <memory>
 #include <vector>
 #endif  // SPIO_USE_STL
 #include <cstring>
@@ -41,12 +43,13 @@ namespace io {
 #endif
 
 namespace stl {
-    template <typename Element, std::size_t N>
-    using array = SPIO_STL_NS::array<Element, N>;
-
     template <typename Element,
               typename Allocator = SPIO_STL_DEFAULT_ALLOCATOR<Element>>
     using vector = SPIO_STL_NS::vector<Element, Allocator>;
+
+    using SPIO_STL_NS::array;
+    using SPIO_STL_NS::reference_wrapper;
+    using SPIO_STL_NS::unique_ptr;
 
     using SPIO_STL_NS::advance;
     using SPIO_STL_NS::copy;
@@ -54,6 +57,7 @@ namespace stl {
     using SPIO_STL_NS::equal;
     using SPIO_STL_NS::find;
     using SPIO_STL_NS::lexicographical_compare;
+    using SPIO_STL_NS::make_unique;
 
     template <typename CharT>
     constexpr std::ptrdiff_t strlen(const CharT* str) noexcept

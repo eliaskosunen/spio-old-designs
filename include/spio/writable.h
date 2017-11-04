@@ -81,7 +81,7 @@ public:
         "basic_writable_file<CharT>: CharT must be TriviallyCopyable");
 
     basic_writable_file() = default;
-    /*implicit*/ basic_writable_file(FileHandle file);
+    /*implicit*/ basic_writable_file(FileHandle& file);
 
     template <typename T, span_extent_type N>
     error write(span<T, N> buf);
@@ -109,7 +109,7 @@ public:
 private:
     error get_error(quantity_type read_count, quantity_type expected) const;
 
-    FileHandle m_file{};
+    stl::reference_wrapper<FileHandle> m_file{};
 };
 
 template <typename T>
