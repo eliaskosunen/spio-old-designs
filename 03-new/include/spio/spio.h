@@ -21,8 +21,10 @@
 #ifndef SPIO_SPIO_H
 #define SPIO_SPIO_H
 
+#include "buffering.h"
 #include "config.h"
 #include "error.h"
+#include "filehandle.h"
 #include "readable.h"
 #include "span.h"
 #include "stl.h"

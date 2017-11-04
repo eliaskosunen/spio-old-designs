@@ -20,6 +20,7 @@
 
 #include <functional>
 #include <iostream>
+#include <fstream>
 #include <limits>
 #include <random>
 #include <sstream>
@@ -53,18 +54,18 @@ static std::vector<std::string> generate_data(size_t len)
     return data;
 }
 
-static void writestring_spio(benchmark::State& state)
+static void writestring_spio_stdio(benchmark::State& state)
 {
     try {
         size_t bytes = 0;
         while (state.KeepRunning()) {
             state.PauseTiming();
             auto data = generate_data(static_cast<size_t>(state.range(0)));
+            io::owned_stdio_filehandle h("writestring.txt",
+                                         io::open_mode::WRITE);
+            io::basic_file_outstream<char, io::stdio_filehandle> p{h.get()};
             state.ResumeTiming();
 
-            io::writable_buffer p{};
-            /* io::writable_buffer w{}; */
-            /* io::writer<decltype(w)> p{w}; */
             for (auto& n : data) {
                 p.write(io::make_span(n));
                 bytes += n.length();
@@ -76,21 +77,18 @@ static void writestring_spio(benchmark::State& state)
         state.SkipWithError(f.what());
     }
 }
-
-static void writestring_spio_static(benchmark::State& state)
+static void writestring_spio_native(benchmark::State& state)
 {
     try {
         size_t bytes = 0;
         while (state.KeepRunning()) {
             state.PauseTiming();
             auto data = generate_data(static_cast<size_t>(state.range(0)));
-            io::dynamic_writable_buffer<char> buffer;
-            buffer.reserve(static_cast<size_t>(state.range(0)));
+            io::owned_native_filehandle h("writestring.txt",
+                                          io::open_mode::WRITE);
+            io::basic_file_outstream<char, io::native_filehandle> p{h.get()};
             state.ResumeTiming();
 
-            io::writable_buffer p{std::move(buffer)};
-            /* io::writable_buffer w{std::move(buffer)}; */
-            /* io::writer<decltype(w)> p{w}; */
             for (auto& n : data) {
                 p.write(io::make_span(n));
                 bytes += n.length();
@@ -109,17 +107,17 @@ static void writestring_ios(benchmark::State& state)
     while (state.KeepRunning()) {
         state.PauseTiming();
         auto data = generate_data(static_cast<size_t>(state.range(0)));
+        std::ofstream fs("writestring.txt");
         state.ResumeTiming();
 
-        std::stringstream ss{};
         for (auto& n : data) {
-            ss << n;
+            fs << n;
             bytes += n.length();
         }
     }
     state.SetBytesProcessed(bytes);
 }
 
-BENCHMARK(writestring_spio)->Range(8, 8 << 8);
-BENCHMARK(writestring_spio_static)->Range(8, 8 << 8);
+BENCHMARK(writestring_spio_stdio)->Range(8, 8 << 8);
+BENCHMARK(writestring_spio_native)->Range(8, 8 << 8);
 BENCHMARK(writestring_ios)->Range(8, 8 << 8);

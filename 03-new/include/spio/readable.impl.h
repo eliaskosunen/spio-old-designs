@@ -23,10 +23,10 @@
 
 namespace io {
 template <typename CharT, typename FileHandle>
-basic_readable_file<CharT, FileHandle>::basic_readable_file(FileHandle file)
+basic_readable_file<CharT, FileHandle>::basic_readable_file(FileHandle& file)
     : m_file(file)
 {
-    if (!m_file) {
+    if (!file) {
         SPIO_THROW(invalid_argument, "Nullptr file given");
     }
 }
@@ -43,7 +43,7 @@ template <typename T, span_extent_type N>
 error basic_readable_file<CharT, FileHandle>::read(span<T, N> buf,
                                                    characters length)
 {
-    assert(m_file);
+    assert(m_file.get());
     SPIO_ASSERT(
         length <= buf.size_bytes() / static_cast<quantity_type>(sizeof(CharT)),
         "buf is not big enough");
@@ -60,14 +60,14 @@ error basic_readable_file<CharT, FileHandle>::read(span<T, N> buf,
 #else
         if (sizeof(CharT) == 1) {
 #endif
-            return m_file.read(&buf[0], length.get_unsigned());
+            return m_file.get().read(as_writable_bytes(buf.first(length)));
         }
         else {
             stl::vector<char> char_buf(length.get_unsigned() * sizeof(CharT),
                                        0);
-            const auto r = m_file.read(&char_buf[0],
-                                       length.get_unsigned() * sizeof(CharT));
-			copy_contiguous(make_span(char_buf), buf);
+            const auto r =
+                m_file.get().read(as_writable_bytes(make_span(char_buf)));
+            copy_contiguous(make_span(char_buf), buf);
             return r / sizeof(CharT);
         }
     }();
@@ -97,12 +97,12 @@ template <typename T, span_extent_type N>
 error basic_readable_file<CharT, FileHandle>::read(span<T, N> buf,
                                                    bytes_contiguous length)
 {
-    assert(m_file);
+    assert(m_file.get());
     SPIO_ASSERT(length % sizeof(CharT) == 0,
                 "Length is not divisible by sizeof CharT");
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
     auto char_buf = as_writable_bytes(buf).first(length);
-    const auto ret = m_file.read(&char_buf[0], length);
+    const auto ret = m_file.get().read(&char_buf[0], length);
     return get_error(ret, length);
 }
 
@@ -125,14 +125,14 @@ error basic_readable_file<CharT, FileHandle>::get_error(
     quantity_type read_count,
     quantity_type expected) const
 {
-    assert(m_file);
+    assert(m_file.get());
     if (read_count == expected) {
         return {};
     }
-    if (m_file.error()) {
+    if (m_file.get().error()) {
         return io_error;
     }
-    if (m_file.eof()) {
+    if (m_file.get().eof()) {
         return end_of_file;
     }
     return default_error;

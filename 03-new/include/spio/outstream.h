@@ -178,13 +178,7 @@ public:
 
     basic_file_outstream() : base_type(writable_type{}) {}
     explicit basic_file_outstream(writable_type w) : base_type(std::move(w)) {}
-    basic_file_outstream(FileHandle file) : base_type({}), m_file(file)
-    {
-        base_type::m_writable = writable_type{m_file};
-    }
-
-private:
-    FileHandle m_file{};
+    basic_file_outstream(FileHandle& file) : base_type(file) {}
 };
 
 template <typename CharT, typename BufferT = dynamic_writable_buffer<CharT>>
@@ -204,34 +198,63 @@ public:
     basic_buffer_outstream(buffer_type b) : base_type(std::move(b)) {}
 };
 
-template <typename CharT>
-class basic_stdout_outstream
-    : public basic_file_outstream<CharT, stdio_filehandle> {
-public:
-    basic_stdout_outstream()
-        : basic_file_outstream<CharT, stdio_filehandle>(stdout)
-    {
-    }
-};
-template <typename CharT>
-class basic_stderr_outstream
-    : public basic_file_outstream<CharT, stdio_filehandle> {
-public:
-    basic_stderr_outstream()
-        : basic_file_outstream<CharT, stdio_filehandle>(stderr)
-    {
-    }
-};
-
 using file_outstream = basic_file_outstream<char>;
 using file_woutstream = basic_file_outstream<wchar_t>;
 using buffer_outstream = basic_buffer_outstream<char>;
 using buffer_woutstream = basic_buffer_outstream<wchar_t>;
 
-using sout = basic_stdout_outstream<char>;
-using wsout = basic_stdout_outstream<wchar_t>;
-using serr = basic_stderr_outstream<char>;
-using wserr = basic_stderr_outstream<wchar_t>;
+#if defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wexit-time-destructors"
+#endif
+
+template <typename T>
+auto get_stdout()
+{
+    static auto f = stdio_filehandle{stdout};
+    return basic_file_outstream<T, stdio_filehandle>{f};
+}
+template <typename T>
+auto get_stderr()
+{
+    auto f = stdio_filehandle{filebuffer::BUFFER_NONE, stderr};
+    return basic_file_outstream<T, stdio_filehandle>{f};
+}
+template <typename T>
+auto get_stdlog()
+{
+    static auto f = stdio_filehandle{stderr};
+    return basic_file_outstream<T, stdio_filehandle>{f};
+}
+
+#if defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+inline auto sout()
+{
+    return get_stdout<char>();
+}
+inline auto serr()
+{
+    return get_stderr<char>();
+}
+inline auto slog()
+{
+    return get_stdlog<char>();
+}
+inline auto wsout()
+{
+    return get_stdout<wchar_t>();
+}
+inline auto wserr()
+{
+    return get_stderr<wchar_t>();
+}
+inline auto wslog()
+{
+    return get_stdlog<wchar_t>();
+}
 }  // namespace io
 
 #include "outstream.impl.h"

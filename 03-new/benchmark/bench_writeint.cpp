@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -40,15 +41,16 @@ static std::vector<T> generate_data(size_t len)
 }
 
 template <typename T>
-static void writeint_spio(benchmark::State& state)
+static void writeint_spio_stdio(benchmark::State& state)
 {
     try {
         while (state.KeepRunning()) {
             state.PauseTiming();
             auto data = generate_data<T>(static_cast<size_t>(state.range(0)));
+            io::owned_stdio_filehandle h("writeint.txt", io::open_mode::WRITE);
+            io::basic_file_outstream<char, io::stdio_filehandle> p{h.get()};
             state.ResumeTiming();
 
-            io::buffer_outstream p{};
             for (auto& n : data) {
                 p.write(n);
             }
@@ -61,19 +63,17 @@ static void writeint_spio(benchmark::State& state)
         state.SkipWithError(f.what());
     }
 }
-
 template <typename T>
-static void writeint_spio_static(benchmark::State& state)
+static void writeint_spio_native(benchmark::State& state)
 {
     try {
         while (state.KeepRunning()) {
             state.PauseTiming();
             auto data = generate_data<T>(static_cast<size_t>(state.range(0)));
-            io::dynamic_writable_buffer<char> buffer;
-            buffer.reserve(static_cast<size_t>(state.range(0)));
+            io::owned_native_filehandle h("writeint.txt", io::open_mode::WRITE);
+            io::basic_file_outstream<char, io::native_filehandle> p{h.get()};
             state.ResumeTiming();
 
-            io::buffer_outstream p{std::move(buffer)};
             for (auto& n : data) {
                 p.write(n);
             }
@@ -93,17 +93,17 @@ static void writeint_ios(benchmark::State& state)
     while (state.KeepRunning()) {
         state.PauseTiming();
         auto data = generate_data<T>(static_cast<size_t>(state.range(0)));
+        std::ofstream of("writeint.txt");
         state.ResumeTiming();
 
-        std::stringstream ss{};
         for (auto& n : data) {
-            ss << n;
+            of << n;
         }
     }
     state.SetBytesProcessed(state.iterations() *
                             static_cast<size_t>(state.range(0)) * sizeof(T));
 }
 
-BENCHMARK_TEMPLATE(writeint_spio, int)->Range(8, 8 << 8);
-BENCHMARK_TEMPLATE(writeint_spio_static, int)->Range(8, 8 << 8);
+BENCHMARK_TEMPLATE(writeint_spio_stdio, int)->Range(8, 8 << 8);
+BENCHMARK_TEMPLATE(writeint_spio_native, int)->Range(8, 8 << 8);
 BENCHMARK_TEMPLATE(writeint_ios, int)->Range(8, 8 << 8);

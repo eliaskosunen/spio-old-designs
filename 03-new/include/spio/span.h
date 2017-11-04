@@ -861,11 +861,11 @@ constexpr auto make_span(const Container& c)
 }
 
 namespace detail {
-#if SPIO_HAS_BYTE
-    using span_as_bytes_type = std::byte;
-#else
+/* #if SPIO_HAS_BYTE */
+    /* using span_as_bytes_type = std::byte; */
+/* #else */
     using span_as_bytes_type = unsigned char;
-#endif
+/* #endif */
 }  // namespace detail
 
 #ifdef _MSC_VER
@@ -935,6 +935,7 @@ as_writable_bytes(span<ElementType, Extent> s) noexcept
             span_extent_type{sizeof(ElementType)} * s.size()};
 }
 
+
 template <typename ElementFrom,
           typename ElementTo,
           span_extent_type ExtentFrom,
@@ -963,6 +964,9 @@ void copy_contiguous(span<ElementFrom, ExtentFrom> from,
     }
 }
 #endif
+
+using const_byte_span = span<const detail::span_as_bytes_type>;
+using writable_byte_span = span<detail::span_as_bytes_type>;
 
 namespace stl {
     template <typename T, span_extent_type N>
