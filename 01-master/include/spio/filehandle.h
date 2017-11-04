@@ -21,6 +21,7 @@
 #ifndef SPIO_FILEHANDLE_H
 #define SPIO_FILEHANDLE_H
 
+#include "buffering.h"
 #include "config.h"
 #include "error.h"
 #include "stl.h"
@@ -40,6 +41,90 @@
 #endif
 
 namespace io {
+template <typename FileHandle>
+class basic_buffered_filehandle_base : public FileHandle {
+public:
+    template <typename... Args>
+    basic_buffered_filehandle_base(Args&&... args)
+        : FileHandle(std::forward<Args>(args)...)
+    {
+    }
+    template <typename... Args>
+    basic_buffered_filehandle_base(filebuffer buf, Args&&... args)
+        : FileHandle(std::forward<Args>(args)...), m_buf{std::move(buf)}
+    {
+        FileHandle::_set_buffering(m_buf);
+    }
+    template <typename... Args>
+    basic_buffered_filehandle_base(filebuffer::buffer_mode buf, Args&&... args)
+        : FileHandle(std::forward<Args>(args)...), m_buf{buf}
+    {
+        FileHandle::_set_buffering(m_buf);
+    }
+
+    template <typename... Args>
+    bool open(Args&&... args)
+    {
+        if (FileHandle::open(std::forward<Args>(args)...)) {
+            FileHandle::_set_buffering(m_buf);
+            return true;
+        }
+        return false;
+    }
+
+protected:
+    filebuffer m_buf{};
+};
+
+template <typename FileHandle, typename Enable = void>
+class basic_buffered_filehandle;
+
+template <typename FileHandle>
+class basic_buffered_filehandle<
+    FileHandle,
+    std::enable_if_t<!FileHandle::builtin_buffering>>
+    : public basic_buffered_filehandle_base<FileHandle> {
+    using base_type = basic_buffered_filehandle_base<FileHandle>;
+
+public:
+#if defined(__GNUC__) && !defined(__clang__)
+    template <typename... Args>
+    basic_buffered_filehandle(Args&&... args) : base_type(std::forward<Args>(args)...) {}
+#else
+    using base_type::base_type;
+#endif
+
+    std::size_t write(const_byte_span data)
+    {
+        if (base_type::m_buf.mode() == filebuffer::BUFFER_NONE) {
+            return base_type::write(data);
+        }
+        return base_type::m_buf.write(
+            data, [&](const_byte_span d) { return base_type::write(d); });
+    }
+    bool flush()
+    {
+        auto s = base_type::m_buf.get_flushable_data();
+        base_type::write(s);
+        return base_type::flush();
+    }
+};
+
+template <typename FileHandle>
+class basic_buffered_filehandle<FileHandle,
+                                std::enable_if_t<FileHandle::builtin_buffering>>
+    : public basic_buffered_filehandle_base<FileHandle> {
+    using base_type = basic_buffered_filehandle_base<FileHandle>;
+
+public:
+#if defined(__GNUC__) && !defined(__clang__)
+    template <typename... Args>
+    basic_buffered_filehandle(Args&&... args) : base_type(std::forward<Args>(args)...) {}
+#else
+    using base_type::base_type;
+#endif
+};
+
 namespace detail {
     using std_file = std::FILE;
 }  // namespace detail
@@ -52,7 +137,7 @@ struct open_flags {
     enum { NONE = 0, APPEND = 1, EXTENDED = 2, BINARY = 4 };
 };
 
-class stdio_filehandle {
+class unbuf_stdio_filehandle {
     static detail::std_file* s_open(const char* filename, const char* mode)
     {
         return std::fopen(filename, mode);
@@ -97,15 +182,17 @@ class stdio_filehandle {
     }
 
 public:
-    stdio_filehandle() = default;
-    stdio_filehandle(detail::std_file* ptr) : m_handle(ptr) {}
-    stdio_filehandle(const char* filename, const char* mode)
+    static constexpr bool builtin_buffering = true;
+
+    unbuf_stdio_filehandle() = default;
+    unbuf_stdio_filehandle(detail::std_file* ptr) : m_handle(ptr) {}
+    unbuf_stdio_filehandle(const char* filename, const char* mode)
         : m_handle(s_open(filename, mode))
     {
     }
-    stdio_filehandle(const char* filename,
-                     uint32_t mode,
-                     uint32_t flags = open_flags::NONE)
+    unbuf_stdio_filehandle(const char* filename,
+                           uint32_t mode,
+                           uint32_t flags = open_flags::NONE)
         : m_handle(s_open(filename, mode, flags))
     {
     }
@@ -152,7 +239,7 @@ public:
     }
 #endif
 
-    std::FILE* get() const
+    detail::std_file* get() const
     {
         return m_handle;
     }
@@ -178,15 +265,33 @@ public:
         return std::fflush(get()) == 0;
     }
 
-    std::size_t read(void* ptr, std::size_t bytes)
+    std::size_t read(writable_byte_span data)
     {
         assert(good());
-        return std::fread(ptr, 1, bytes, m_handle);
+        return std::fread(data.data(), 1, data.size_us(), m_handle);
     }
-    std::size_t write(const void* ptr, std::size_t bytes)
+    std::size_t write(const_byte_span data)
     {
         assert(good());
-        return std::fwrite(ptr, 1, bytes, m_handle);
+        return std::fwrite(data.data(), 1, data.size_us(), m_handle);
+    }
+
+protected:
+    bool _set_buffering(filebuffer& buf)
+    {
+        assert(m_handle);
+        return std::setvbuf(m_handle, buf.get_buffer(),
+                            [&]() {
+                                auto m = buf.mode();
+                                if (m == filebuffer::BUFFER_FULL) {
+                                    return _IOFBF;
+                                }
+                                if (m == filebuffer::BUFFER_LINE) {
+                                    return _IOLBF;
+                                }
+                                return _IONBF;
+                            }(),
+                            buf.size()) == 0;
     }
 
 private:
@@ -222,17 +327,19 @@ struct os_filehandle {
     }
 };
 
-class native_filehandle {
+class unbuf_native_filehandle {
     static os_filehandle::handle_type s_open(const char* filename,
                                              uint32_t mode,
                                              uint32_t flags);
 
 public:
-    native_filehandle() = default;
-    native_filehandle(os_filehandle h) : m_handle{h} {}
-    native_filehandle(const char* file,
-                      uint32_t mode,
-                      uint32_t flags = open_flags::NONE)
+    static constexpr bool builtin_buffering = false;
+
+    unbuf_native_filehandle() = default;
+    unbuf_native_filehandle(os_filehandle h) : m_handle{h} {}
+    unbuf_native_filehandle(const char* file,
+                            uint32_t mode,
+                            uint32_t flags = open_flags::NONE)
         : m_handle{s_open(file, mode, flags)}
     {
     }
@@ -274,16 +381,25 @@ public:
     bool eof() const;
     bool flush();
 
-    std::size_t read(void* ptr, std::size_t bytes);
-    std::size_t write(const void* ptr, std::size_t bytes);
+    std::size_t read(writable_byte_span data);
+    std::size_t write(const_byte_span data);
+
+protected:
+    bool _set_buffering(filebuffer& buf)
+    {
+        SPIO_UNUSED(buf);
+        return true;
+    }
 
 private:
     os_filehandle m_handle{};
 };
 
 #if SPIO_POSIX
-inline os_filehandle::handle_type
-native_filehandle::s_open(const char* filename, uint32_t mode, uint32_t flags)
+inline os_filehandle::handle_type unbuf_native_filehandle::s_open(
+    const char* filename,
+    uint32_t mode,
+    uint32_t flags)
 {
     bool r = (mode & open_mode::READ) != 0;
     bool w = (mode & open_mode::WRITE) != 0;
@@ -298,7 +414,7 @@ native_filehandle::s_open(const char* filename, uint32_t mode, uint32_t flags)
         f |= O_RDONLY;
     }
     else {
-        f |= O_WRONLY;
+        f |= O_WRONLY | O_TRUNC;
     }
 
     if (e) {
@@ -321,15 +437,15 @@ native_filehandle::s_open(const char* filename, uint32_t mode, uint32_t flags)
     }
 }
 
-inline bool native_filehandle::open(const char* file,
-                                    uint32_t mode,
-                                    uint32_t flags)
+inline bool unbuf_native_filehandle::open(const char* file,
+                                          uint32_t mode,
+                                          uint32_t flags)
 {
     assert(!good());
     get() = s_open(file, mode, flags);
     return good();
 }
-inline void native_filehandle::close()
+inline void unbuf_native_filehandle::close()
 {
     assert(good());
     auto ret = ::close(get());
@@ -345,52 +461,57 @@ inline void native_filehandle::close()
     }
 }
 
-inline bool native_filehandle::error() const
+inline bool unbuf_native_filehandle::error() const
 {
     return errno != 0;
 }
-inline void native_filehandle::check_error() const
+inline void unbuf_native_filehandle::check_error() const
 {
     if (error()) {
         SPIO_THROW_MSG(std::strerror(errno));
     }
 }
 
-inline bool native_filehandle::eof() const
+inline bool unbuf_native_filehandle::eof() const
 {
     assert(good());
     return m_handle.eof;
 }
-inline bool native_filehandle::flush()
+inline bool unbuf_native_filehandle::flush()
 {
     assert(good());
     return ::fsync(get()) == 0;
 }
 
-inline std::size_t native_filehandle::read(void* ptr, std::size_t bytes)
+inline std::size_t unbuf_native_filehandle::read(writable_byte_span data)
 {
     assert(good());
-    auto ret = ::read(get(), ptr, bytes);
+    if(eof()) {
+        return 0;
+    }
+    auto ret = ::read(get(), data.data(), data.size_us());
     if (ret == 0) {
-        m_handle.eof = bytes != 0;
+        m_handle.eof = data.size() != 0;
     }
     if (ret == -1) {
         ret = 0;
     }
     return static_cast<std::size_t>(ret);
 }
-inline std::size_t native_filehandle::write(const void* ptr, std::size_t bytes)
+inline std::size_t unbuf_native_filehandle::write(const_byte_span data)
 {
     assert(good());
-    auto ret = ::write(get(), ptr, bytes);
+    auto ret = ::write(get(), data.data(), data.size_us());
     if (ret == -1) {
         ret = 0;
     }
     return static_cast<std::size_t>(ret);
 }
 #elif SPIO_WIN32
-inline os_filehandle::handle_type
-native_filehandle::s_open(const char* filename, uint32_t mode, uint32_t flags)
+inline os_filehandle::handle_type unbuf_native_filehandle::s_open(
+    const char* filename,
+    uint32_t mode,
+    uint32_t flags)
 {
     bool r = (mode & open_mode::READ) != 0;
     bool w = (mode & open_mode::WRITE) != 0;
@@ -415,25 +536,25 @@ native_filehandle::s_open(const char* filename, uint32_t mode, uint32_t flags)
     return ::CreateFile(filename, open_type, FILE_SHARE_READ | FILE_SHARE_WRITE,
                         nullptr, open_flags, FILE_ATTRIBUTE_NORMAL, NULL);
 }
-inline bool native_filehandle::open(const char* file,
-                                    uint32_t mode,
-                                    uint32_t flags)
+inline bool unbuf_native_filehandle::open(const char* file,
+                                          uint32_t mode,
+                                          uint32_t flags)
 {
     assert(!good());
     get() = s_open(file, mode, flags);
     return good();
 }
-inline void native_filehandle::close()
+inline void unbuf_native_filehandle::close()
 {
     assert(good());
     ::CloseHandle(get());
 }
 
-inline bool native_filehandle::error() const
+inline bool unbuf_native_filehandle::error() const
 {
     return ::GetLastError() != ERROR_SUCCESS;
 }
-inline void native_filehandle::check_error() const
+inline void unbuf_native_filehandle::check_error() const
 {
     DWORD errcode = ::GetLastError();
     if (errcode == ERROR_SUCCESS) {
@@ -451,21 +572,22 @@ inline void native_filehandle::check_error() const
     SPIO_THROW_MSG(message.data());
 }
 
-inline bool native_filehandle::eof() const
+inline bool unbuf_native_filehandle::eof() const
 {
     return m_handle.eof;
 }
-inline bool native_filehandle::flush()
+inline bool unbuf_native_filehandle::flush()
 {
     assert(good());
     return ::FlushFileBuffers(get());
 }
 
-inline std::size_t native_filehandle::read(void* ptr, std::size_t bytes)
+inline std::size_t unbuf_native_filehandle::read(writable_byte_span data)
 {
     assert(good());
     DWORD bytes_read = 0;
-    if (!::ReadFile(get(), ptr, bytes, &bytes_read, nullptr)) {
+    if (!::ReadFile(get(), data.data(), static_cast<DWORD>(data.size()),
+                    &bytes_read, nullptr)) {
         DWORD err = ::GetLastError();
         if (err == ERROR_HANDLE_EOF) {
             m_handle.eof = true;
@@ -474,34 +596,39 @@ inline std::size_t native_filehandle::read(void* ptr, std::size_t bytes)
             SetLastError(err);
         }
         if (bytes_read == 0) {
-            m_handle.eof = bytes != 0;
+            m_handle.eof = data.size() != 0;
         }
         return 0;
     }
     else {
         if (bytes_read == 0) {
-            m_handle.eof = bytes != 0;
+            m_handle.eof = data.size() != 0;
         }
     }
     return bytes_read;
 }
-inline std::size_t native_filehandle::write(const void* ptr, std::size_t bytes)
+inline std::size_t unbuf_native_filehandle::write(const_byte_span data)
 {
     assert(good());
     DWORD bytes_written = 0;
-    if (!::WriteFile(get(), ptr, static_cast<DWORD>(bytes), &bytes_written,
-                     nullptr)) {
+    if (!::WriteFile(get(), data.data(), static_cast<DWORD>(data.size()),
+                     &bytes_written, nullptr)) {
         return 0;
     }
     return bytes_written;
 }
 #endif
+#endif  // SPIO_HAS_NATIVE_FILEIO
 
-using filehandle = native_filehandle;
-/* using filehandle = stdio_filehandle; */
+using stdio_filehandle = basic_buffered_filehandle<unbuf_stdio_filehandle>;
+
+#if SPIO_HAS_NATIVE_FILEIO
+using native_filehandle = basic_buffered_filehandle<unbuf_native_filehandle>;
+/* using filehandle = native_filehandle; */
+using filehandle = stdio_filehandle;
 #else
 using filehandle = stdio_filehandle;
-#endif  // SPIO_HAS_NATIVE_FILEIO
+#endif
 
 template <typename FileHandle>
 class basic_owned_filehandle {
