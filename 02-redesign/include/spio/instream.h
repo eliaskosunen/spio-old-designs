@@ -174,16 +174,10 @@ public:
 
     basic_file_instream() : base_type(readable_type{}) {}
     explicit basic_file_instream(readable_type r)
-        : base_type(std::move(r)), m_file(*base_type::m_readable.get_file())
+        : base_type(std::move(r))
     {
     }
-    basic_file_instream(FileHandle file) : base_type({}), m_file(file)
-    {
-        base_type::m_readable = readable_type{m_file};
-    }
-
-private:
-    FileHandle m_file{};
+    basic_file_instream(FileHandle& file) : base_type(file) {}
 };
 
 template <typename CharT>
@@ -204,19 +198,26 @@ public:
     }
 };
 
-template <typename CharT>
-class basic_stdin_instream : public basic_file_instream<CharT> {
-public:
-    basic_stdin_instream() : basic_file_instream<CharT>(stdin) {}
-};
-
 using file_instream = basic_file_instream<char>;
 using file_winstream = basic_file_instream<wchar_t>;
 using buffer_instream = basic_buffer_instream<char>;
 using buffer_winstream = basic_buffer_instream<wchar_t>;
 
-using sin = basic_stdin_instream<char>;
-using wsin = basic_stdin_instream<wchar_t>;
+template <typename T>
+auto get_stdin()
+{
+    auto f = stdio_filehandle{filebuffer::BUFFER_NONE, stdin};
+    return basic_file_instream<T, stdio_filehandle>{f};
+}
+
+inline auto sin()
+{
+    return get_stdin<char>();
+}
+inline auto wsin()
+{
+    return get_stdin<wchar_t>();
+}
 }  // namespace io
 
 #include "instream.impl.h"

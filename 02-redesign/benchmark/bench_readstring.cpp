@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -27,41 +28,39 @@
 #include "benchmark/benchmark.h"
 #include "spio/spio.h"
 
-static std::string generate_string(size_t len)
-{
-    const std::vector<char> chars = {
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',  'A',  'B',
-        'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',  'M',  'N',
-        'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',  'Y',  'Z',
-        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',  'k',  'l',
-        'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',  'w',  'x',
-        'y', 'z', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '\n', '\n', '\t'};
-    std::default_random_engine rng(std::random_device{}());
-    std::uniform_int_distribution<> dist(0, static_cast<int>(chars.size() - 1));
-
-    std::string str(len, '\0');
-    std::generate_n(str.begin(), len, [&chars, &dist, &rng]() {
-        return chars[static_cast<size_t>(dist(rng))];
-    });
-    return str;
-}
-
-static void readstring_spio(benchmark::State& state)
+static void readstring_spio_stdio(benchmark::State& state)
 {
     try {
         std::string str(64, '\0');
         auto s = io::make_span<63>(str);
         while (state.KeepRunning()) {
             state.PauseTiming();
-            std::string data =
-                generate_string(static_cast<size_t>(state.range(0)));
+            io::owned_stdio_filehandle h("strings.txt", io::open_mode::READ);
+            io::basic_file_instream<char, io::stdio_filehandle> p{h.get()};
             state.ResumeTiming();
 
-            /* io::buffer_instream p{io::make_span(data)}; */
-            /* io::readable_buffer r(io::make_span(data)); */
-            /* io::basic_instream<decltype(r)> p(r); */
-            io::readable_buffer buf{io::make_span(data)};
-            io::buffer_instream p{std::move(buf)};
+            while (p.read(s)) {
+            }
+        }
+        state.SetBytesProcessed(state.iterations() *
+                                static_cast<size_t>(state.range(0)));
+    }
+    catch (const io::failure& f) {
+        state.SkipWithError(f.what());
+    }
+}
+
+static void readstring_spio_native(benchmark::State& state)
+{
+    try {
+        std::string str(64, '\0');
+        auto s = io::make_span<63>(str);
+        while (state.KeepRunning()) {
+            state.PauseTiming();
+            io::owned_native_filehandle h("strings.txt", io::open_mode::READ);
+            io::basic_file_instream<char, io::native_filehandle> p{h.get()};
+            state.ResumeTiming();
+
             while (p.read(s)) {
             }
         }
@@ -78,44 +77,34 @@ static void readstring_ios(benchmark::State& state)
     std::string s;
     while (state.KeepRunning()) {
         state.PauseTiming();
-        std::string data = generate_string(static_cast<size_t>(state.range(0)));
+        std::ifstream fs("strings.txt");
         state.ResumeTiming();
 
-        std::stringstream ss(data);
-        while (ss) {
-            ss >> s;
+        while (fs) {
+            fs >> s;
         }
     }
     state.SetBytesProcessed(state.iterations() *
                             static_cast<size_t>(state.range(0)));
 }
 
-static void readstring_ptr(benchmark::State& state)
+static void readstring_fgets(benchmark::State& state)
 {
-    std::array<char, 64> str;
-    str.fill('\0');
+    std::string s(64, '\0');
     while (state.KeepRunning()) {
         state.PauseTiming();
-        std::string data = generate_string(static_cast<size_t>(state.range(0)));
+        FILE* f = std::fopen("strings.txt", "r");
         state.ResumeTiming();
-        size_t i = 0, datai = 0;
-        while (datai < data.size()) {
-            i = 0;
-            while (i + 1 < str.size() && datai < data.size()) {
-                datai++;
-                if (data[datai] == ' ') {
-                    break;
-                }
-                str[i++] = data[datai];
-            }
-            datai += i;
-            str[i] = '\0';
+
+        while (std::fscanf(f, "%63s ", &s[0]) != 1 && !std::feof(f)) {
         }
+        std::fclose(f);
     }
     state.SetBytesProcessed(state.iterations() *
                             static_cast<size_t>(state.range(0)));
 }
 
-BENCHMARK(readstring_spio)->Range(8, 8 << 8);
+BENCHMARK(readstring_spio_stdio)->Range(8, 8 << 8);
+BENCHMARK(readstring_spio_native)->Range(8, 8 << 8);
 BENCHMARK(readstring_ios)->Range(8, 8 << 8);
-BENCHMARK(readstring_ptr)->Range(8, 8 << 8);
+BENCHMARK(readstring_fgets)->Range(8, 8 << 8);
