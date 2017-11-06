@@ -49,14 +49,18 @@ namespace stl {
 
     using SPIO_STL_NS::array;
     using SPIO_STL_NS::reference_wrapper;
+    using SPIO_STL_NS::reverse_iterator;
     using SPIO_STL_NS::unique_ptr;
 
     using SPIO_STL_NS::advance;
+    using SPIO_STL_NS::begin;
     using SPIO_STL_NS::copy;
     using SPIO_STL_NS::distance;
+    using SPIO_STL_NS::end;
     using SPIO_STL_NS::equal;
     using SPIO_STL_NS::find;
     using SPIO_STL_NS::lexicographical_compare;
+    using SPIO_STL_NS::make_reverse_iterator;
     using SPIO_STL_NS::make_unique;
 
     template <typename CharT>

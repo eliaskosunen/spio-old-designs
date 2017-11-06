@@ -7,3 +7,6 @@
 [submodule "include/spio/fmt"]
 	path = include/spio/fmt
 	url = https://github.com/fmtlib/fmt
+[submodule "tests/coveralls-cmake"]
+	path = tests/coveralls-cmake
+	url = https://github.com/JoakimSoderberg/coveralls-cmake.git

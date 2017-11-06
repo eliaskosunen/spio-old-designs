@@ -6,6 +6,15 @@ set(SPIO_HEADER_ONLY ON CACHE BOOL "Build as a header only library")
 set(SPIO_USE_STL ON CACHE BOOL "Use the STL")
 set(SPIO_USE_EXCEPTIONS ON CACHE BOOL "Enable exceptions")
 set(SPIO_THROW_ON_ASSERT ON CACHE BOOL "Throw on assertion failure")
+set(COVERALLS OFF CACHE BOOL "Code coverage with Coveralls")
+
+message(STATUS "Coverage: ${COVERALLS}")
+
+set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${PROJECT_SOURCE_DIR}/tests/coveralls-cmake/cmake")
+if(COVERALLS)
+    include(Coveralls)
+    coveralls_turn_on_coverage()
+endif()
 
 set(CMAKE_CXX_EXTENSIONS OFF)
 
