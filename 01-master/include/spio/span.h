@@ -247,6 +247,9 @@ public:
     using index_type_us = std::size_t;
     using pointer = std::add_pointer_t<element_type>;
     using reference = std::add_lvalue_reference_t<element_type>;
+    using const_pointer = std::add_const_t<std::add_pointer_t<element_type>>;
+    using const_reference =
+        std::add_const_t<std::add_lvalue_reference_t<element_type>>;
 
     constexpr static index_type extent = Extent;
 
@@ -276,12 +279,15 @@ public:
         }
         constexpr pointer operator->() noexcept
         {
-            return m_span->_at_ptr(m_index);
+            return &(operator*());
         }
-
-        constexpr pointer operator[](index_type idx) noexcept
+        constexpr const_reference operator*() const noexcept
         {
-            return m_span->operator[](idx);
+            return m_span->operator[](m_index);
+        }
+        constexpr const_pointer operator->() const noexcept
+        {
+            return &(operator*());
         }
 
         constexpr span_type& get_span() noexcept
@@ -310,13 +316,13 @@ public:
             return *this;
         }
 
-        constexpr const iterator operator++(int)noexcept
+        constexpr iterator operator++(int)noexcept
         {
             auto ret = *this;
             ++(*this);
             return ret;
         }
-        constexpr const iterator operator--(int)noexcept
+        constexpr iterator operator--(int)noexcept
         {
             auto ret = *this;
             --(*this);
@@ -362,11 +368,11 @@ public:
 
     class const_iterator : public detail::span_iterator_base<const_iterator> {
     public:
-        using span_type = const span<std::add_const_t<ElementType>, Extent>;
+        using span_type = span<std::add_const_t<ElementType>, Extent>;
         using iterator_category = std::random_access_iterator_tag;
         using element_type = std::add_const_t<typename span_type::element_type>;
         using value_type = typename span_type::value_type;
-        using index_type = std::add_const_t<typename span_type::index_type>;
+        using index_type = typename span_type::index_type;
         using difference_type = std::ptrdiff_t;
         using reference = element_type&;
         using pointer = element_type*;
@@ -386,12 +392,7 @@ public:
         }
         constexpr pointer operator->() const noexcept
         {
-            return m_span->_at_ptr(m_index);
-        }
-
-        constexpr pointer operator[](index_type idx) const noexcept
-        {
-            return m_span->operator[](idx);
+            return &(operator*());
         }
 
         constexpr const span_type& get_span() const noexcept
@@ -449,7 +450,7 @@ public:
         }
         constexpr const_iterator& operator-=(difference_type n) noexcept
         {
-            return *this -= -n;
+            return *this += -n;
         }
 
         template <typename T>
@@ -466,19 +467,14 @@ public:
         index_type m_index{0};
     };
 
-    using reverse_iterator = std::reverse_iterator<iterator>;
-    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+    using reverse_iterator = stl::reverse_iterator<iterator>;
+    using const_reverse_iterator = stl::reverse_iterator<const_iterator>;
 
     static_assert(Extent >= 0 || Extent == dynamic_extent,
                   "Extent must be >= 0 or dynamic_extent");
 
     constexpr span() noexcept : span(nullptr) {}
-    template <bool Dependent = false,
-              typename = std::enable_if_t<
-                  Dependent || (Extent == dynamic_extent || Extent == 0)>>
-    constexpr span(std::nullptr_t) noexcept : m_storage(nullptr, 0)
-    {
-    }
+    constexpr span(std::nullptr_t) noexcept : m_storage(nullptr, 0) {}
     constexpr span(pointer ptr, index_type count) : m_storage(ptr, count)
     {
         assert(Extent == dynamic_extent || count == Extent);
@@ -705,29 +701,29 @@ public:
 
     const_iterator cbegin() const noexcept
     {
-        return {*this, 0};
+        return {as_const_span(), 0};
     }
     const_iterator cend() const noexcept
     {
-        return {*this, size()};
+        return {as_const_span(), size()};
     }
 
-    reverse_iterator rbegin() const noexcept
+    reverse_iterator rbegin() noexcept
     {
-        return reverse_iterator{end()};
+        return stl::make_reverse_iterator(end());
     }
-    reverse_iterator rend() const noexcept
+    reverse_iterator rend() noexcept
     {
-        return reverse_iterator{begin()};
+        return stl::make_reverse_iterator(begin());
     }
 
     const_reverse_iterator crbegin() const noexcept
     {
-        return reverse_iterator{cend()};
+        return stl::make_reverse_iterator(cend());
     }
     const_reverse_iterator crend() const noexcept
     {
-        return reverse_iterator{cbegin()};
+        return stl::make_reverse_iterator(cbegin());
     }
 
     constexpr span<std::add_const_t<ElementType>, Extent> as_const_span() const
@@ -828,18 +824,10 @@ constexpr auto make_span(const Container& c)
     return span<const typename Container::value_type>(&*c.begin(), &*c.end());
 }
 
-template <span_extent_type N,
-          typename Element,
-          typename = std::enable_if_t<!std::is_const<Element>::value>>
+template <span_extent_type N, typename Element>
 constexpr auto make_span(Element* ptr)
 {
     return span<Element, N>(ptr, N);
-}
-
-template <span_extent_type N, typename Element>
-constexpr auto make_span(const Element* ptr)
-{
-    return span<const Element, N>(ptr, N);
 }
 
 template <span_extent_type N,
@@ -849,23 +837,25 @@ template <span_extent_type N,
               !std::is_const<Container>::value>>
 constexpr auto make_span(Container& c)
 {
-    assert(stl::distance(c.begin(), c.end()) >= N);
-    return span<typename Container::value_type, N>(&*c.begin(), N);
+    assert(stl::distance(stl::begin(c), stl::end(c)) >= N);
+    return span<typename Container::value_type, N>(&*stl::begin(c), N);
 }
 
-template <span_extent_type N, typename Container>
+template <span_extent_type N,
+          typename Container,
+          typename = void_t<typename Container::value_type>>
 constexpr auto make_span(const Container& c)
 {
-    assert(stl::distance(c.begin(), c.end()) >= N);
-    return span<const typename Container::value_type, N>(&*c.begin(), N);
+    assert(stl::distance(stl::begin(c), stl::end(c)) >= N);
+    return span<const typename Container::value_type, N>(&*stl::begin(c), N);
 }
 
 namespace detail {
-/* #if SPIO_HAS_BYTE */
+    /* #if SPIO_HAS_BYTE */
     /* using span_as_bytes_type = std::byte; */
-/* #else */
+    /* #else */
     using span_as_bytes_type = unsigned char;
-/* #endif */
+    /* #endif */
 }  // namespace detail
 
 #ifdef _MSC_VER
@@ -934,7 +924,6 @@ as_writable_bytes(span<ElementType, Extent> s) noexcept
     return {reinterpret_cast<detail::span_as_bytes_type*>(s.data()),
             span_extent_type{sizeof(ElementType)} * s.size()};
 }
-
 
 template <typename ElementFrom,
           typename ElementTo,

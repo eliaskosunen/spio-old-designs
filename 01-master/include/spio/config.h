@@ -119,6 +119,12 @@
 #define SPIO_HAS_DEDUCTION_GUIDES 0
 #endif
 
+#if defined(__cpp_lib_void_t)
+#define SPIO_HAS_VOID_T 1
+#else
+#define SPIO_HAS_VOID_T 0
+#endif
+
 //
 // Definitions
 //
@@ -157,6 +163,14 @@ struct disjunction<B1, Bn...>
 template <typename T, typename... Ts>
 struct contains : disjunction<std::is_same<T, Ts>...> {
 };
+
+#if !SPIO_HAS_VOID_T
+template <typename...>
+using void_t = void;
+#else
+template <typename... T>
+using void_t = std::void_t<T...>;
+#endif
 }  // namespace io
 
 #endif  // SPIO_CONFIG_H
