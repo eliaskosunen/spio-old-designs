@@ -95,11 +95,11 @@ public:
 
     error skip();
 
-    FileHandle& get_file()
+    FileHandle* get_file()
     {
         return m_file;
     }
-    const FileHandle& get_file() const
+    const FileHandle* get_file() const
     {
         return m_file;
     }
@@ -107,7 +107,7 @@ public:
 private:
     error get_error(quantity_type read_count, quantity_type expected) const;
 
-    stl::reference_wrapper<FileHandle> m_file{};
+    FileHandle* m_file{};
 };
 
 template <typename CharT, span_extent_type BufferExtent = dynamic_extent>

@@ -97,11 +97,11 @@ public:
 
     error flush() noexcept;
 
-    FileHandle& get_file()
+    FileHandle* get_file()
     {
         return m_file;
     }
-    const FileHandle& get_file() const
+    const FileHandle* get_file() const
     {
         return m_file;
     }
@@ -109,7 +109,7 @@ public:
 private:
     error get_error(quantity_type read_count, quantity_type expected) const;
 
-    stl::reference_wrapper<FileHandle> m_file{};
+    FileHandle* m_file{};
 };
 
 template <typename T>
@@ -121,12 +121,12 @@ struct dynamic_writable_buffer : public stl::vector<T> {
         return false;
     }
 };
-template <typename T, span_extent_type Extent>
+template <typename T, span_extent_type Extent = dynamic_extent>
 class span_writable_buffer {
 public:
     using span_type = span<T, Extent>;
     using value_type = typename span_type::value_type;
-    using size_type = typename span_type::index_type;
+    using size_type = std::size_t;
     using difference_type = typename span_type::difference_type;
     using reference = value_type&;
     using const_reference = std::add_const_t<reference>;
@@ -152,11 +152,11 @@ public:
 
     constexpr size_type size() const
     {
-        return distance(m_buf.begin(), m_it);
+        return static_cast<size_type>(stl::distance(m_buf.begin(), m_it));
     }
     constexpr size_type max_size() const
     {
-        return m_buf.size();
+        return m_buf.size_us();
     }
 
     constexpr auto begin()
@@ -199,7 +199,7 @@ public:
         ++m_it;
     }
 
-    constexpr void resize(std::size_t size)
+    constexpr void resize(size_type size)
     {
         if (size > max_size()) {
             return;
