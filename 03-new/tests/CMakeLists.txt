@@ -1,3 +1,7 @@
+if(COVERALLS)
+    add_compiler_flags(-fno-inline -fno-inline-small-functions -fno-default-inline --coverage)
+endif()
+
 file(GLOB sources_tests *.cpp)
 add_executable(tests ${sources_tests})
 if(NOT SPIO_HEADER_ONLY)
@@ -12,5 +16,4 @@ add_test(NAME spio COMMAND tests)
 if(COVERALLS)
     file(GLOB coveralls_sources "${PROJECT_SOURCE_DIR}/include/spio/*.h")
     coveralls_setup("${coveralls_sources}" ON "${PROJECT_SOURCE_DIR}/tests/coveralls-cmake/cmake")
-    add_compiler_flags(-fno-inline -fno-inline-small-functions -fno-default-inline --coverage)
 endif()

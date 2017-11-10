@@ -24,6 +24,47 @@
 #include "util.h"
 
 namespace io {
+#ifdef _MSC_VER
+template <typename T>
+struct is_writer : std::true_type {
+};
+#else
+template <typename T, typename = void>
+struct is_writer : std::false_type {
+};
+template <typename T>
+struct is_writer<
+    T,
+    void_t<typename T::writable_type,
+           typename T::char_type,
+           decltype(std::declval<T>().write(
+               std::declval<const typename T::char_type&>())),
+           decltype(std::declval<T>().write(std::declval<const int&>())),
+           decltype(std::declval<T>().write(std::declval<const double&>())),
+           decltype(std::declval<T>().write(
+               std::declval<const typename T::char_type*&>())),
+           decltype(std::declval<T>().write_raw(
+               std::declval<const typename T::char_type&>())),
+           decltype(std::declval<T>().write_raw(
+               std::declval<span<typename T::char_type>>())),
+           decltype(
+               std::declval<T>().put(std::declval<typename T::char_type>())),
+           decltype(std::declval<T>().flush()),
+           decltype(std::declval<T>().nl()),
+           decltype(std::declval<T>().eof()),
+#if SPIO_USE_FMT
+           decltype(std::declval<T>().print(std::declval<const char*>(),
+                                            std::declval<int>(),
+                                            std::declval<bool>())),
+           decltype(std::declval<T>().println(std::declval<const char*>(),
+                                              std::declval<int>(),
+                                              std::declval<bool>())),
+#endif
+           decltype(!std::declval<T>()),
+           decltype(std::declval<T>().get_writable())>> : std::true_type {
+};
+#endif
+
 template <typename T, typename Enable = void>
 struct writer_options {
 };
