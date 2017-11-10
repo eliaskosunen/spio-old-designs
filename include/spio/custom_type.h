@@ -52,7 +52,8 @@ template <typename CharT, typename Allocator>
 struct custom_read<std::basic_string<CharT, Allocator>> {
     using type = std::basic_string<CharT, Allocator>;
 
-    template <typename Reader>
+    template <typename Reader,
+              typename = std::enable_if_t<is_reader<Reader>::value>>
     static bool read(Reader& p, type& val, reader_options<type> opt)
     {
         SPIO_UNUSED(opt);

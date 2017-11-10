@@ -73,6 +73,12 @@ public:
     std::size_t write(const_byte_span data, FlushFn&& flush)
     {
         assert(m_mode != BUFFER_NONE);
+#if SPIO_HAS_INVOCABLE
+        static_assert(
+            std::is_invocable_r_v<bool, decltype(flush), const_byte_span>,
+            "filebuffer::write: flush must be Invocable with type "
+            "bool(io::const_byte_span)");
+#endif
         auto dist_till_end = stl::distance(m_it, m_buffer.end());
         if (dist_till_end >= data.size()) {
             m_it = stl::copy(data.begin(), data.end(), m_it);
@@ -93,6 +99,12 @@ public:
     std::pair<bool, std::size_t> flush_if_needed(FlushFn&& flush)
     {
         assert(m_mode != BUFFER_NONE);
+#if SPIO_HAS_INVOCABLE
+        static_assert(
+            std::is_invocable_r_v<bool, decltype(flush), const_byte_span>,
+            "filebuffer::flush_if_needed: flush must be Invocable with type "
+            "bool(io::const_byte_span)");
+#endif
         if (m_mode == BUFFER_LINE) {
             for (auto it = m_it; it != m_buffer.begin(); --it) {
                 if (*it == '\n') {

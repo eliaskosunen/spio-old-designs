@@ -34,6 +34,10 @@ public:
     using writable_type = Writable;
     using char_type = typename writable_type::value_type;
 
+    static_assert(
+        is_writable<Writable>::value,
+        "basic_outstream<T>: T does not satisfy the requirements of Writable");
+
     explicit basic_outstream(writable_type w) : m_writable(std::move(w)) {}
 
     basic_outstream(const basic_outstream&) = delete;
@@ -115,7 +119,7 @@ public:
         return *this;
     }
 
-    basic_outstream& ln()
+    basic_outstream& nl()
     {
         put(static_cast<char_type>('\n'));
         return *this;
@@ -143,7 +147,7 @@ public:
     template <typename... Args>
     basic_outstream& println(const char* format, const Args&... args)
     {
-        return print(format, args...).ln();
+        return print(format, args...).nl();
     }
 #endif
 
@@ -202,6 +206,15 @@ using file_outstream = basic_file_outstream<char>;
 using file_woutstream = basic_file_outstream<wchar_t>;
 using buffer_outstream = basic_buffer_outstream<char>;
 using buffer_woutstream = basic_buffer_outstream<wchar_t>;
+
+static_assert(is_writer<file_outstream>::value,
+              "file_outstream does not satisfy the requirements of Writer");
+static_assert(is_writer<file_woutstream>::value,
+              "file_woutstream does not satisfy the requirements of Writer");
+static_assert(is_writer<buffer_outstream>::value,
+              "buffer_outstream does not satisfy the requirements of Writer");
+static_assert(is_writer<buffer_woutstream>::value,
+              "buffer_woutstream does not satisfy the requirements of Writer");
 
 #if defined(__clang__)
 #pragma GCC diagnostic push
