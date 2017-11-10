@@ -29,56 +29,49 @@
 #include "util.h"
 
 namespace io {
-template <typename ImplT>
-class basic_writable_base {
-public:
-    using implementation_type = ImplT;
-
-#define THIS (static_cast<ImplT*>(this))
-
-    template <typename T, span_extent_type N>
-    error write(span<T, N> buf)
-    {
-        return THIS->write(std::move(buf));
-    }
-    template <typename T, span_extent_type N>
-    error write(span<T, N> buf, characters length)
-    {
-        return THIS->write(std::move(buf), length);
-    }
-    template <typename T, span_extent_type N>
-    error write(span<T, N> buf, elements length)
-    {
-        return THIS->write(std::move(buf), length);
-    }
-    template <typename T, span_extent_type N>
-    error write(span<T, N> buf, bytes length)
-    {
-        return THIS->write(std::move(buf), length);
-    }
-    template <typename T, span_extent_type N>
-    error write(span<T, N> buf, bytes_contiguous length)
-    {
-        return THIS->write(std::move(buf), length);
-    }
-
-    error flush() noexcept
-    {
-        return THIS->flush();
-    }
-
-#undef THIS
+#ifdef _MSC_VER
+template <typename T>
+struct is_writable : std::true_type {
 };
+#else
+template <typename T, typename = void>
+struct is_writable : std::false_type {
+};
+template <typename T>
+struct is_writable<T,
+                   void_t<typename T::value_type,
+                          decltype(std::declval<T>().write(
+                              std::declval<span<char, dynamic_extent>>())),
+                          decltype(std::declval<T>().write(
+                              std::declval<span<char, dynamic_extent>>(),
+                              std::declval<characters>())),
+                          decltype(std::declval<T>().write(
+                              std::declval<span<char, dynamic_extent>>(),
+                              std::declval<elements>())),
+                          decltype(std::declval<T>().write(
+                              std::declval<span<char, dynamic_extent>>(),
+                              std::declval<bytes>())),
+                          decltype(std::declval<T>().write(
+                              std::declval<span<char, dynamic_extent>>(),
+                              std::declval<bytes_contiguous>())),
+                          decltype(std::declval<T>().write(
+                              std::declval<typename T::value_type>())),
+                          decltype(std::declval<T>().flush())>>
+    : std::true_type {
+};
+#endif
 
 template <typename CharT, typename FileHandle = filehandle>
-class basic_writable_file
-    : public basic_writable_base<basic_writable_file<CharT>> {
+class basic_writable_file {
 public:
     using value_type = CharT;
 
     static_assert(
         std::is_trivially_copyable<CharT>::value,
         "basic_writable_file<CharT>: CharT must be TriviallyCopyable");
+    static_assert(is_filehandle<FileHandle>::value,
+                  "basic_writable_file<CharT, T>: T does not satisfy the "
+                  "requirements of FileHandle");
 
     basic_writable_file() = default;
     /*implicit*/ basic_writable_file(FileHandle& file);
@@ -112,6 +105,45 @@ private:
     FileHandle* m_file{};
 };
 
+static_assert(
+    is_writable<basic_writable_file<char>>::value,
+    "basic_writable_file<char> does not satisfy the requirements of Writable");
+static_assert(is_writable<basic_writable_file<wchar_t>>::value,
+              "basic_writable_file<wchar_t> does not satisfy the requirements "
+              "of Writable");
+
+#ifdef _MSC_VER
+template <typename T>
+struct is_writable_buffer_type : std::true_type {
+};
+#else
+template <typename T, typename = void>
+struct is_writable_buffer_type : std::false_type {
+};
+template <typename T>
+struct is_writable_buffer_type<
+    T,
+    void_t<typename T::value_type,
+           typename T::size_type,
+           typename T::difference_type,
+           typename T::reference,
+           typename T::const_reference,
+           decltype(std::declval<T>()[std::declval<typename T::size_type>()]),
+           decltype(std::declval<T>().data()),
+           decltype(std::declval<T>().size()),
+           decltype(std::declval<T>().max_size()),
+           decltype(std::declval<T>().begin()),
+           decltype(std::declval<T>().end()),
+           decltype(std::declval<T>().is_end()),
+           decltype(std::declval<T>().push_back(
+               std::declval<const typename T::value_type&>())),
+           decltype(std::declval<T>().push_back(
+               std::declval<typename T::value_type&&>())),
+           decltype(std::declval<T>().resize(
+               std::declval<typename T::size_type>()))>> : std::true_type {
+};
+#endif
+
 template <typename T>
 struct dynamic_writable_buffer : public stl::vector<T> {
     using stl::vector<T>::vector;
@@ -126,7 +158,8 @@ class span_writable_buffer {
 public:
     using span_type = span<T, Extent>;
     using value_type = typename span_type::value_type;
-    using size_type = std::size_t;
+    using size_type = typename span_type::index_type_us;
+    using index_type = typename span_type::index_type;
     using difference_type = typename span_type::difference_type;
     using reference = value_type&;
     using const_reference = std::add_const_t<reference>;
@@ -136,13 +169,13 @@ public:
     {
     }
 
-    constexpr reference operator[](std::size_t i) noexcept
+    constexpr reference operator[](size_type i) noexcept
     {
-        return m_buf[i];
+        return m_buf[static_cast<index_type>(i)];
     }
-    constexpr const_reference operator[](std::size_t i) const noexcept
+    constexpr const_reference operator[](size_type i) const noexcept
     {
-        return m_buf[i];
+        return m_buf[static_cast<index_type>(i)];
     }
 
     constexpr auto data()
@@ -201,9 +234,7 @@ public:
 
     constexpr void resize(size_type size)
     {
-        if (size > max_size()) {
-            return;
-        }
+        SPIO_UNUSED(size);
     }
 
 private:
@@ -224,9 +255,19 @@ private:
     stl::array<T, N> m_buf{};
 };
 
+static_assert(is_writable_buffer_type<dynamic_writable_buffer<char>>::value,
+              "dynamic_writable_buffer<char> does not satisfy the requirements "
+              "of WritableBufferType");
+static_assert(is_writable_buffer_type<span_writable_buffer<char>>::value,
+              "span_writable_buffer<char> does not satisfy the requirements "
+              "of WritableBufferType");
+static_assert(
+    is_writable_buffer_type<static_writable_buffer<char, 64>>::value,
+    "static_writable_buffer<char, 64> does not satisfy the requirements "
+    "of WritableBufferType");
+
 template <typename CharT, typename BufferT = dynamic_writable_buffer<CharT>>
-class basic_writable_buffer
-    : public basic_writable_base<basic_writable_buffer<CharT>> {
+class basic_writable_buffer {
 public:
     using value_type = CharT;
     using buffer_type = BufferT;
@@ -276,6 +317,13 @@ public:
 private:
     buffer_type m_buffer{};
 };
+
+static_assert(is_writable<basic_writable_buffer<char>>::value,
+              "basic_writable_buffer<char> does not satisfy the requirements "
+              "of Writable");
+static_assert(is_writable<basic_writable_buffer<wchar_t>>::value,
+              "basic_writable_buffer<wchar_t> does not satisfy the "
+              "requirements of Writable");
 
 template <typename CharT>
 using basic_writable_native_file = basic_writable_file<char, native_filehandle>;

@@ -41,9 +41,41 @@
 #endif
 
 namespace io {
+#ifdef _MSC_VER
+template <typename T>
+struct is_filehandle : std::true_type {
+};
+#else
+template <typename T, typename = void>
+struct is_filehandle : std::false_type {
+};
+
+template <typename T>
+struct is_filehandle<
+    T,
+    void_t<decltype(T::builtin_buffering),
+           decltype(std::declval<T>().open(std::declval<const char*>(),
+                                           std::declval<uint32_t>(),
+                                           std::declval<uint32_t>())),
+           decltype(std::declval<T>().close()),
+           decltype(std::declval<T>().good()),
+           decltype(!std::declval<T>()),
+           decltype(std::declval<T>().error()),
+           decltype(std::declval<T>().check_error()),
+           decltype(std::declval<T>().eof()),
+           decltype(std::declval<T>().flush()),
+           decltype(std::declval<T>().read(std::declval<writable_byte_span>())),
+           decltype(std::declval<T>().write(std::declval<const_byte_span>()))>>
+    : std::true_type {
+};
+#endif
+
 template <typename FileHandle>
 class basic_buffered_filehandle_base : public FileHandle {
 public:
+    static_assert(is_filehandle<FileHandle>::value,
+                  "basic_buffered_filehandle_base<T>: T doesn't satisfy the "
+                  "requirements of FileHandle");
     template <typename... Args>
     basic_buffered_filehandle_base(Args&&... args)
         : FileHandle(std::forward<Args>(args)...)
@@ -89,7 +121,10 @@ class basic_buffered_filehandle<
 public:
 #if defined(__GNUC__) && !defined(__clang__)
     template <typename... Args>
-    basic_buffered_filehandle(Args&&... args) : base_type(std::forward<Args>(args)...) {}
+    basic_buffered_filehandle(Args&&... args)
+        : base_type(std::forward<Args>(args)...)
+    {
+    }
 #else
     using base_type::base_type;
 #endif
@@ -119,7 +154,10 @@ class basic_buffered_filehandle<FileHandle,
 public:
 #if defined(__GNUC__) && !defined(__clang__)
     template <typename... Args>
-    basic_buffered_filehandle(Args&&... args) : base_type(std::forward<Args>(args)...) {}
+    basic_buffered_filehandle(Args&&... args)
+        : base_type(std::forward<Args>(args)...)
+    {
+    }
 #else
     using base_type::base_type;
 #endif
@@ -486,7 +524,7 @@ inline bool unbuf_native_filehandle::flush()
 inline std::size_t unbuf_native_filehandle::read(writable_byte_span data)
 {
     assert(good());
-    if(eof()) {
+    if (eof()) {
         return 0;
     }
     auto ret = ::read(get(), data.data(), data.size_us());
@@ -633,6 +671,10 @@ using filehandle = stdio_filehandle;
 template <typename FileHandle>
 class basic_owned_filehandle {
 public:
+    static_assert(is_filehandle<FileHandle>::value,
+                  "basic_owned_filehandle<T>: T does not satisfy the "
+                  "requirements of FileHandle");
+
     basic_owned_filehandle() = default;
     basic_owned_filehandle(const char* filename,
                            uint32_t mode,

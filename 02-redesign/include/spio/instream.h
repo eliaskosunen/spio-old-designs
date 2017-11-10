@@ -27,11 +27,16 @@
 #include "type.h"
 
 namespace io {
+
 template <typename Readable>
 class basic_instream {
 public:
     using readable_type = Readable;
     using char_type = typename readable_type::value_type;
+
+    static_assert(
+        is_readable<Readable>::value,
+        "basic_instream<T>: T does not satisfy the requirements of Readable");
 
     explicit basic_instream(readable_type r) : m_readable(std::move(r)) {}
 
@@ -158,10 +163,10 @@ protected:
     bool m_eof{false};
 };
 
-/* #if SPIO_HAS_DEDUCTION_GUIDES */
-/* template <typename Readable> */
-/* basic_instream(Readable& r)->basic_instream<Readable>; */
-/* #endif */
+#if SPIO_HAS_DEDUCTION_GUIDES
+template <typename Readable>
+basic_instream(Readable& r)->basic_instream<Readable>;
+#endif
 
 template <typename CharT, class FileHandle = filehandle>
 class basic_file_instream
@@ -173,10 +178,7 @@ public:
     using char_type = typename base_type::char_type;
 
     basic_file_instream() : base_type(readable_type{}) {}
-    explicit basic_file_instream(readable_type r)
-        : base_type(std::move(r))
-    {
-    }
+    explicit basic_file_instream(readable_type r) : base_type(std::move(r)) {}
     basic_file_instream(FileHandle& file) : base_type(file) {}
 };
 
@@ -202,6 +204,15 @@ using file_instream = basic_file_instream<char>;
 using file_winstream = basic_file_instream<wchar_t>;
 using buffer_instream = basic_buffer_instream<char>;
 using buffer_winstream = basic_buffer_instream<wchar_t>;
+
+static_assert(is_reader<file_instream>::value,
+              "file_instream does not satisfy the requirements of Reader");
+static_assert(is_reader<file_winstream>::value,
+              "file_winstream does not satisfy the requirements of Reader");
+static_assert(is_reader<buffer_instream>::value,
+              "buffer_instream does not satisfy the requirements of Reader");
+static_assert(is_reader<buffer_winstream>::value,
+              "buffer_winstream does not satisfy the requirements of Reader");
 
 template <typename T>
 auto get_stdin()

@@ -30,17 +30,26 @@
 #include "writer_options.h"
 
 namespace io {
+#define CHECK_READER(fn)                    \
+    static_assert(is_reader<Reader>::value, \
+                  fn ": T must satisfy the requirements of Reader")
+#define CHECK_WRITER(fn)                    \
+    static_assert(is_writer<Writer>::value, \
+                  fn ": T must satisfy the requirements of Writer")
+
 template <typename T, typename Enable = void>
 struct type {
     template <typename Reader>
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
+        CHECK_READER("type<>::read<T>");
         return custom_read<T>::read(p, val, opt);
     }
 
     template <typename Writer>
     static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
+        CHECK_WRITER("type<>::write<T>");
         return custom_write<T>::write(w, val, opt);
     }
 };
@@ -58,6 +67,7 @@ struct type<
     template <typename Reader>
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
+        CHECK_READER("type<Char>::read<T>");
         SPIO_UNUSED(opt);
         return p.read_raw(val);
     }
@@ -65,6 +75,7 @@ struct type<
     template <typename Writer>
     static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
+        CHECK_WRITER("type<Char>::write<T>");
         SPIO_UNUSED(opt);
         return w.write_raw(val);
     }
@@ -82,6 +93,7 @@ struct type<T,
     template <typename Reader>
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
+        CHECK_READER("type<span<Char>>::read<T>");
         using char_type = typename Reader::char_type;
         span<char_type> s =
             make_span(reinterpret_cast<char_type*>(&val[0]),
@@ -132,6 +144,7 @@ struct type<T,
     template <typename Writer>
     static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
+        CHECK_WRITER("type<span<Char>>::write<T>");
         SPIO_UNUSED(opt);
         return w.write_raw(val);
     }
@@ -151,6 +164,7 @@ struct type<detail::string_tag<T, N>> {
                       typename string_type::type val,
                       writer_options<T> opt)
     {
+        CHECK_WRITER("type<String>::write<T>");
         SPIO_UNUSED(opt);
         auto ptr = string_type::make_pointer(val);
 #if SPIO_HAS_IF_CONSTEXPR
@@ -185,6 +199,7 @@ struct type<T,
     template <typename Reader>
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
+        CHECK_READER("type<Int>::read<T>");
         using char_type = typename Reader::char_type;
 
         char_type ch{};
@@ -275,6 +290,7 @@ struct type<T,
     template <typename Writer>
     static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
+        CHECK_WRITER("type<Int>::write<T>");
         using char_type = typename Writer::char_type;
         constexpr auto n = max_digits<std::remove_reference_t<T>>() + 1;
         stl::array<char_type, n> buf{};
@@ -342,6 +358,7 @@ struct type<T,
     template <typename Reader>
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
+        CHECK_READER("type<Float>::read<T>");
         using char_type = typename Reader::char_type;
         stl::array<char_type, 64> buf{};
         buf.fill(char_type{0});
@@ -385,6 +402,7 @@ struct type<T,
     template <typename Writer>
     static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
+        CHECK_WRITER("type<Float>::write<T>");
         using char_type = typename Writer::char_type;
 
         auto arr = detail::floating_write_arr(val);
@@ -397,7 +415,7 @@ struct type<T,
 #else
         if (sizeof(char_type) == 1)
 #endif
-		{
+        {
             return w.write(char_span);
         }
         else {
@@ -419,6 +437,7 @@ struct type<T*> {
     template <typename Writer>
     static bool write(Writer& w, const T* val, writer_options<T*> opt)
     {
+        CHECK_WRITER("type<Pointer>::write<T>");
         SPIO_UNUSED(opt);
 
         writer_options<std::uintptr_t> o;
@@ -433,6 +452,7 @@ struct type<bool> {
     template <typename Reader>
     static bool read(Reader& p, bool& val, reader_options<bool> opt)
     {
+        CHECK_READER("type<bool>::read<T>");
         if (opt.alpha) {
             using char_type = typename Reader::char_type;
             stl::array<char_type, 5> buf{};
@@ -475,6 +495,7 @@ struct type<bool> {
     template <typename Writer>
     static bool write(Writer& w, const bool& val, writer_options<bool> opt)
     {
+        CHECK_WRITER("type<bool>::write<T>");
         if (opt.alpha) {
             return w.write(val ? "true" : "false");
         }
@@ -482,5 +503,8 @@ struct type<bool> {
     }
 };
 }  // namespace io
+
+#undef CHECK_WRITER
+#undef CHECK_READER
 
 #endif  // SPIO_TYPE_H

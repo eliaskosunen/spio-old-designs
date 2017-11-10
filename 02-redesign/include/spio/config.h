@@ -125,6 +125,12 @@
 #define SPIO_HAS_VOID_T 0
 #endif
 
+#if defined(__cpp_lib_is_invocable)
+#define SPIO_HAS_INVOCABLE 1
+#else
+#define SPIO_HAS_INVOCABLE 0
+#endif
+
 //
 // Definitions
 //

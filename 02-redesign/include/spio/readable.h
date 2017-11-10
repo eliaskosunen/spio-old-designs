@@ -27,49 +27,40 @@
 #include "util.h"
 
 namespace io {
-template <typename ImplT>
-class basic_readable_base {
-public:
-    using implementation_type = ImplT;
-
-#define THIS (static_cast<ImplT*>(this))
-
-    template <typename T, span_extent_type N>
-    error read(span<T, N> buf)
-    {
-        return THIS->read(std::move(buf));
-    }
-    template <typename T, span_extent_type N>
-    error read(span<T, N> buf, characters length)
-    {
-        return THIS->read(std::move(buf), length);
-    }
-    template <typename T, span_extent_type N>
-    error read(span<T, N> buf, elements length)
-    {
-        return THIS->read(std::move(buf), length);
-    }
-    template <typename T, span_extent_type N>
-    error read(span<T, N> buf, bytes length)
-    {
-        return THIS->read(std::move(buf), length);
-    }
-    template <typename T, span_extent_type N>
-    error read(span<T, N> buf, bytes_contiguous length)
-    {
-        return THIS->read(std::move(buf), length);
-    }
-
-    error skip()
-    {
-        return THIS->skip();
-    }
-#undef THIS
+#ifdef _MSC_VER
+template <typename T>
+struct is_readable : std::true_type {
 };
+#else
+template <typename T, typename = void>
+struct is_readable : std::false_type {
+};
+template <typename T>
+struct is_readable<T,
+                   void_t<typename T::value_type,
+                          decltype(std::declval<T>().read(
+                              std::declval<span<char, dynamic_extent>>())),
+                          decltype(std::declval<T>().read(
+                              std::declval<span<char, dynamic_extent>>(),
+                              std::declval<characters>())),
+                          decltype(std::declval<T>().read(
+                              std::declval<span<char, dynamic_extent>>(),
+                              std::declval<elements>())),
+                          decltype(std::declval<T>().read(
+                              std::declval<span<char, dynamic_extent>>(),
+                              std::declval<bytes>())),
+                          decltype(std::declval<T>().read(
+                              std::declval<span<char, dynamic_extent>>(),
+                              std::declval<bytes_contiguous>())),
+                          decltype(std::declval<T>().read(
+                              std::declval<typename T::value_type&>())),
+                          decltype(std::declval<T>().skip())>>
+    : std::true_type {
+};
+#endif
 
 template <typename CharT, typename FileHandle = filehandle>
-class basic_readable_file
-    : public basic_readable_base<basic_readable_file<CharT>> {
+class basic_readable_file {
 public:
     using value_type = CharT;
     static constexpr bool is_trivially_rewindable = false;
@@ -77,6 +68,9 @@ public:
     static_assert(
         std::is_trivially_copyable<CharT>::value,
         "basic_readable_file<CharT>: CharT must be TriviallyCopyable");
+    static_assert(is_filehandle<FileHandle>::value,
+                  "basic_readable_file<CharT, T>: T does not satisfy the "
+                  "requirements of FileHandle");
 
     basic_readable_file() = default;
     /*implicit*/ basic_readable_file(FileHandle& file);
@@ -110,9 +104,15 @@ private:
     FileHandle* m_file{};
 };
 
+static_assert(
+    is_readable<basic_readable_file<char>>::value,
+    "basic_readable_file<char> does not satisfy the requirements of Readable");
+static_assert(is_readable<basic_readable_file<wchar_t>>::value,
+              "basic_readable_file<wchar_t> does not satisfy the requirements "
+              "of Readable");
+
 template <typename CharT, span_extent_type BufferExtent = dynamic_extent>
-class basic_readable_buffer
-    : public basic_readable_base<basic_readable_buffer<CharT>> {
+class basic_readable_buffer {
 public:
     using value_type = CharT;
     using buffer_type = span<CharT, BufferExtent>;
@@ -159,6 +159,14 @@ private:
     buffer_type m_buffer{};
     typename buffer_type::iterator m_it{m_buffer.begin()};
 };
+
+static_assert(is_readable<basic_readable_buffer<char>>::value,
+              "basic_readable_buffer<char> does not satisfy the requirements "
+              "of Readable");
+static_assert(
+    is_readable<basic_readable_buffer<wchar_t>>::value,
+    "basic_readable_buffer<wchar_t> does not satisfy the requirements "
+    "of Readable");
 
 template <typename CharT>
 using basic_readable_stdio_file = basic_readable_file<CharT, stdio_filehandle>;
