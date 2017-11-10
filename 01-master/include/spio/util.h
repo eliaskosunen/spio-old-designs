@@ -143,16 +143,6 @@ namespace detail {
         static constexpr auto size = N;
     };
 
-#if 0
-	template <typename T>
-	struct string_tag<
-		T(&)[], 0, std::enable_if_t<std::is_array<T>::value && !std::is_const<T>::value && contains<std::decay_t<T>, char, wchar_t, char16_t, char32_t>::value>
-	> : std::false_type {
-		using type = T(&)[];
-		static constexpr auto size = 0;
-	};
-#endif
-
     template <typename T, std::size_t N>
     struct string_tag<
         const T (&)[N],

@@ -24,6 +24,53 @@
 #include "util.h"
 
 namespace io {
+#ifdef _MSC_VER
+template <typename T>
+struct is_reader : std::true_type {
+};
+#else
+template <typename T, typename = void>
+struct is_reader : std::false_type {
+};
+template <typename T>
+struct is_reader<
+    T,
+    void_t<
+        typename T::readable_type,
+        typename T::char_type,
+        decltype(std::declval<T>().read(
+            std::declval<const typename T::char_type&>())),
+        decltype(std::declval<T>().read(std::declval<int&>())),
+        decltype(std::declval<T>().read(std::declval<double&>())),
+        decltype(
+            std::declval<T>().read(std::declval<typename T::char_type&>())),
+        decltype(std::declval<T>().read(
+            std::declval<span<typename T::char_type>>())),
+        decltype(std::declval<T>().read_raw(
+            std::declval<const typename T::char_type&>())),
+        decltype(std::declval<T>().read_raw(
+            std::declval<span<typename T::char_type>>())),
+        decltype(std::declval<T>().get(std::declval<typename T::char_type&>())),
+        decltype(std::declval<T>().getline(
+            std::declval<span<typename T::char_type>>(),
+            std::declval<typename T::char_type>())),
+        decltype(std::declval<T>().ignore(std::declval<std::size_t>())),
+        decltype(
+            std::declval<T>().ignore(std::declval<std::size_t>(),
+                                     std::declval<typename T::char_type>())),
+        decltype(std::declval<T>().push(std::declval<typename T::char_type>())),
+        decltype(std::declval<T>().push(
+            std::declval<span<typename T::char_type>>())),
+#if SPIO_USE_FMT
+        decltype(std::declval<T>().scan(std::declval<const char*>(),
+                                        std::declval<int>(),
+                                        std::declval<bool>())),
+#endif
+        decltype(!std::declval<T>()),
+        decltype(std::declval<T>().get_readable())>> : std::true_type {
+};
+#endif
+
 template <typename T, typename Enable = void>
 struct reader_options {
 };

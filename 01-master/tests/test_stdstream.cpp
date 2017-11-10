@@ -26,7 +26,7 @@ TEST_CASE("stdout")
 {
     io::sout().write("Hello world!\n").println("{} {}", "Hei maailma", 42);
     std::string str = "foo";
-    io::sout().write(str).ln();
+    io::sout().write(str).nl();
 }
 /*
 TEST_CASE("stdin")
