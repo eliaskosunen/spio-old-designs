@@ -93,11 +93,15 @@ struct error {
 class failure : public std::exception {
 public:
     explicit failure(error e) : failure(e, e.to_string()) {}
-    explicit failure(error e, const char* message)
-        : m_error(e),
-          m_message(static_cast<std::size_t>(stl::strlen(message) + 1))
+    failure(error e, const char* message) : m_error(e)
     {
         ::memcpy(&m_message[0], message, m_message.size());
+    }
+    explicit failure(error e, const char* message, std::size_t s) : m_error(e)
+    {
+        assert(s < 64);
+        ::memcpy(&m_message[0], &message[0], s);
+        m_message[s] = '\0';
     }
 
     const char* what() const noexcept override
@@ -112,12 +116,13 @@ public:
 
 private:
     error m_error;
-    stl::vector<char> m_message;
+    stl::array<char, 64> m_message{};
 };
 
 #define SPIO_THROW_MSG(msg) throw ::io::failure(default_error, msg)
 #define SPIO_THROW_EC(ec) throw ::io::failure(ec, ::io::error(ec).to_string())
 #define SPIO_THROW(ec, msg) throw ::io::failure(ec, msg)
+#define SPIO_THROW_FAILURE(f) throw f
 #else
 class failure {
 };
@@ -129,6 +134,9 @@ class failure {
     std::terminate();
 #define SPIO_THROW(ec, msg) \
     assert(false && (msg)); \
+    std::terminate();
+#define SPIO_THROW_FAILURE(f)    \
+    assert(false && (f.what())); \
     std::terminate();
 #endif
 

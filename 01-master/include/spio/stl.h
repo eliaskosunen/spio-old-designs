@@ -43,11 +43,15 @@ namespace io {
 #endif
 
 namespace stl {
+    template <typename T>
+    using allocator = SPIO_STL_DEFAULT_ALLOCATOR<T>;
+
     template <typename Element,
-              typename Allocator = SPIO_STL_DEFAULT_ALLOCATOR<Element>>
+              typename Allocator = allocator<Element>>
     using vector = SPIO_STL_NS::vector<Element, Allocator>;
 
     using SPIO_STL_NS::array;
+    using SPIO_STL_NS::char_traits;
     using SPIO_STL_NS::reference_wrapper;
     using SPIO_STL_NS::reverse_iterator;
     using SPIO_STL_NS::unique_ptr;

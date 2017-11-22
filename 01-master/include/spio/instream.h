@@ -142,7 +142,11 @@ public:
     }
 
     template <typename... T>
-    basic_instream& scan(T&&... args);
+    basic_instream& scan(T&&... args)
+    {
+        _scan(std::forward<T>(args)...);
+        return *this;
+    }
 
     template <typename = std::enable_if_t<!std::is_const<readable_type>::value>>
     readable_type& get_readable()
@@ -157,6 +161,19 @@ public:
 protected:
     template <typename T, span_extent_type N>
     error _read(span<T, N> s, elements length);
+
+    bool _scan()
+    {
+        return true;
+    }
+    template <typename T, typename... Args>
+    bool _scan(T&& a, Args&&... args)
+    {
+        if (!read(std::forward<T>(a))) {
+            return false;
+        }
+        return _scan(std::forward<Args>(args)...);
+    }
 
     readable_type m_readable{};
     stl::vector<char> m_buffer{};
@@ -177,9 +194,12 @@ public:
     using readable_type = typename base_type::readable_type;
     using char_type = typename base_type::char_type;
 
-    basic_file_instream() : base_type(readable_type{}) {}
+    basic_file_instream() = default;
     explicit basic_file_instream(readable_type r) : base_type(std::move(r)) {}
-    basic_file_instream(FileHandle& file) : base_type(file) {}
+    explicit basic_file_instream(FileHandle& file)
+        : basic_file_instream(readable_type{file})
+    {
+    }
 };
 
 template <typename CharT>
@@ -192,9 +212,9 @@ public:
     using char_type = typename base_type::char_type;
     using buffer_type = typename readable_type::buffer_type;
 
-    basic_buffer_instream() : base_type(readable_type{}) {}
+    basic_buffer_instream() = default;
     explicit basic_buffer_instream(readable_type r) : base_type(std::move(r)) {}
-    basic_buffer_instream(buffer_type b)
+    explicit basic_buffer_instream(buffer_type b)
         : basic_buffer_instream(readable_type{std::move(b)})
     {
     }
@@ -217,7 +237,7 @@ static_assert(is_reader<buffer_winstream>::value,
 template <typename T>
 auto get_stdin()
 {
-    auto f = stdio_filehandle{filebuffer::BUFFER_NONE, stdin};
+    auto f = stdio_filehandle{filebuffer::BUFFER_DEFAULT, stdin};
     return basic_file_instream<T, stdio_filehandle>{f};
 }
 
