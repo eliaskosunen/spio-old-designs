@@ -73,8 +73,17 @@ public:
                   "basic_writable_file<CharT, T>: T does not satisfy the "
                   "requirements of FileHandle");
 
-    basic_writable_file() = default;
-    /*implicit*/ basic_writable_file(FileHandle& file);
+    constexpr basic_writable_file() = default;
+    explicit basic_writable_file(FileHandle& file);
+
+    constexpr basic_writable_file(const basic_writable_file&) = delete;
+    constexpr basic_writable_file& operator=(const basic_writable_file&) = delete;
+    constexpr basic_writable_file(basic_writable_file&&) = default;
+    constexpr basic_writable_file& operator=(basic_writable_file&&) = default;
+    ~basic_writable_file() noexcept
+    {
+        _flush_destruct();
+    }
 
     template <typename T, span_extent_type N>
     error write(span<T, N> buf);
@@ -101,6 +110,13 @@ public:
 
 private:
     error get_error(quantity_type read_count, quantity_type expected) const;
+
+    void _flush_destruct() noexcept
+    {
+        if (m_file && *m_file) {
+            m_file->flush();
+        }
+    }
 
     FileHandle* m_file{};
 };
@@ -144,9 +160,9 @@ struct is_writable_buffer_type<
 };
 #endif
 
-template <typename T>
-struct dynamic_writable_buffer : public stl::vector<T> {
-    using stl::vector<T>::vector;
+template <typename T, typename Alloc = stl::allocator<T>>
+struct dynamic_writable_buffer : public stl::vector<T, Alloc> {
+    using stl::vector<T, Alloc>::vector;
 
     constexpr bool is_end()
     {
@@ -272,7 +288,14 @@ public:
     using value_type = CharT;
     using buffer_type = BufferT;
 
-    constexpr basic_writable_buffer(buffer_type b = buffer_type{});
+    constexpr basic_writable_buffer() = default;
+    constexpr explicit basic_writable_buffer(buffer_type b);
+
+    constexpr basic_writable_buffer(const basic_writable_buffer&) = delete;
+    constexpr basic_writable_buffer& operator=(const basic_writable_buffer&) = delete;
+    constexpr basic_writable_buffer(basic_writable_buffer&&) = default;
+    constexpr basic_writable_buffer& operator=(basic_writable_buffer&&) = default;
+    ~basic_writable_buffer() noexcept = default;
 
     template <typename T, span_extent_type N>
     error write(span<T, N> buf);

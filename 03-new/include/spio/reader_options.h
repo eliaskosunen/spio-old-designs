@@ -100,6 +100,7 @@ struct reader_options<
                               char16_t,
                               char32_t>::value>> {
     span<typename T::element_type> spaces{nullptr};
+    bool readall{true};
 };
 
 template <>

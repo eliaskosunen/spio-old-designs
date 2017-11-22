@@ -110,32 +110,44 @@ struct type<T,
             return false;
         }
 
-        stl::vector<char_type> str(s.size_us(), '\0');
-        auto strspan = make_span(str);
-        p.read_raw(strspan);
-        const auto str_len = stl::strlen(strspan);
-        const auto end = [&]() {
-            for (std::ptrdiff_t i = 0; i < str_len; ++i) {
-                if (is_space(strspan[i], opt.spaces)) {
-                    return i;
+        if (opt.readall) {
+            stl::vector<char_type> str(s.size_us(), '\0');
+            auto strspan = make_span(str);
+            p.read_raw(strspan);
+            const auto str_len = stl::strlen(strspan);
+            const auto end = [&]() {
+                for (std::ptrdiff_t i = 0; i < str_len; ++i) {
+                    if (is_space(strspan[i], opt.spaces)) {
+                        return i;
+                    }
+                }
+                return strspan.size();
+            }();
+            auto bytespan =
+                as_bytes(make_span(strspan.begin(), strspan.begin() + end));
+            copy_contiguous(bytespan, as_writable_bytes(s));
+            if (end + 1 < str_len) {
+#if SPIO_HAS_IF_CONSTEXPR
+            /* if constexpr (Reader::readable_type::is_trivially_rewindable) {
+             */
+            /*     p.get_readable().rewind( */
+            /*         stl::distance(strspan.begin() + end + 1, strspan.end()));
+             */
+            /* } */
+            /* else */
+#endif
+                {
+                    p.push(make_span(strspan.begin() + end + 1,
+                                     strspan.begin() + str_len));
                 }
             }
-            return strspan.size();
-        }();
-        auto bytespan =
-            as_bytes(make_span(strspan.begin(), strspan.begin() + end));
-        copy_contiguous(bytespan, as_writable_bytes(s));
-        if (end + 1 < str_len) {
-#if SPIO_HAS_IF_CONSTEXPR
-        /* if constexpr (Reader::readable_type::is_trivially_rewindable) { */
-        /*     p.get_readable().rewind( */
-        /*         stl::distance(strspan.begin() + end + 1, strspan.end())); */
-        /* } */
-        /* else */
-#endif
-            {
-                p.push(make_span(strspan.begin() + end + 1,
-                                 strspan.begin() + str_len));
+        } else {
+            for(auto it = val.begin(); it != val.end() && p.read(ch); ++it) {
+                if(is_space(ch, opt.spaces)) {
+                    p.push(ch);
+                    break;
+                }
+                *it = ch;
             }
         }
         return !p.eof();
