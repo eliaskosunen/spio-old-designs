@@ -57,7 +57,29 @@ struct custom_read<std::basic_string<CharT, Allocator>> {
     static bool read(Reader& p, type& val, reader_options<type> opt)
     {
         SPIO_UNUSED(opt);
-        return p.read(make_span(val));
+        if (val.empty()) {
+            val.resize(15);
+        }
+        auto s = make_span(val);
+        reader_options<span<typename Reader::char_type>> o = {nullptr, false};
+        while (true) {
+            if (!p.read(s, o)) {
+                return false;
+            }
+            typename Reader::char_type ch;
+            if (!p.get(ch)) {
+                return false;
+            }
+            if (!is_space(ch)) {
+                p.push(ch);
+                val.resize(val.size() + 64);
+                s = make_span(val.end() - 64, val.end());
+            }
+            else {
+                break;
+            }
+        }
+        return true;
     }
 };
 

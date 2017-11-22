@@ -59,10 +59,14 @@ struct is_readable<T,
 };
 #endif
 
-template <typename CharT, typename FileHandle = filehandle>
+template <typename CharT,
+          typename FileHandle = filehandle,
+          typename Alloc = stl::allocator<CharT>>
 class basic_readable_file {
 public:
     using value_type = CharT;
+    using allocator_type = Alloc;
+
     static constexpr bool is_trivially_rewindable = false;
 
     static_assert(
@@ -72,8 +76,16 @@ public:
                   "basic_readable_file<CharT, T>: T does not satisfy the "
                   "requirements of FileHandle");
 
-    basic_readable_file() = default;
-    /*implicit*/ basic_readable_file(FileHandle& file);
+    constexpr basic_readable_file() = default;
+    explicit basic_readable_file(FileHandle& file);
+
+    constexpr basic_readable_file(const basic_readable_file&) = delete;
+    constexpr basic_readable_file& operator=(const basic_readable_file&) =
+        delete;
+    constexpr basic_readable_file(basic_readable_file&&) noexcept = default;
+    constexpr basic_readable_file& operator=(basic_readable_file&&) noexcept =
+        default;
+    ~basic_readable_file() noexcept = default;
 
     template <typename T, span_extent_type N>
     error read(span<T, N> buf);
@@ -119,7 +131,15 @@ public:
     static constexpr bool is_trivially_rewindable = true;
 
     constexpr basic_readable_buffer() = default;
-    explicit basic_readable_buffer(buffer_type buf);
+    explicit constexpr basic_readable_buffer(buffer_type buf);
+
+    constexpr basic_readable_buffer(const basic_readable_buffer&) = delete;
+    constexpr basic_readable_buffer& operator=(const basic_readable_buffer&) =
+        delete;
+    constexpr basic_readable_buffer(basic_readable_buffer&&) noexcept = default;
+    constexpr basic_readable_buffer& operator=(
+        basic_readable_buffer&&) noexcept = default;
+    ~basic_readable_buffer() noexcept = default;
 
     template <typename T, span_extent_type N>
     error read(span<T, N> buf);
