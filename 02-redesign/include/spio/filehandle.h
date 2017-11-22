@@ -70,29 +70,39 @@ struct is_filehandle<
 };
 #endif
 
-template <typename FileHandle>
+template <typename FileHandle, typename Alloc = stl::allocator<char>>
 class basic_buffered_filehandle_base : public FileHandle {
 public:
+    using allocator_type = Alloc;
+    using filebuffer_type = basic_filebuffer<Alloc>;
+
     static_assert(is_filehandle<FileHandle>::value,
                   "basic_buffered_filehandle_base<T>: T doesn't satisfy the "
                   "requirements of FileHandle");
     template <typename... Args>
     basic_buffered_filehandle_base(Args&&... args)
-        : FileHandle(std::forward<Args>(args)...)
+        : FileHandle(std::forward<Args>(args)...), m_buf{}
     {
     }
     template <typename... Args>
-    basic_buffered_filehandle_base(filebuffer buf, Args&&... args)
+    basic_buffered_filehandle_base(filebuffer_type buf, Args&&... args)
         : FileHandle(std::forward<Args>(args)...), m_buf{std::move(buf)}
     {
         FileHandle::_set_buffering(m_buf);
     }
     template <typename... Args>
-    basic_buffered_filehandle_base(filebuffer::buffer_mode buf, Args&&... args)
+    basic_buffered_filehandle_base(typename filebuffer_type::buffer_mode buf,
+                                   Args&&... args)
         : FileHandle(std::forward<Args>(args)...), m_buf{buf}
     {
         FileHandle::_set_buffering(m_buf);
     }
+
+    constexpr basic_buffered_filehandle_base(const basic_buffered_filehandle_base&) = delete;
+    constexpr basic_buffered_filehandle_base& operator=(const basic_buffered_filehandle_base&) = delete;
+    constexpr basic_buffered_filehandle_base(basic_buffered_filehandle_base&&) = default;
+    constexpr basic_buffered_filehandle_base& operator=(basic_buffered_filehandle_base&&) = default;
+    ~basic_buffered_filehandle_base() = default;
 
     template <typename... Args>
     bool open(Args&&... args)
@@ -105,7 +115,7 @@ public:
     }
 
 protected:
-    filebuffer m_buf{};
+    basic_filebuffer<Alloc> m_buf{};
 };
 
 template <typename FileHandle, typename Enable = void>
@@ -131,11 +141,12 @@ public:
 
     std::size_t write(const_byte_span data)
     {
-        if (base_type::m_buf.mode() == filebuffer::BUFFER_NONE) {
+        if (base_type::m_buf.mode() == filebuffer::BUFFER_NONE ||
+            base_type::m_buf.mode() == filebuffer::BUFFER_DEFAULT) {
             return base_type::write(data);
         }
         return base_type::m_buf.write(
-            data, [&](const_byte_span d) { return base_type::write(d); });
+            data, [this](const_byte_span d) { return base_type::write(d); });
     }
     bool flush()
     {
@@ -318,16 +329,19 @@ protected:
     bool _set_buffering(filebuffer& buf)
     {
         assert(m_handle);
+        if (buf.mode() == filebuffer::BUFFER_NONE) {
+            std::setbuf(m_handle, nullptr);
+            return true;
+        }
+        if (buf.mode() == filebuffer::BUFFER_DEFAULT) {
+            return true;
+        }
         return std::setvbuf(m_handle, buf.get_buffer(),
                             [&]() {
-                                auto m = buf.mode();
-                                if (m == filebuffer::BUFFER_FULL) {
+                                if (buf.mode() == filebuffer::BUFFER_FULL) {
                                     return _IOFBF;
                                 }
-                                if (m == filebuffer::BUFFER_LINE) {
-                                    return _IOLBF;
-                                }
-                                return _IONBF;
+                                return _IOLBF;
                             }(),
                             buf.size()) == 0;
     }
@@ -605,9 +619,9 @@ inline void unbuf_native_filehandle::check_error() const
             FORMAT_MESSAGE_IGNORE_INSERTS,
         nullptr, errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
         reinterpret_cast<LPSTR>(&msgBuf), 0, nullptr);
-    stl::vector<char> message(msgBuf, msgBuf + size);
+    failure f{default_error, msgBuf, size};
     ::LocalFree(msgBuf);
-    SPIO_THROW_MSG(message.data());
+    SPIO_THROW_FAILURE(f);
 }
 
 inline bool unbuf_native_filehandle::eof() const
@@ -685,9 +699,8 @@ public:
 
     basic_owned_filehandle(const basic_owned_filehandle&) = delete;
     basic_owned_filehandle& operator=(const basic_owned_filehandle&) = delete;
-    basic_owned_filehandle(basic_owned_filehandle&&) noexcept = default;
-    basic_owned_filehandle& operator=(basic_owned_filehandle&&) noexcept =
-        default;
+    basic_owned_filehandle(basic_owned_filehandle&&) = default;
+    basic_owned_filehandle& operator=(basic_owned_filehandle&&) = default;
     ~basic_owned_filehandle() noexcept
     {
         if (m_file) {
@@ -704,7 +717,7 @@ public:
 
     void close()
     {
-        return m_file.close();
+        m_file.close();
     }
 
 #if defined(__GNUC__) && __GNUC__ < 7

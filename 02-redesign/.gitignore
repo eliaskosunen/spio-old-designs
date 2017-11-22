@@ -6,6 +6,7 @@ build/
 ./test.cpp
 compile_commands.json
 callgrind*
+doc/
 
 ###
 ### https://github.com/github/gitignore/blob/master/C%2B%2B.gitignore 

@@ -23,11 +23,15 @@
 
 #include <cstdio>
 #include "span.h"
+#include "stl.h"
 
 namespace io {
-class filebuffer {
+template <typename Alloc = stl::allocator<char>>
+class basic_filebuffer {
 public:
-    enum buffer_mode { BUFFER_FULL, BUFFER_LINE, BUFFER_NONE };
+    using allocator_type = Alloc;
+
+    enum buffer_mode { BUFFER_DEFAULT, BUFFER_FULL, BUFFER_LINE, BUFFER_NONE };
 
 #ifdef BUFSIZ
     static constexpr std::size_t default_size = BUFSIZ;
@@ -35,18 +39,29 @@ public:
     static constexpr std::size_t default_size = 8192;
 #endif
 
-    filebuffer(buffer_mode mode = BUFFER_FULL, std::size_t len = default_size)
-        : m_buffer{_initialize_buffer(mode, len)},
+    basic_filebuffer(const Alloc& alloc)
+        : m_alloc(alloc),
+          m_buffer{_initialize_buffer(BUFFER_FULL, default_size, m_alloc)},
+          m_it{m_buffer.begin()},
+          m_mode{BUFFER_FULL}
+    {
+    }
+
+    basic_filebuffer(buffer_mode mode = BUFFER_FULL,
+                     std::size_t len = default_size,
+                     const Alloc& alloc = Alloc{})
+        : m_alloc(alloc),
+          m_buffer{_initialize_buffer(mode, len, m_alloc)},
           m_it{m_buffer.begin()},
           m_mode(mode)
     {
     }
 
-    filebuffer(const filebuffer&) = delete;
-    filebuffer& operator=(const filebuffer&) = delete;
-    filebuffer(filebuffer&&) = default;
-    filebuffer& operator=(filebuffer&&) = default;
-    ~filebuffer() noexcept = default;
+    basic_filebuffer(const basic_filebuffer&) = delete;
+    basic_filebuffer& operator=(const basic_filebuffer&) = delete;
+    basic_filebuffer(basic_filebuffer&&) = default;
+    basic_filebuffer& operator=(basic_filebuffer&&) = default;
+    ~basic_filebuffer() noexcept = default;
 
     char* get_buffer()
     {
@@ -72,7 +87,7 @@ public:
     template <typename FlushFn>
     std::size_t write(const_byte_span data, FlushFn&& flush)
     {
-        assert(m_mode != BUFFER_NONE);
+        assert(m_mode != BUFFER_NONE && m_mode != BUFFER_DEFAULT);
 #if SPIO_HAS_INVOCABLE
         static_assert(
             std::is_invocable_r_v<bool, decltype(flush), const_byte_span>,
@@ -98,7 +113,7 @@ public:
     template <typename FlushFn>
     std::pair<bool, std::size_t> flush_if_needed(FlushFn&& flush)
     {
-        assert(m_mode != BUFFER_NONE);
+        assert(m_mode != BUFFER_NONE && m_mode != BUFFER_DEFAULT);
 #if SPIO_HAS_INVOCABLE
         static_assert(
             std::is_invocable_r_v<bool, decltype(flush), const_byte_span>,
@@ -128,19 +143,25 @@ public:
     }
 
 private:
-    static stl::vector<char> _initialize_buffer(buffer_mode mode,
-                                                std::size_t len)
+    using vector_type = stl::vector<char, Alloc>;
+
+    static vector_type _initialize_buffer(buffer_mode mode,
+                                          std::size_t len,
+                                          const Alloc& a)
     {
-        if (mode == BUFFER_NONE) {
+        if (mode == BUFFER_NONE || mode == BUFFER_DEFAULT) {
             return {};
         }
-        return stl::vector<char>(len, '\0');
+        return vector_type(len, '\0', a);
     }
 
-    stl::vector<char> m_buffer;
-    decltype(m_buffer)::iterator m_it;
+    const allocator_type& m_alloc;
+    vector_type m_buffer;
+    typename vector_type::iterator m_it;
     buffer_mode m_mode;
 };
+
+using filebuffer = basic_filebuffer<>;
 }  // namespace io
 
 #endif  // SPIO_FILEHANDLE_H

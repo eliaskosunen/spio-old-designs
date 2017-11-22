@@ -180,9 +180,12 @@ public:
     using writable_type = typename base_type::writable_type;
     using char_type = typename base_type::char_type;
 
-    basic_file_outstream() : base_type(writable_type{}) {}
+    basic_file_outstream() = default;
     explicit basic_file_outstream(writable_type w) : base_type(std::move(w)) {}
-    basic_file_outstream(FileHandle& file) : base_type(file) {}
+    explicit basic_file_outstream(FileHandle& file)
+        : basic_file_outstream(writable_type{file})
+    {
+    }
 };
 
 template <typename CharT, typename BufferT = dynamic_writable_buffer<CharT>>
@@ -195,11 +198,14 @@ public:
     using char_type = typename base_type::char_type;
     using buffer_type = typename writable_type::buffer_type;
 
-    basic_buffer_outstream() : base_type(writable_type{}) {}
+    basic_buffer_outstream() = default;
     explicit basic_buffer_outstream(writable_type w) : base_type(std::move(w))
     {
     }
-    basic_buffer_outstream(buffer_type b) : base_type(std::move(b)) {}
+    explicit basic_buffer_outstream(buffer_type b)
+        : basic_buffer_outstream(writable_type{std::move(b)})
+    {
+    }
 };
 
 using file_outstream = basic_file_outstream<char>;

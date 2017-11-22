@@ -71,6 +71,7 @@ void basic_instream<Readable>::push(span<T, N> elems)
     m_eof = false;
 }
 
+#if 0
 #if SPIO_HAS_FOLD_EXPRESSIONS
 template <typename Readable>
 template <typename... T>
@@ -81,13 +82,13 @@ basic_instream<Readable>& basic_instream<Readable>::scan(T&&... args)
 }
 #else
 namespace detail {
-    template <typename Readable>
-    bool instream_scan(basic_instream<Readable>&)
+    template <typename In>
+    bool instream_scan(In&)
     {
         return true;
     }
-    template <typename Readable, typename T, typename... Args>
-    bool instream_scan(basic_instream<Readable>& r, T&& arg, Args&&... args)
+    template <typename In, typename T, typename... Args>
+    bool instream_scan(In& r, T&& arg, Args&&... args)
     {
         if (!r.read(std::forward<T>(arg))) {
             return false;
@@ -103,5 +104,6 @@ basic_instream<Readable>& basic_instream<Readable>::scan(T&&... args)
     detail::instream_scan(*this, std::forward<T>(args)...);
     return *this;
 }
+#endif
 #endif
 }  // namespace io
