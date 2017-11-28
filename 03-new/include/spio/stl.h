@@ -63,6 +63,7 @@ namespace stl {
     using SPIO_STL_NS::end;
     using SPIO_STL_NS::equal;
     using SPIO_STL_NS::find;
+    using SPIO_STL_NS::find_if;
     using SPIO_STL_NS::lexicographical_compare;
     using SPIO_STL_NS::make_reverse_iterator;
     using SPIO_STL_NS::make_unique;

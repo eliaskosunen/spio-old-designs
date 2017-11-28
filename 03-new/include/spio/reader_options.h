@@ -67,7 +67,8 @@ struct is_reader<
                                         std::declval<bool>())),
 #endif
         decltype(!std::declval<T>()),
-        decltype(std::declval<T>().get_readable())>> : std::true_type {
+        decltype(std::declval<T>().get_readable()),
+        decltype(std::declval<T>().is_overreadable())>> : std::true_type {
 };
 #endif
 
