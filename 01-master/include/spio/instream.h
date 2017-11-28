@@ -40,6 +40,11 @@ public:
 
     explicit basic_instream(readable_type r) : m_readable(std::move(r)) {}
 
+    template <typename... Args>
+    explicit basic_instream(Args&&... a) : m_readable(std::forward<Args>(a)...)
+    {
+    }
+
     basic_instream(const basic_instream&) = delete;
     basic_instream& operator=(const basic_instream&) = delete;
     basic_instream(basic_instream&&) = default;
@@ -126,6 +131,11 @@ public:
     template <typename T, span_extent_type N>
     void push(span<T, N> elems);
 
+    bool is_overreadable() const
+    {
+        return m_readable.is_overreadable();
+    }
+
     bool eof() const
     {
         return m_eof;
@@ -169,7 +179,7 @@ protected:
     template <typename T, typename... Args>
     bool _scan(T&& a, Args&&... args)
     {
-        if (!read(std::forward<T>(a))) {
+        if (!this->read(std::forward<T>(a))) {
             return false;
         }
         return _scan(std::forward<Args>(args)...);
@@ -181,10 +191,12 @@ protected:
 };
 
 #if SPIO_HAS_DEDUCTION_GUIDES
-template <typename Readable>
+template <typename Readable,
+          typename = std::enable_if_t<is_readable<Readable>::value>>
 basic_instream(Readable& r)->basic_instream<Readable>;
 #endif
 
+#if 0
 template <typename CharT, class FileHandle = filehandle>
 class basic_file_instream
     : public basic_instream<basic_readable_file<CharT, FileHandle>> {
@@ -219,6 +231,13 @@ public:
     {
     }
 };
+#endif
+
+template <typename CharT, typename FileHandle = filehandle>
+using basic_file_instream =
+    basic_instream<basic_readable_file<CharT, FileHandle>>;
+template <typename CharT>
+using basic_buffer_instream = basic_instream<basic_readable_buffer<CharT>>;
 
 using file_instream = basic_file_instream<char>;
 using file_winstream = basic_file_instream<wchar_t>;
@@ -237,8 +256,15 @@ static_assert(is_reader<buffer_winstream>::value,
 template <typename T>
 auto get_stdin()
 {
-    auto f = stdio_filehandle{filebuffer::BUFFER_DEFAULT, stdin};
+#if defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wexit-time-destructors"
+#endif
+    static auto f = stdio_filehandle{filebuffer::BUFFER_DEFAULT, stdin};
     return basic_file_instream<T, stdio_filehandle>{f};
+#if defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 }
 
 inline auto sin()

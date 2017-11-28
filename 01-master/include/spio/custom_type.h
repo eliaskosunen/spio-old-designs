@@ -60,26 +60,58 @@ struct custom_read<std::basic_string<CharT, Allocator>> {
         if (val.empty()) {
             val.resize(15);
         }
-        auto s = make_span(val);
-        reader_options<span<typename Reader::char_type>> o = {nullptr, false};
-        while (true) {
-            if (!p.read(s, o)) {
-                return false;
+
+        if (p.is_overreadable()) {
+            auto s = make_span(val);
+            reader_options<span<typename Reader::char_type>> o = {nullptr,
+                                                                  false};
+            while (true) {
+                if (!p.read(s, o)) {
+                    return false;
+                }
+                typename Reader::char_type ch;
+                if (!p.get(ch)) {
+                    return false;
+                }
+                if (!is_space(ch)) {
+                    p.push(ch);
+                    val.resize(val.size() + 64);
+                    s = make_span(val.end() - 64, val.end());
+                }
+                else {
+                    break;
+                }
             }
-            typename Reader::char_type ch;
-            if (!p.get(ch)) {
-                return false;
-            }
-            if (!is_space(ch)) {
-                p.push(ch);
-                val.resize(val.size() + 64);
-                s = make_span(val.end() - 64, val.end());
-            }
-            else {
-                break;
+            return true;
+        }
+        else {
+            auto it = val.begin();
+            while (true) {
+                typename Reader::char_type ch;
+                auto ret = !!p.get(ch);
+                if (!is_space(ch)) {
+                    if (it == val.end()) {
+                        auto s = val.size();
+                        val.resize(s + 64);
+                        it = val.begin() +
+                             static_cast<typename type::difference_type>(s);
+                    }
+                    *it = ch;
+                }
+                else {
+                    p.push(ch);
+                    val.erase(it + 1, val.end());
+                    val.shrink_to_fit();
+                    return ret;
+                }
+                if (!ret) {
+                    val.erase(it + 1, val.end());
+                    val.shrink_to_fit();
+                    return ret;
+                }
+                ++it;
             }
         }
-        return true;
     }
 };
 

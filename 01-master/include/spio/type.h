@@ -141,9 +141,10 @@ struct type<T,
                                      strspan.begin() + str_len));
                 }
             }
-        } else {
-            for(auto it = val.begin(); it != val.end() && p.read(ch); ++it) {
-                if(is_space(ch, opt.spaces)) {
+        }
+        else {
+            for (auto it = val.begin(); it != val.end() && p.read(ch); ++it) {
+                if (is_space(ch, opt.spaces)) {
                     p.push(ch);
                     break;
                 }
@@ -215,7 +216,7 @@ struct type<T,
         using char_type = typename Reader::char_type;
 
         char_type ch{};
-        while (p.read(ch)) {
+        while (p.get(ch)) {
             if (!is_space(ch)) {
                 p.push(ch);
                 break;
@@ -228,7 +229,22 @@ struct type<T,
         constexpr auto n = max_digits<std::remove_reference_t<T>>() + 1;
         stl::array<char_type, n> buf{};
         buf.fill(0);
-        p.read(make_span<n>(buf));
+        if (p.is_overreadable()) {
+            p.read(make_span<n>(buf));
+        }
+        else {
+            for (auto& c : buf) {
+                p.get(c);
+                if (is_space(c)) {
+                    p.push(c);
+                    c = '\0';
+                    break;
+                }
+                if (p.eof()) {
+                    break;
+                }
+            }
+        }
 
         T tmp = 0;
         auto it = buf.begin();
@@ -259,7 +275,7 @@ struct type<T,
             }
             stl::vector<char> errbuf(128, '\0');
             std::snprintf(&errbuf[0], 128,
-                          "Invalid first character in integer: %x",
+                          "Invalid first character in integer: 0x%x",
                           static_cast<int>(*it));
             SPIO_THROW(invalid_input, &errbuf[0]);
         }();
@@ -285,16 +301,18 @@ struct type<T,
         /*         } */
         /*         else */
         /* #endif */
-        if (it != buf.end()) {
-            const auto end = [&]() {
-                for (auto i = it; i != buf.end(); ++i) {
-                    if (*i == '\0') {
-                        return i;
+        if (p.is_overreadable()) {
+            if (it != buf.end()) {
+                const auto end = [&]() {
+                    for (auto i = it; i != buf.end(); ++i) {
+                        if (*i == '\0') {
+                            return i;
+                        }
                     }
-                }
-                return buf.end();
-            }();
-            p.push(make_span(it, end));
+                    return buf.end();
+                }();
+                p.push(make_span(it, end));
+            }
         }
         return !p.eof();
     }
@@ -372,6 +390,18 @@ struct type<T,
     {
         CHECK_READER("type<Float>::read<T>");
         using char_type = typename Reader::char_type;
+
+        char_type ch{};
+        while (p.get(ch)) {
+            if (!is_space(ch)) {
+                p.push(ch);
+                break;
+            }
+        }
+        if (p.eof()) {
+            return false;
+        }
+
         stl::array<char_type, 64> buf{};
         buf.fill(char_type{0});
 

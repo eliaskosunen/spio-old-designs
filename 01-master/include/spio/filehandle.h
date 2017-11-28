@@ -314,6 +314,11 @@ public:
         return std::fflush(get()) == 0;
     }
 
+    bool is_stdin() const
+    {
+        return m_handle == stdin;
+    }
+
     std::size_t read(writable_byte_span data)
     {
         assert(good());
@@ -433,6 +438,8 @@ public:
     bool eof() const;
     bool flush();
 
+    bool is_stdin() const;
+
     std::size_t read(writable_byte_span data);
     std::size_t write(const_byte_span data);
 
@@ -535,6 +542,11 @@ inline bool unbuf_native_filehandle::flush()
     return ::fsync(get()) == 0;
 }
 
+inline bool unbuf_native_filehandle::is_stdin() const
+{
+    return get() == 0;
+}
+
 inline std::size_t unbuf_native_filehandle::read(writable_byte_span data)
 {
     assert(good());
@@ -632,6 +644,11 @@ inline bool unbuf_native_filehandle::flush()
 {
     assert(good());
     return ::FlushFileBuffers(get());
+}
+
+inline bool unbuf_native_filehandle::is_stdin() const
+{
+    return get() == ::GetStdHandle(STD_INPUT_HANDLE);
 }
 
 inline std::size_t unbuf_native_filehandle::read(writable_byte_span data)

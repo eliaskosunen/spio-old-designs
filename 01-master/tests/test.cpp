@@ -32,20 +32,20 @@ template class io::basic_buffered_filehandle<io::stdio_filehandle>;
 template class io::basic_buffered_filehandle<io::native_filehandle>;
 template class io::basic_instream<io::readable_buffer>;
 template class io::basic_instream<io::readable_file>;
-template class io::basic_file_instream<char, io::stdio_filehandle>;
-template class io::basic_file_instream<wchar_t, io::stdio_filehandle>;
-template class io::basic_file_instream<char, io::native_filehandle>;
-template class io::basic_file_instream<wchar_t, io::native_filehandle>;
-template class io::basic_buffer_instream<char>;
-template class io::basic_buffer_instream<wchar_t>;
+/* template class io::basic_file_instream<char, io::stdio_filehandle>; */
+/* template class io::basic_file_instream<wchar_t, io::stdio_filehandle>; */
+/* template class io::basic_file_instream<char, io::native_filehandle>; */
+/* template class io::basic_file_instream<wchar_t, io::native_filehandle>; */
+/* template class io::basic_buffer_instream<char>; */
+/* template class io::basic_buffer_instream<wchar_t>; */
 template class io::basic_outstream<io::writable_buffer>;
 template class io::basic_outstream<io::writable_file>;
-template class io::basic_file_outstream<char, io::stdio_filehandle>;
-template class io::basic_file_outstream<wchar_t, io::stdio_filehandle>;
-template class io::basic_file_outstream<char, io::native_filehandle>;
-template class io::basic_file_outstream<wchar_t, io::native_filehandle>;
-template class io::basic_buffer_outstream<char>;
-template class io::basic_buffer_outstream<wchar_t>;
+/* template class io::basic_file_outstream<char, io::stdio_filehandle>; */
+/* template class io::basic_file_outstream<wchar_t, io::stdio_filehandle>; */
+/* template class io::basic_file_outstream<char, io::native_filehandle>; */
+/* template class io::basic_file_outstream<wchar_t, io::native_filehandle>; */
+/* template class io::basic_buffer_outstream<char>; */
+/* template class io::basic_buffer_outstream<wchar_t>; */
 template class io::basic_readable_file<char, io::stdio_filehandle>;
 template class io::basic_readable_file<wchar_t, io::stdio_filehandle>;
 template class io::basic_readable_file<char, io::native_filehandle>;

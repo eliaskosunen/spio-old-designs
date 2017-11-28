@@ -54,7 +54,8 @@ struct is_readable<T,
                               std::declval<bytes_contiguous>())),
                           decltype(std::declval<T>().read(
                               std::declval<typename T::value_type&>())),
-                          decltype(std::declval<T>().skip())>>
+                          decltype(std::declval<T>().skip()),
+                          decltype(std::declval<T>().is_overreadable())>>
     : std::true_type {
 };
 #endif
@@ -100,6 +101,12 @@ public:
     error read(CharT& c);
 
     error skip();
+
+    bool is_overreadable() const
+    {
+        assert(get_file());
+        return !get_file()->is_stdin();
+    }
 
     FileHandle* get_file()
     {
@@ -156,6 +163,11 @@ public:
     error skip();
 
     error rewind(typename buffer_type::difference_type steps = 1);
+
+    bool is_overreadable() const
+    {
+        return true;
+    }
 
     buffer_type& get_buffer()
     {
