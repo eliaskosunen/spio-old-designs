@@ -22,15 +22,25 @@
 // Standard input/output stream example
 
 #include "spio/spio.h"
+#include <cmath>
+#include <iostream>
+
+#define PI 3.14159265358979323846L
 
 int main() {
-    io::sout().println("Hello world!");
+    io::sout().write("Hello world!\n");
 
-    io::sout().print("What's your name and age? ");
+    io::sout().write("What's your name and age? ");
     std::string str; 
     int age;
     auto in = io::sin();
     in.scan(str, age);
 
     io::sout().println("Hi, {}, {}", str, age);
+
+    io::sout().write("How well do you remember pi? ");
+    long double pi;
+    in.read(pi);
+
+    io::sout().println("You were {}% off from {}!", std::fabs((PI - pi) / PI), PI);
 }
