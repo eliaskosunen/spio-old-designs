@@ -169,6 +169,8 @@ public:
     }
 
 protected:
+    basic_instream() = default;
+
     template <typename T, span_extent_type N>
     error _read(span<T, N> s, elements length);
 
@@ -196,7 +198,6 @@ template <typename Readable,
 basic_instream(Readable& r)->basic_instream<Readable>;
 #endif
 
-#if 0
 template <typename CharT, class FileHandle = filehandle>
 class basic_file_instream
     : public basic_instream<basic_readable_file<CharT, FileHandle>> {
@@ -226,18 +227,24 @@ public:
 
     basic_buffer_instream() = default;
     explicit basic_buffer_instream(readable_type r) : base_type(std::move(r)) {}
-    explicit basic_buffer_instream(buffer_type b)
-        : basic_buffer_instream(readable_type{std::move(b)})
+    /* explicit basic_buffer_instream(buffer_type b) */
+    /*     : basic_buffer_instream(readable_type{b}) */
+    /* { */
+    /* } */
+    template <span_extent_type N>
+    explicit basic_buffer_instream(span<CharT, N> b)
+        : basic_buffer_instream(readable_type{buffer_type{b.begin(), b.end()}})
     {
     }
 };
-#endif
 
+#if 0
 template <typename CharT, typename FileHandle = filehandle>
 using basic_file_instream =
     basic_instream<basic_readable_file<CharT, FileHandle>>;
 template <typename CharT>
 using basic_buffer_instream = basic_instream<basic_readable_buffer<CharT>>;
+#endif
 
 using file_instream = basic_file_instream<char>;
 using file_winstream = basic_file_instream<wchar_t>;
