@@ -18,34 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// stdio.cpp
-// Standard input/output stream example
+#pragma once
 
-#include <cmath>
-#include <iostream>
-#include "examples.h"
-#include "spio/spio.h"
-
-#define PI 3.14159265358979323846L
-
-void stdio()
-{
-    io::sout().println(" *** Standard streams IO *** ");
-
-    io::sout().write("Hello world!\n");
-
-    io::sout().write("What's your name and age? ");
-    std::string str;
-    int age;
-    auto in = io::sin();
-    in.scan(str, age);
-
-    io::sout().println("Hi, {}, {}", str, age);
-
-    io::sout().write("How well do you remember pi? ");
-    long double pi;
-    in.read(pi);
-
-    io::sout().println("You were {}% off from {}!", std::fabs((PI - pi) / PI),
-                       PI);
-}
+void bufferio();
+void stdio();

@@ -40,11 +40,11 @@ public:
 
     explicit basic_outstream(writable_type w) : m_writable(std::move(w)) {}
 
-    template <typename... Args>
-    explicit basic_outstream(Args&&... args)
-        : m_writable(std::forward<Args>(args)...)
-    {
-    }
+    /* template <typename... Args> */
+    /* explicit basic_outstream(Args&&... args) */
+    /*     : m_writable(std::forward<Args>(args)...) */
+    /* { */
+    /* } */
 
     basic_outstream(const basic_outstream&) = delete;
     basic_outstream& operator=(const basic_outstream&) = delete;
@@ -168,6 +168,8 @@ public:
     }
 
 protected:
+    basic_outstream() = default;
+
     writable_type m_writable{};
     bool m_eof{false};
 };
@@ -177,7 +179,6 @@ template <typename Writable>
 basic_outstream(Writable& r)->basic_outstream<Writable>;
 #endif
 
-#if 0
 template <typename CharT, typename FileHandle = filehandle>
 class basic_file_outstream
     : public basic_outstream<basic_writable_file<CharT, FileHandle>> {
@@ -213,14 +214,35 @@ public:
         : basic_buffer_outstream(writable_type{std::move(b)})
     {
     }
-};
-#endif
 
+    constexpr auto to_instream()
+    {
+        auto readable = base_type::m_writable.to_readable();
+        return basic_buffer_instream<typename decltype(readable)::value_type>{
+            std::move(readable)};
+    }
+
+    auto get_buffer()
+    {
+        return base_type::m_writable.get_buffer().to_span();
+    }
+    auto get_buffer() const
+    {
+        return base_type::m_writable.get_buffer().to_span();
+    }
+    auto&& consume_buffer()
+    {
+        return base_type::m_writable.consume_buffer();
+    }
+};
+
+#if 0
 template <typename CharT, typename FileHandle = filehandle>
 using basic_file_outstream =
     basic_outstream<basic_writable_file<CharT, FileHandle>>;
 template <typename CharT>
 using basic_buffer_outstream = basic_outstream<basic_writable_buffer<CharT>>;
+#endif
 
 using file_outstream = basic_file_outstream<char>;
 using file_woutstream = basic_file_outstream<wchar_t>;

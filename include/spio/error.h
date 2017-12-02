@@ -35,6 +35,7 @@ enum error_code {
     no_error = 0,
     invalid_argument,
     invalid_input,
+    invalid_operation,
     io_error,
     assertion_failure,
     end_of_file,
@@ -69,6 +70,8 @@ struct error {
                 return "Invalid argument";
             case invalid_input:
                 return "Invalid input";
+            case invalid_operation:
+                return "Invalid operation";
             case io_error:
                 return "IO error";
             case assertion_failure:
