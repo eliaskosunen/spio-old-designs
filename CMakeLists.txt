@@ -118,6 +118,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     if(WERROR)
         add_compiler_flags(/WX)
     endif()
+    add_compiler_flags(/D_CRT_SECURE_NO_WARNINGS)
 endif()
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
