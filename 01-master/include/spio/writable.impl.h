@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 #include "error.h"
+#include "readable.h"
 #include "writable.h"
 
 namespace io {
@@ -221,5 +222,13 @@ error basic_writable_buffer<CharT, BufferT>::write(CharT c)
 {
     span<CharT> s{&c, 1};
     return write(s, characters{1});
+}
+
+template <typename CharT, typename BufferT>
+constexpr auto basic_writable_buffer<CharT, BufferT>::to_readable()
+{
+    auto buffer = get_buffer().to_span();
+    return basic_readable_buffer<
+        CharT, std::remove_reference_t<decltype(buffer)>::extent>{buffer};
 }
 }  // namespace io

@@ -18,34 +18,27 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// stdio.cpp
-// Standard input/output stream example
+// bufferio.cpp
+// Buffer input/output example
 
-#include <cmath>
-#include <iostream>
 #include "examples.h"
 #include "spio/spio.h"
 
-#define PI 3.14159265358979323846L
-
-void stdio()
+void bufferio()
 {
-    io::sout().println(" *** Standard streams IO *** ");
+    io::sout().println(" *** Buffer IO *** ");
 
-    io::sout().write("Hello world!\n");
+    io::buffer_outstream out{};
+    out.write("Word 123");
 
-    io::sout().write("What's your name and age? ");
-    std::string str;
-    int age;
-    auto in = io::sin();
-    in.scan(str, age);
+    auto& w = out.get_writable();
+    auto& buf = w.get_buffer();
+    auto s = io::make_span(buf.begin(), buf.end());
+    io::buffer_instream in{s};
+    /* io::buffer_instream in{out.get_buffer()}; */
+    std::string word;
+    int num;
+    in.scan(word, num);
 
-    io::sout().println("Hi, {}, {}", str, age);
-
-    io::sout().write("How well do you remember pi? ");
-    long double pi;
-    in.read(pi);
-
-    io::sout().println("You were {}% off from {}!", std::fabs((PI - pi) / PI),
-                       PI);
+    io::sout().println("'{}', '{}'", word, num);
 }

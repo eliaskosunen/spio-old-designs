@@ -66,6 +66,8 @@ class basic_writable_file {
 public:
     using value_type = CharT;
 
+    static constexpr bool is_readable_convertible = false;
+
     static_assert(
         std::is_trivially_copyable<CharT>::value,
         "basic_writable_file<CharT>: CharT must be TriviallyCopyable");
@@ -77,7 +79,8 @@ public:
     explicit basic_writable_file(FileHandle& file);
 
     constexpr basic_writable_file(const basic_writable_file&) = delete;
-    constexpr basic_writable_file& operator=(const basic_writable_file&) = delete;
+    constexpr basic_writable_file& operator=(const basic_writable_file&) =
+        delete;
     constexpr basic_writable_file(basic_writable_file&&) = default;
     constexpr basic_writable_file& operator=(basic_writable_file&&) = default;
     ~basic_writable_file() noexcept
@@ -162,11 +165,18 @@ struct is_writable_buffer_type<
 
 template <typename T, typename Alloc = stl::allocator<T>>
 struct dynamic_writable_buffer : public stl::vector<T, Alloc> {
+    static constexpr auto extent = dynamic_extent;
+
     using stl::vector<T, Alloc>::vector;
 
     constexpr bool is_end()
     {
         return false;
+    }
+
+    constexpr auto to_span()
+    {
+        return span<T, extent>{this->begin(), this->end()};
     }
 };
 template <typename T, span_extent_type Extent = dynamic_extent>
@@ -179,6 +189,8 @@ public:
     using difference_type = typename span_type::difference_type;
     using reference = value_type&;
     using const_reference = std::add_const_t<reference>;
+
+    static constexpr auto extent = Extent;
 
     constexpr span_writable_buffer(span<T, Extent> s)
         : m_buf(std::move(s)), m_it(m_buf.begin())
@@ -253,6 +265,11 @@ public:
         SPIO_UNUSED(size);
     }
 
+    constexpr auto to_span()
+    {
+        return span<T, extent>{begin(), end()};
+    }
+
 private:
     span<T, Extent> m_buf{};
     typename span<T, Extent>::iterator m_it{};
@@ -262,9 +279,16 @@ template <typename T,
           span_extent_type Extent = static_cast<span_extent_type>(N)>
 class static_writable_buffer : public span_writable_buffer<T, Extent> {
 public:
+    static constexpr auto extent = Extent;
+    
     static_writable_buffer(stl::array<T, N> a = {})
         : m_buf(std::move(a)), span_writable_buffer<T, Extent>(m_buf)
     {
+    }
+
+    constexpr auto to_span()
+    {
+        return span<T, extent>{this->begin(), this->end()};
     }
 
 private:
@@ -288,13 +312,17 @@ public:
     using value_type = CharT;
     using buffer_type = BufferT;
 
+    static constexpr bool is_readable_convertible = true;
+
     constexpr basic_writable_buffer() = default;
     constexpr explicit basic_writable_buffer(buffer_type b);
 
     constexpr basic_writable_buffer(const basic_writable_buffer&) = delete;
-    constexpr basic_writable_buffer& operator=(const basic_writable_buffer&) = delete;
+    constexpr basic_writable_buffer& operator=(const basic_writable_buffer&) =
+        delete;
     constexpr basic_writable_buffer(basic_writable_buffer&&) = default;
-    constexpr basic_writable_buffer& operator=(basic_writable_buffer&&) = default;
+    constexpr basic_writable_buffer& operator=(basic_writable_buffer&&) =
+        default;
     ~basic_writable_buffer() noexcept = default;
 
     template <typename T, span_extent_type N>
@@ -322,20 +350,12 @@ public:
     {
         return m_buffer;
     }
-    template <typename T = buffer_type>
-    constexpr std::enable_if_t<std::is_copy_constructible<T>::value, T>
-    consume_buffer() const
-    {
-        return T{m_buffer};
-    }
-    template <typename T = buffer_type>
-    constexpr std::enable_if_t<!std::is_copy_constructible<T>::value &&
-                                   std::is_move_constructible<T>::value,
-                               T&&>
-    consume_buffer()
+    constexpr buffer_type&& consume_buffer()
     {
         return std::move(m_buffer);
     }
+
+    constexpr auto to_readable();
 
 private:
     buffer_type m_buffer{};

@@ -143,9 +143,19 @@ public:
     constexpr basic_readable_buffer(const basic_readable_buffer&) = delete;
     constexpr basic_readable_buffer& operator=(const basic_readable_buffer&) =
         delete;
-    constexpr basic_readable_buffer(basic_readable_buffer&&) noexcept = default;
+    constexpr basic_readable_buffer(basic_readable_buffer&& other) noexcept
+    {
+        *this = std::move(other);
+    }
     constexpr basic_readable_buffer& operator=(
-        basic_readable_buffer&&) noexcept = default;
+        basic_readable_buffer&& other) noexcept
+    {
+        auto n = stl::distance(other.m_buffer.begin(), other.m_it);
+        m_buffer = std::move(other.m_buffer);
+        m_it = m_buffer.begin();
+        stl::advance(m_it, n);
+        return *this;
+    }
     ~basic_readable_buffer() noexcept = default;
 
     template <typename T, span_extent_type N>
