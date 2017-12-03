@@ -88,6 +88,7 @@ namespace detail {
         {
             IntT sign{0};
 
+
 #if SPIO_HAS_IF_CONSTEXPR
             if constexpr (std::is_signed<IntT>::value)
 #endif
@@ -100,9 +101,16 @@ namespace detail {
 
             IntT i = 0;
             auto casted_base = static_cast<IntT>(base);
+
+            auto nth_digit = [casted_base](IntT num) -> CharT {
+                auto tmp = num % casted_base;
+                if(casted_base <= 10 || tmp < 10) {
+                    return static_cast<CharT>(tmp) + CharT{'0'};
+                }
+                return static_cast<CharT>(tmp - 10) + CharT{'a'};
+            };
             do { /* generate digits in reverse order */
-                s[i++] = static_cast<CharT>(n % casted_base) +
-                         CharT{'0'};          /* get next digit */
+                s[i++] = nth_digit(n); /* get next digit */
             } while ((n /= casted_base) > 0); /* delete it */
             if (sign < 0) {
                 s[i++] = CharT{'-'};
