@@ -85,7 +85,7 @@ struct writer_options<T,
 
 template <>
 struct writer_options<bool> {
-    bool alpha{false};
+    bool alpha{true};
 };
 }  // namespace io
 

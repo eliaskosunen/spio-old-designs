@@ -82,7 +82,7 @@ template struct io::type<char>;
 template struct io::type<char (&)[10]>;
 template struct io::type<wchar_t>;
 template struct io::type<double>;
-template struct io::type<void*>;
+/* template struct io::type<void*>; */
 template struct io::type<std::string>;
 
 using reader = io::buffer_instream;
