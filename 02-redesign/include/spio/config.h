@@ -77,13 +77,19 @@
 #error Both SPIO_POSIX and SPIO_WIN32 detected
 #endif
 
+#ifdef _MSC_VER
+#define SPIO_MSC_VER _MSC_VER
+#else
+#define SPIO_MSC_VER 0
+#endif
+
 #if !SPIO_POSIX && !SPIO_WIN32
 #define SPIO_HAS_NATIVE_FILEIO 0
 #else
 #define SPIO_HAS_NATIVE_FILEIO 1
 #endif
 
-#if defined(__cpp_if_constexpr)
+#if defined(__cpp_if_constexpr) || SPIO_MSC_VER >= 1910
 #define SPIO_HAS_IF_CONSTEXPR 1
 #else
 #define SPIO_HAS_IF_CONSTEXPR 0
@@ -101,13 +107,14 @@
 #define SPIO_HAS_LOGICAL_TRAITS 0
 #endif
 
-#if defined(__cpp_lib_byte)
+#if defined(__cpp_lib_byte) || \
+    (SPIO_MSC_VER >= 1910 && defined(_MSVC_LANG) && _MSVC_LANG >= 201703)
 #define SPIO_HAS_BYTE 1
 #else
 #define SPIO_HAS_BYTE 0
 #endif
 
-#if defined(__cpp_fold_expression)
+#if defined(__cpp_fold_expression) || SPIO_MSC_VER >= 1910
 #define SPIO_HAS_FOLD_EXPRESSIONS 1
 #else
 #define SPIO_HAS_FOLD_EXPRESSIONS 0
@@ -119,13 +126,14 @@
 #define SPIO_HAS_DEDUCTION_GUIDES 0
 #endif
 
-#if defined(__cpp_lib_void_t)
+#if defined(__cpp_lib_void_t) || SPIO_MSC_VER >= 1900
 #define SPIO_HAS_VOID_T 1
 #else
 #define SPIO_HAS_VOID_T 0
 #endif
 
-#if defined(__cpp_lib_is_invocable)
+#if defined(__cpp_lib_is_invocable) || \
+    (SPIO_MSC_VER >= 1910 && defined(_MSVC_LANG) && _MSVC_LANG >= 201703)
 #define SPIO_HAS_INVOCABLE 1
 #else
 #define SPIO_HAS_INVOCABLE 0
@@ -134,14 +142,6 @@
 //
 // Definitions
 //
-
-#define SPIO_INLINE inline
-
-#if !SPIO_USE_STL
-#if !defined(SPIO_VECTOR) || !defined(SPIO_ARRAY)
-#error !SPIO_USE_STL requires SPIO_VECTOR and SPIO_ARRAY to be defined
-#endif
-#endif  // !SPIO_USE_STL
 
 #define SPIO_STRINGIZE_DETAIL(x) #x
 #define SPIO_STRINGIZE(x) SPIO_STRINGIZE_DETAIL(x)
