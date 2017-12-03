@@ -24,7 +24,7 @@
 #include "util.h"
 
 namespace io {
-SPIO_INLINE bool is_eof(error c)
+inline bool is_eof(error c)
 {
     return c.is_eof();
 }
