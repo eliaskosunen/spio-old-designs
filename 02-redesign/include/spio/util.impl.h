@@ -88,7 +88,6 @@ namespace detail {
         {
             IntT sign{0};
 
-
 #if SPIO_HAS_IF_CONSTEXPR
             if constexpr (std::is_signed<IntT>::value)
 #endif
@@ -104,12 +103,12 @@ namespace detail {
 
             auto nth_digit = [casted_base](IntT num) -> CharT {
                 auto tmp = num % casted_base;
-                if(casted_base <= 10 || tmp < 10) {
+                if (casted_base <= 10 || tmp < 10) {
                     return static_cast<CharT>(tmp) + CharT{'0'};
                 }
                 return static_cast<CharT>(tmp - 10) + CharT{'a'};
             };
-            do { /* generate digits in reverse order */
+            do {                       /* generate digits in reverse order */
                 s[i++] = nth_digit(n); /* get next digit */
             } while ((n /= casted_base) > 0); /* delete it */
             if (sign < 0) {
@@ -119,7 +118,8 @@ namespace detail {
         }
 
         auto reverse = [](CharT* str) {
-            for (std::ptrdiff_t i = 0, j = stl::strlen(str) - 1; i < j; i++, j--) {
+            for (std::ptrdiff_t i = 0, j = stl::strlen(str) - 1; i < j;
+                 i++, j--) {
                 CharT tmp = str[i];
                 str[i] = str[j];
                 str[j] = tmp;
@@ -184,9 +184,15 @@ namespace detail {
                                           1.0e32, 1.0e64, 1.0e128, 1.0e256}};
         }
         else {
+#ifdef _MSC_VER
+            return stl::array<long double, 11>{{10.l, 100.l, 1.0e4l, 1.0e8l,
+                                                1.0e16l, 1.0e32l, 1.0e64l,
+                                                1.0e128l, 1.0e256l, 1.0e512l}};
+#else
             return stl::array<long double, 11>{
                 {10.l, 100.l, 1.0e4l, 1.0e8l, 1.0e16l, 1.0e32l, 1.0e64l,
                  1.0e128l, 1.0e256l, 1.0e512l, 1.0e1024l}};
+#endif
         }
     }
 
