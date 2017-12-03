@@ -168,7 +168,7 @@ error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
     static_assert(
         sizeof(T) <= sizeof(CharT),
-        "Truncation in basic_writable_buffer<CharT, BufferT>::read: sizeof "
+        "Truncation in basic_writable_buffer<CharT, BufferT>::write: sizeof "
         "buffer is more than CharT");
 
     const auto i = m_buffer.size();
