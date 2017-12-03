@@ -553,7 +553,10 @@ struct type<bool> {
     {
         CHECK_WRITER("type<bool>::write<T>");
         if (opt.alpha) {
-            return w.write(val ? "true" : "false");
+            if(val) {
+                return w.write("true");
+            }
+            return w.write("false");
         }
         return w.write(val ? 1 : 0);
     }
