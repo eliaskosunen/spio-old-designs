@@ -182,14 +182,15 @@ struct type<detail::string_tag<T, N>> {
         auto ptr = string_type::make_pointer(val);
 #if SPIO_HAS_IF_CONSTEXPR
         if constexpr (N != 0) {
-            return w.write(make_span<N>(ptr));
+            return w.write(make_span<N - 1>(ptr));
         }
         else
 #endif
         {
             const auto len = [&]() -> span_extent_type {
                 if (N != 0) {
-                    return N;
+                    return static_cast<span_extent_type>(
+                        N - 1);  // Don't write the null terminator
                 }
                 return stl::strlen(ptr);
             }();
@@ -322,10 +323,19 @@ struct type<T,
     {
         CHECK_WRITER("type<Int>::write<T>");
         using char_type = typename Writer::char_type;
-        constexpr auto n = max_digits<std::remove_reference_t<T>>() + 1;
-        stl::array<char_type, n> buf{};
-        buf.fill(char_type{0});
-        auto s = make_span<n>(buf);
+
+        if (opt.base == 10) {
+            constexpr auto n = max_digits<std::remove_reference_t<T>>() + 1;
+            stl::array<char_type, n> buf{};
+            buf.fill(char_type{0});
+            auto s = make_span<n>(buf);
+            int_to_char<char_type>(val, s, 10);
+            return w.write(s.first(stl::strlen(s)).as_const_span());
+        }
+
+        auto n = sizeof(std::remove_reference_t<T>) * 8 + 1;
+        stl::vector<char_type> buf(n, char_type{0});
+        auto s = make_span(buf);
         int_to_char<char_type>(val, s, opt.base);
         return w.write(s.first(stl::strlen(s)).as_const_span());
     }
@@ -339,11 +349,11 @@ namespace detail {
         stl::vector<char> arr([&]() {
             if constexpr (std::is_same<std::decay_t<T>, long double>::value) {
                 return static_cast<std::size_t>(
-                    std::snprintf(nullptr, 0, "%Lf", val));
+                    std::snprintf(nullptr, 0, "%Lg", val));
             }
             else {
                 return static_cast<std::size_t>(
-                    std::snprintf(nullptr, 0, "%f", val));
+                    std::snprintf(nullptr, 0, "%g", static_cast<double>(val)));
             }
 
         }() + 1);
@@ -352,10 +362,10 @@ namespace detail {
 #else
         if constexpr (std::is_same<std::decay_t<T>, long double>::value) {
 #endif
-            std::snprintf(&arr[0], arr.size(), "%Lf", val);
+            std::snprintf(&arr[0], arr.size(), "%Lg", val);
         }
         else {
-            std::snprintf(&arr[0], arr.size(), "%f", val);
+            std::snprintf(&arr[0], arr.size(), "%g", static_cast<double>(val));
         }
         return arr;
     }
@@ -471,21 +481,25 @@ struct type<T,
     }
 };
 
-template <typename T>
-struct type<T*> {
+template <>
+struct type<void*> {
     template <typename Reader>
-    static bool read(Reader& p, T*& val, reader_options<T*> opt) = delete;
+    static bool read(Reader& p, void*& val, reader_options<void*> opt) = delete;
 
     template <typename Writer>
-    static bool write(Writer& w, const T* val, writer_options<T*> opt)
+    static bool write(Writer& w, const void* val, writer_options<void*> opt)
     {
-        CHECK_WRITER("type<Pointer>::write<T>");
+        CHECK_WRITER("type<void*>::write<T>");
         SPIO_UNUSED(opt);
+        using char_type = typename Writer::char_type;
+
+        if (!w.put(char_type{'0'}) || !w.put(char_type{'x'})) {
+            return false;
+        }
 
         writer_options<std::uintptr_t> o;
         o.base = 16;
-        const void* ptr = val;
-        return w.write(reinterpret_cast<std::uintptr_t>(ptr), o);
+        return w.write(reinterpret_cast<std::uintptr_t>(val), o);
     }
 };
 
