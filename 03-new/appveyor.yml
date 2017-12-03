@@ -35,3 +35,10 @@ build:
     project: C:\projects\spio\build\spio.sln
     parallel: true
     verbosity: normal
+
+test_script:
+    - cd %APPVEYOR_BUILD_FOLDER%\tests
+    - dir /ad /b /s
+    - dir /a-d /b /s
+    - ..\build\tests\Debug\tests.exe
+    - cd ..
