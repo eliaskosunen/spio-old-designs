@@ -367,7 +367,24 @@ namespace detail {
         else {
             std::snprintf(&arr[0], arr.size(), "%g", static_cast<double>(val));
         }
-        return arr;
+        auto size = arr.size();
+        bool period_found = false;
+        for (auto i = arr.size() - 1; i > 0; --i) {
+            if (arr[i] == '.') {
+                period_found = true;
+                break;
+            }
+            if (arr[i] == '0') {
+                --size;
+            }
+        }
+        if (!period_found) {
+            return arr;
+        }
+        return stl::vector<char>(
+            arr.begin(),
+            arr.begin() +
+                static_cast<typename decltype(arr)::difference_type>(size));
     }
 #else
     template <typename T>
@@ -553,7 +570,7 @@ struct type<bool> {
     {
         CHECK_WRITER("type<bool>::write<T>");
         if (opt.alpha) {
-            if(val) {
+            if (val) {
                 return w.write("true");
             }
             return w.write("false");
