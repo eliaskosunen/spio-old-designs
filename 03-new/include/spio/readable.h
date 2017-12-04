@@ -102,6 +102,9 @@ public:
 
     error skip();
 
+    error seek(seek_origin origin, seek_type offset);
+    error tell(seek_type& pos);
+
     bool is_overreadable() const
     {
         assert(get_file());
@@ -173,6 +176,9 @@ public:
     error skip();
 
     error rewind(typename buffer_type::difference_type steps = 1);
+
+    error seek(seek_origin origin, seek_type offset);
+    error tell(seek_type& pos);
 
     bool is_overreadable() const
     {
