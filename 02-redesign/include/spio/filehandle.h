@@ -70,6 +70,9 @@ struct is_filehandle<
 };
 #endif
 
+enum class seek_origin { SET = SEEK_SET, CUR = SEEK_CUR, END = SEEK_END };
+using seek_type = long;
+
 template <typename FileHandle, typename Alloc = stl::allocator<char>>
 class basic_buffered_filehandle_base : public FileHandle {
 public:
@@ -98,10 +101,14 @@ public:
         FileHandle::_set_buffering(m_buf);
     }
 
-    constexpr basic_buffered_filehandle_base(const basic_buffered_filehandle_base&) = delete;
-    constexpr basic_buffered_filehandle_base& operator=(const basic_buffered_filehandle_base&) = delete;
-    constexpr basic_buffered_filehandle_base(basic_buffered_filehandle_base&&) = default;
-    constexpr basic_buffered_filehandle_base& operator=(basic_buffered_filehandle_base&&) = default;
+    constexpr basic_buffered_filehandle_base(
+        const basic_buffered_filehandle_base&) = delete;
+    constexpr basic_buffered_filehandle_base& operator=(
+        const basic_buffered_filehandle_base&) = delete;
+    constexpr basic_buffered_filehandle_base(basic_buffered_filehandle_base&&) =
+        default;
+    constexpr basic_buffered_filehandle_base& operator=(
+        basic_buffered_filehandle_base&&) = default;
     ~basic_buffered_filehandle_base() = default;
 
     template <typename... Args>
@@ -330,6 +337,23 @@ public:
         return std::fwrite(data.data(), 1, data.size_us(), m_handle);
     }
 
+    bool seek(seek_origin origin, seek_type offset)
+    {
+        assert(good());
+        return std::fseek(m_handle, offset,
+                          static_cast<int>(origin)) == 0;
+    }
+    bool tell(seek_type& pos)
+    {
+        assert(good());
+        auto p = std::ftell(m_handle);
+        if (p == -1) {
+            return false;
+        }
+        pos = p;
+        return true;
+    }
+
 protected:
     bool _set_buffering(filebuffer& buf)
     {
@@ -442,6 +466,18 @@ public:
 
     std::size_t read(writable_byte_span data);
     std::size_t write(const_byte_span data);
+
+    [[noreturn]] bool seek(seek_origin origin, seek_type offset)
+    {
+        SPIO_UNUSED(origin);
+        SPIO_UNUSED(offset);
+        assert(false && "native_filehandle::seek: unimplemented");
+    }
+    [[noreturn]] bool tell(seek_type& pos)
+    {
+        SPIO_UNUSED(pos);
+        assert(false && "native_filehandle::tell: unimplemented");
+    }
 
 protected:
     bool _set_buffering(filebuffer& buf)

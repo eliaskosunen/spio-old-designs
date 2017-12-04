@@ -110,6 +110,30 @@ error basic_readable_file<CharT, FileHandle, Alloc>::skip()
 }
 
 template <typename CharT, typename FileHandle, typename Alloc>
+error basic_readable_file<CharT, FileHandle, Alloc>::seek(seek_origin origin,
+                                                          seek_type offset)
+{
+    assert(get_file());
+    if(!get_file()->flush()) {
+        return io_error;
+    }
+    if(get_file()->seek(origin, offset)) {
+        return {};
+    }
+    return io_error;
+}
+
+template <typename CharT, typename FileHandle, typename Alloc>
+error basic_readable_file<CharT, FileHandle, Alloc>::tell(seek_type& pos)
+{
+    assert(get_file());
+    if(get_file()->tell(pos)) {
+        return {};
+    }
+    return io_error;
+}
+
+template <typename CharT, typename FileHandle, typename Alloc>
 error basic_readable_file<CharT, FileHandle, Alloc>::get_error(
     quantity_type read_count,
     quantity_type expected) const
@@ -236,6 +260,52 @@ error basic_readable_buffer<CharT, BufferExtent>::rewind(
         return invalid_argument;
     }
     m_it -= steps;
+    return {};
+}
+
+template <typename CharT, span_extent_type BufferExtent>
+error basic_readable_buffer<CharT, BufferExtent>::seek(
+        seek_origin origin, seek_type offset)
+{
+    if(origin == seek_origin::SET) {
+        if(m_buffer.size() < offset) {
+            return invalid_argument;
+        }
+        m_it = m_buffer.begin() + offset;
+        return {};
+    }
+    if(origin == seek_origin::CUR) {
+        if(offset == 0) {
+            return {};
+        }
+        if(offset > 0) {
+            auto diff = stl::distance(m_it, m_buffer.end());
+            if(offset > diff) {
+                return invalid_argument;
+            }
+            m_it += offset;
+            return {};
+        }
+        auto diff = stl::distance(m_it, m_buffer.begin());
+        if(offset < diff) {
+            return invalid_argument;
+        }
+        m_it += offset;
+        return {};
+    }
+    if(offset > 0) {
+        return invalid_argument;
+    }
+    m_it = m_buffer.end() + offset;
+    return {};
+}
+
+
+template <typename CharT, span_extent_type BufferExtent>
+error basic_readable_buffer<CharT, BufferExtent>::tell(
+        seek_type& pos)
+{
+    pos = stl::distance(m_buffer.begin(), m_it);
     return {};
 }
 }  // namespace io
