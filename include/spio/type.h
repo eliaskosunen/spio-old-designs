@@ -367,32 +367,15 @@ namespace detail {
         else {
             std::snprintf(&arr[0], arr.size(), "%g", static_cast<double>(val));
         }
-        auto size = arr.size();
-        bool period_found = false;
-        for (auto i = arr.size() - 1; i > 0; --i) {
-            if (arr[i] == '.') {
-                period_found = true;
-                break;
-            }
-            if (arr[i] == '0') {
-                --size;
-            }
-        }
-        if (!period_found) {
-            return arr;
-        }
-        return stl::vector<char>(
-            arr.begin(),
-            arr.begin() +
-                static_cast<typename decltype(arr)::difference_type>(size));
+        return arr;
     }
 #else
     template <typename T>
     auto floating_write_arr(T val)
     {
         stl::vector<char> arr(
-            static_cast<std::size_t>(std::snprintf(nullptr, 0, "%f", val)) + 1);
-        std::snprintf(&arr[0], arr.size(), "%f", val);
+            static_cast<std::size_t>(std::snprintf(nullptr, 0, "%g", val)) + 1);
+        std::snprintf(&arr[0], arr.size(), "%g", val);
         return arr;
     }
 
@@ -400,9 +383,9 @@ namespace detail {
     inline auto floating_write_arr(long double val)
     {
         stl::vector<char> arr(
-            static_cast<std::size_t>(std::snprintf(nullptr, 0, "%Lf", val)) +
+            static_cast<std::size_t>(std::snprintf(nullptr, 0, "%Lg", val)) +
             1);
-        std::snprintf(&arr[0], arr.size(), "%Lf", val);
+        std::snprintf(&arr[0], arr.size(), "%Lg", val);
         return arr;
     }
 #endif
