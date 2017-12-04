@@ -51,6 +51,42 @@ TEST_CASE("readable_file")
         REQUIRE(a[5] == '\0');
         CHECK(std::equal(a.begin(), a.end(), "Lorem"));
     }
+    SUBCASE("seek and tell")
+    {
+#define error_check(error)                        \
+    do {                                          \
+        CHECK_FALSE(error);                       \
+        CHECK_FALSE(io::is_eof(error));           \
+        if (error) {                              \
+            std::cerr << error.message() << '\n'; \
+        }                                         \
+    } while (0);
+
+        io::seek_type pos;
+        auto error = r.tell(pos);
+        error_check(error);
+        CHECK(pos == 0);
+
+        error = r.seek(io::seek_origin::CUR, 6);
+        error_check(error);
+
+        char c{};
+        error = r.read(c);
+        error_check(error);
+        CHECK(c == 'i');
+
+        error = r.tell(pos);
+        error_check(error);
+        CHECK(pos == 7);
+
+        error = r.seek(io::seek_origin::SET, 0);
+        error_check(error);
+
+        error = r.read(c);
+        error_check(error);
+        CHECK(c == 'L');
+#undef error_check
+    }
 }
 #ifndef _WIN32
 TEST_CASE("readable_wfile")
