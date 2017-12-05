@@ -97,12 +97,25 @@ public:
         return read_raw(ch);
     }
 
-    template <typename T, span_extent_type N>
+    template <typename T, span_extent_type N = dynamic_extent>
     basic_instream& getline(span<T, N> s, char_type delim = char_type{'\n'})
     {
         reader_options<span<T, N>> opt = {make_span<1>(&delim)};
         return read(s, opt);
     }
+    template <typename T,
+              typename = void_t<typename T::value_type,
+                                typename T::difference_type,
+                                decltype(std::declval<T>().data()),
+                                decltype(std::declval<T>().size()),
+                                decltype(std::declval<T>().empty()),
+                                decltype(std::declval<T>().shrink_to_fit()),
+                                decltype(std::declval<T>().resize(
+                                    std::declval<typename T::size_type>())),
+                                decltype(std::declval<T>().erase(
+                                    std::declval<typename T::iterator>(),
+                                    std::declval<typename T::iterator>()))>>
+    basic_instream& getline(T& s, char_type delim = char_type{'\n'});
 
     template <typename ElementT = char_type>
     basic_instream& ignore(std::size_t count = 1)
@@ -231,7 +244,7 @@ public:
     /*     : basic_buffer_instream(readable_type{b}) */
     /* { */
     /* } */
-    template <span_extent_type N>
+    template <span_extent_type N = dynamic_extent>
     explicit basic_buffer_instream(span<CharT, N> b)
         : basic_buffer_instream(readable_type{buffer_type{b.begin(), b.end()}})
     {

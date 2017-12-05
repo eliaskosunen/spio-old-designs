@@ -340,8 +340,7 @@ public:
     bool seek(seek_origin origin, seek_type offset)
     {
         assert(good());
-        return std::fseek(m_handle, offset,
-                          static_cast<int>(origin)) == 0;
+        return std::fseek(m_handle, offset, static_cast<int>(origin)) == 0;
     }
     bool tell(seek_type& pos)
     {
@@ -472,6 +471,10 @@ public:
         SPIO_UNUSED(origin);
         SPIO_UNUSED(offset);
         assert(false && "native_filehandle::seek: unimplemented");
+#ifdef _MSC_VER
+        // MSVC doesn't understand [[noreturn]]
+        return false;
+#endif
     }
     [[noreturn]] bool tell(seek_type& pos)
     {

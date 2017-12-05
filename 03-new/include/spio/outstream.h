@@ -272,7 +272,7 @@ auto get_stdout()
 template <typename T>
 auto get_stderr()
 {
-    auto f = stdio_filehandle{filebuffer::BUFFER_NONE, stderr};
+    static auto f = stdio_filehandle{filebuffer::BUFFER_NONE, stderr};
     return basic_file_outstream<T, stdio_filehandle>{f};
 }
 template <typename T>
