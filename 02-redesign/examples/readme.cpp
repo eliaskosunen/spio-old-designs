@@ -18,8 +18,48 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#pragma once
+// readme.cpp
+// Example from README.md
 
-void readme();
-void bufferio();
-void stdio();
+#include "examples.h"
+#include "spio/spio.h"
+
+void readme()
+{
+    // Write to standard streams
+    // sout stands for Standard OUT
+    io::sout().write("Hello world!\n");
+    io::serr().write("Hello stderr!\n");
+
+    // Read from standard streams
+    // sin = Standard IN
+    io::sout().write("Give me an integer: ");
+    int num{};
+    io::sin().read(num);
+
+    // Formatted output
+    io::sout().println("Your integer was {}", num);
+
+    io::sout().write("Do you happen to have something to say?\n");
+    std::string say{};
+    io::sin().getline(say);
+
+    // Buffer IO
+    io::buffer_instream in{{say}};
+    std::vector<std::string> words;
+    while (in) {
+        std::string tmp;
+        in.read(tmp);
+        words.push_back(std::move(tmp));
+    }
+
+    // Write words to buffer_outstream in reverse order
+    io::buffer_outstream out{};
+    for (auto it = words.rbegin(); it != words.rend(); ++it) {
+        out.write(*it);
+        if (it + 1 != words.rend()) {
+            out.put(' ');
+        }
+    }
+    io::sout().write(out.get_buffer()).nl();
+}

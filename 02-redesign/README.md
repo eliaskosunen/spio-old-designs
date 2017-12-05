@@ -6,11 +6,57 @@
 
 This library aims to to combine the speed of C standard IO with the functionality and safety of C++ iostreams. WIP
 
+## Example
+
+```cpp
+#include "spio/spio.h"
+
+int main()
+{
+    // Write to standard streams
+    // sout stands for Standard OUT
+    io::sout().write("Hello world!\n");
+    io::serr().write("Hello stderr!\n");
+
+    // Read from standard streams
+    // sin = Standard IN
+    io::sout().write("Give me an integer: ");
+    int num{};
+    io::sin().read(num);
+
+    // Formatted output
+    io::sout().println("Your integer was {}", num);
+
+    io::sout().write("Do you happen to have something to say?\n");
+    std::string say{};
+    io::sin().getline(say);
+
+    // Buffer IO
+    io::buffer_instream in{{say}};
+    std::vector<std::string> words;
+    while (in) {
+        std::string tmp;
+        in.read(tmp);
+        words.push_back(std::move(tmp));
+    }
+
+    // Write words to buffer_outstream in reverse order
+    io::buffer_outstream out{};
+    for (auto it = words.rbegin(); it != words.rend(); ++it) {
+        out.write(*it);
+        if (it + 1 != words.rend()) {
+            out.put(' ');
+        }
+    }
+    io::sout().write(out.get_buffer()).nl();
+}
+```
+
 ## Benchmarks
 
 The benchmark source code can be found from the `benchmark/` directory.
 
-The benchmarks were run on an Intel i5-6600K quad-core processor at 3.9 GHz, with 16 GB of RAM and Arch Linux running kernel verson 4.12.8.
+The benchmarks were run on an Intel i5-6600K quad-core processor clocked at 3.9 GHz, with 16 GB of RAM and Arch Linux running kernel verson 4.12.8.
 The benchmarks were compiled with GCC version 7.1.1 and with `-O3`.
 
 All times are nanoseconds.
