@@ -471,18 +471,13 @@ public:
         SPIO_UNUSED(origin);
         SPIO_UNUSED(offset);
         assert(false && "native_filehandle::seek: unimplemented");
-#ifdef _MSC_VER
-        // MSVC doesn't understand [[noreturn]]
-        return false;
-#endif
+        std::abort();
     }
     [[noreturn]] bool tell(seek_type& pos)
     {
         SPIO_UNUSED(pos);
         assert(false && "native_filehandle::tell: unimplemented");
-#ifdef _MSC_VER
-        return false;
-#endif
+        std::abort();
     }
 
 protected:
