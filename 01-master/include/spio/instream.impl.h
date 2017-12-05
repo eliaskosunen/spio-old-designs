@@ -71,6 +71,67 @@ void basic_instream<Readable>::push(span<T, N> elems)
     m_eof = false;
 }
 
+template <typename Readable>
+template <typename T, typename>
+basic_instream<Readable>& basic_instream<Readable>::getline(T& val,
+                                                            char_type delim)
+{
+    if (val.empty()) {
+        val.resize(15);
+    }
+
+    if (is_overreadable()) {
+        auto s = make_span(val);
+        reader_options<span<char_type>> o = {nullptr, false};
+        while (true) {
+            if (!read(s, o)) {
+                return *this;
+            }
+            char_type ch;
+            if (!get(ch)) {
+                return *this;
+            }
+            if (ch == delim) {
+                push(ch);
+                val.resize(val.size() + 64);
+                s = make_span(val.end() - 64, val.end());
+            }
+            else {
+                break;
+            }
+        }
+    }
+    else {
+        auto it = val.begin();
+        while (true) {
+            char_type ch;
+            auto ret = !!get(ch);
+            if (ch != delim) {
+                if (it == val.end()) {
+                    auto s = val.size();
+                    val.resize(s + 64);
+                    it = val.begin() +
+                         static_cast<typename T::difference_type>(s);
+                }
+                *it = ch;
+            }
+            else {
+                push(ch);
+                val.erase(it + 1, val.end());
+                val.shrink_to_fit();
+                return *this;
+            }
+            if (!ret) {
+                val.erase(it + 1, val.end());
+                val.shrink_to_fit();
+                return *this;
+            }
+            ++it;
+        }
+    }
+    return *this;
+}
+
 #if 0
 #if SPIO_HAS_FOLD_EXPRESSIONS
 template <typename Readable>
