@@ -480,6 +480,9 @@ public:
     {
         SPIO_UNUSED(pos);
         assert(false && "native_filehandle::tell: unimplemented");
+#ifdef _MSC_VER
+        return false;
+#endif
     }
 
 protected:
