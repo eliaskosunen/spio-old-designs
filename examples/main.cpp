@@ -21,6 +21,7 @@
 #include "examples.h"
 
 int main() {
+    readme();
     stdio();
     bufferio();
 }

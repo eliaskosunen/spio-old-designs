@@ -22,7 +22,6 @@
 // Standard input/output stream example
 
 #include <cmath>
-#include <iostream>
 #include "examples.h"
 #include "spio/spio.h"
 
