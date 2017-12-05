@@ -45,7 +45,7 @@ void readme()
     io::sin().getline(say);
 
     // Buffer IO
-    io::buffer_instream in{{say}};
+    io::buffer_instream in{io::make_span(say)};
     std::vector<std::string> words;
     while (in) {
         std::string tmp;
