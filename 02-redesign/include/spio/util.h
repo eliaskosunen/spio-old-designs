@@ -30,6 +30,123 @@
 #include "stl.h"
 
 namespace io {
+template <typename Base>
+class erased_type {
+    public:
+    using base_type = Base;
+    using Pointer = stl::unique_ptr<Base>;
+
+    template <typename T, typename Enable = void>
+    class inner;
+
+    erased_type() = default;
+    erased_type(const erased_type& o) : m_inner(o.inner_clone()) {}
+    erased_type& operator=(const erased_type& o)
+    {
+        erased_type tmp(o);
+        std::swap(tmp, *this);
+        return *this;
+    }
+    erased_type(erased_type&&) = default;
+    erased_type& operator=(erased_type&&) = default;
+    ~erased_type() = default;
+
+    template <typename T>
+    erased_type(T&& src)
+        : m_inner{stl::make_unique<inner<std::remove_reference_t<T>>>(
+              std::forward<T>(src))}
+    {
+    }
+
+    template <typename T>
+    erased_type& operator=(T&& o)
+    {
+        m_inner = stl::make_unique<inner<std::remove_reference_t<T>>>(
+            std::forward<T>(o));
+        return *this;
+    }
+
+    Pointer inner_clone() const
+    {
+        if (m_inner) {
+            return m_inner->clone();
+        }
+        return nullptr;
+    }
+
+    template <typename T>
+    T* cast()
+    {
+        assert(valid());
+        return dynamic_cast<inner<T>*>(m_inner.get());
+    }
+    template <typename T>
+    const T* cast() const
+    {
+        return *dynamic_cast<inner<T>&>(*m_inner);
+    }
+
+    auto& get()
+    {
+        assert(valid());
+        return *(m_inner.get());
+    }
+    const auto& get() const
+    {
+        assert(valid());
+        return *(m_inner.get());
+    }
+
+    auto& operator*()
+    {
+        return get();
+    }
+    const auto& operator*() const
+    {
+        return get();
+    }
+
+    auto* operator-> ()
+    {
+        return m_inner.operator->();
+    }
+    const auto* operator-> () const
+    {
+        return m_inner.operator->();
+    }
+
+    bool valid() const
+    {
+        return m_inner.operator bool();
+    }
+    operator bool() const
+    {
+        return valid();
+    }
+
+protected:
+    template <typename T>
+    T& _static_cast()
+    {
+        assert(valid());
+        auto ptr = static_cast<inner<T>*>(m_inner.get());
+        assert(ptr);
+        return *ptr;
+    }
+
+    template <typename T>
+    const T& _static_cast() const
+    {
+        assert(valid());
+        auto ptr = static_cast<inner<T>*>(m_inner.get());
+        assert(ptr);
+        return *ptr;
+    }
+
+private:
+    Pointer m_inner{};
+};
+
 bool is_eof(error c);
 
 template <typename InputIt>
