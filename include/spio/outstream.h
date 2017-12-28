@@ -40,12 +40,6 @@ public:
 
     explicit basic_outstream(writable_type w) : m_writable(std::move(w)) {}
 
-    /* template <typename... Args> */
-    /* explicit basic_outstream(Args&&... args) */
-    /*     : m_writable(std::forward<Args>(args)...) */
-    /* { */
-    /* } */
-
     basic_outstream(const basic_outstream&) = delete;
     basic_outstream& operator=(const basic_outstream&) = delete;
     basic_outstream(basic_outstream&&) = default;
