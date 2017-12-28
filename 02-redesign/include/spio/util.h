@@ -32,7 +32,7 @@
 namespace io {
 template <typename Base>
 class erased_type {
-    public:
+public:
     using base_type = Base;
     using Pointer = stl::unique_ptr<Base>;
 
