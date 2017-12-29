@@ -132,6 +132,62 @@ basic_instream<Readable>& basic_instream<Readable>::getline(T& val,
     return *this;
 }
 
+template <typename Readable>
+template <typename T, typename... Args>
+void basic_instream<Readable>::_scan(const char_type* format,
+                                     T& a,
+                                     Args&... args)
+{
+    while (*format) {
+        for (; *format && is_space(*format); ++format) {
+            char_type ch;
+            while (get(ch)) {
+                if (!is_space(ch)) {
+                    push(ch);
+                    break;
+                }
+            }
+        }
+        if (!(*format)) {
+            break;
+        }
+
+        if (*format == char_type{'{'}) {
+            if (*(format + 1) == char_type{'{'}) {
+                format++;
+            }
+            else {
+                return _scan(_scan_arg(format, a), args...);
+            }
+        }
+        if (!(*format)) {
+            break;
+        }
+
+        char_type ch;
+        get(ch);
+        if (ch != *format) {
+            // TODO: Handle error
+        }
+        ++format;
+    }
+    // TODO: Handle error
+}
+
+template <typename Readable>
+template <typename T>
+auto basic_instream<Readable>::_scan_arg(const char_type* format, T& a)
+    -> const char_type*
+{
+    // TODO: Save formatting specifier
+    ++format;
+    for (; *format && *(format - 1) != '}'; ++format) {
+    }
+
+    read(a);
+    return format;
+}
+
 #if 0
 #if SPIO_HAS_FOLD_EXPRESSIONS
 template <typename Readable>
