@@ -61,11 +61,10 @@ struct is_reader<
         decltype(std::declval<T>().push(std::declval<typename T::char_type>())),
         decltype(std::declval<T>().push(
             std::declval<span<typename T::char_type>>())),
-#if SPIO_USE_FMT
-        decltype(std::declval<T>().scan(std::declval<const char*>(),
-                                        std::declval<int>(),
-                                        std::declval<bool>())),
-#endif
+        decltype(
+            std::declval<T>().scan(std::declval<const typename T::char_type*>(),
+                                   std::declval<int&>(),
+                                   std::declval<bool&>())),
         decltype(!std::declval<T>()),
         decltype(std::declval<T>().get_readable()),
         decltype(std::declval<T>().is_overreadable())>> : std::true_type {

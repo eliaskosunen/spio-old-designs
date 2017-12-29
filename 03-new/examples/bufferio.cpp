@@ -38,7 +38,7 @@ void bufferio()
     /* io::buffer_instream in{out.get_buffer()}; */
     std::string word;
     int num;
-    in.scan(word, num);
+    in.scan("{} {}", word, num);
 
     io::sout().println("'{}', '{}'", word, num);
 }
