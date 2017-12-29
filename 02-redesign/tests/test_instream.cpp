@@ -48,11 +48,10 @@ TEST_CASE("file_instream")
         io::owned_filehandle h("file.txt", io::open_mode::READ);
         REQUIRE(h);
         io::file_instream f{h.get()};
-        std::vector<char> str(20, '\0');
-        std::vector<char> str2(20, '\0');
-        f.scan(io::make_span<20>(str), io::make_span<20>(str2));
-        CHECK_EQ(std::strcmp("Lorem", str.data()), 0);
-        CHECK_EQ(std::strcmp("ipsum", str2.data()), 0);
+        std::string str, str2;
+        f.scan("{} {}", str, str2);
+        CHECK("Lorem" == str);
+        CHECK("ipsum" == str2);
     }
 }
 TEST_CASE("instream int")

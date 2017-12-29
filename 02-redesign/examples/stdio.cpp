@@ -37,7 +37,7 @@ void stdio()
     std::string str;
     int age;
     auto in = io::sin();
-    in.scan(str, age);
+    in.scan("{} {}", str, age);
 
     io::sout().println("Hi, {}, {}", str, age);
 
