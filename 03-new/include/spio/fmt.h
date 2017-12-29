@@ -23,7 +23,7 @@
 
 #include "config.h"
 
-#if SPIO_HEADER_ONLY && !defined(FMT_HEADER_ONLY)
+#if !defined(FMT_HEADER_ONLY)
 #define FMT_HEADER_ONLY
 #endif
 
