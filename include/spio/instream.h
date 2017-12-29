@@ -40,11 +40,6 @@ public:
 
     explicit basic_instream(readable_type r) : m_readable(std::move(r)) {}
 
-    template <typename... Args>
-    explicit basic_instream(Args&&... a) : m_readable(std::forward<Args>(a)...)
-    {
-    }
-
     basic_instream(const basic_instream&) = delete;
     basic_instream& operator=(const basic_instream&) = delete;
     basic_instream(basic_instream&&) = default;
@@ -165,9 +160,9 @@ public:
     }
 
     template <typename... T>
-    basic_instream& scan(T&&... args)
+    basic_instream& scan(const char_type* format, T&... args)
     {
-        _scan(std::forward<T>(args)...);
+        _scan(format, args...);
         return *this;
     }
 
@@ -187,18 +182,15 @@ protected:
     template <typename T, span_extent_type N>
     error _read(span<T, N> s, elements length);
 
-    bool _scan()
+    void _scan(const char_type* format)
     {
-        return true;
+        SPIO_UNUSED(format);
     }
     template <typename T, typename... Args>
-    bool _scan(T&& a, Args&&... args)
-    {
-        if (!this->read(std::forward<T>(a))) {
-            return false;
-        }
-        return _scan(std::forward<Args>(args)...);
-    }
+    void _scan(const char_type* format, T& a, Args&... args);
+
+    template <typename T>
+    const char_type* _scan_arg(const char_type* format, T& a);
 
     readable_type m_readable{};
     stl::vector<char> m_buffer{};

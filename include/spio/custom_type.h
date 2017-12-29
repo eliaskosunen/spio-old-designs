@@ -69,6 +69,15 @@ struct custom_read<std::basic_string<CharT, Allocator>> {
                 if (!p.read(s, o)) {
                     return false;
                 }
+                {
+                    auto it = val.end() - 1;
+                    for (; it != val.begin(); --it) {
+                        if (*it != '\0') {
+                            break;
+                        }
+                    }
+                    val.erase(it + 1, val.end());
+                }
                 typename Reader::char_type ch;
                 if (!p.get(ch)) {
                     return false;
