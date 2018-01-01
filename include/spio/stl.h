@@ -31,6 +31,7 @@
 #include <vector>
 #endif  // SPIO_USE_STL
 #include <cstring>
+#include <cwchar>
 #include <iterator>
 
 namespace io {
@@ -46,8 +47,7 @@ namespace stl {
     template <typename T>
     using allocator = SPIO_STL_DEFAULT_ALLOCATOR<T>;
 
-    template <typename Element,
-              typename Allocator = allocator<Element>>
+    template <typename Element, typename Allocator = allocator<Element>>
     using vector = SPIO_STL_NS::vector<Element, Allocator>;
 
     using SPIO_STL_NS::array;
