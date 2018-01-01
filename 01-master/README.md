@@ -37,7 +37,7 @@ Every commit is tested in CI using the following compilers:
 
 * g++ 7.2.0, 6.3.0 and 5.4.1 (Ubuntu 14.04 Trusty)
 * clang 5.0.1, 4.0.1 and 3.9.1 (Ubuntu 14.04 Trusty)
-* Visual Studio 2017, running MSVC 19.12 (Windows 10)
+* Visual Studio 2017, running MSVC 19.12 (Windows Server 2016)
 
 Each commit in `master` branch is guaranteed to build on these compilers.
 As long as your compiler and standard library have the same level of support for C++14/17 features that a compiler listed above, it should work.

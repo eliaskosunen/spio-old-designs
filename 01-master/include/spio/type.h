@@ -91,7 +91,7 @@ struct type<T,
                                       char16_t,
                                       char32_t>::value>> {
     template <typename Reader>
-    static bool read(Reader& p, T& val, reader_options<T> opt)
+    static bool read(Reader& p, T val, reader_options<T> opt)
     {
         CHECK_READER("type<span<Char>>::read<T>");
         using char_type = typename Reader::char_type;
@@ -127,19 +127,9 @@ struct type<T,
                 as_bytes(make_span(strspan.begin(), strspan.begin() + end));
             copy_contiguous(bytespan, as_writable_bytes(s));
             if (end + 1 < str_len) {
-#if SPIO_HAS_IF_CONSTEXPR
-            /* if constexpr (Reader::readable_type::is_trivially_rewindable) {
-             */
-            /*     p.get_readable().rewind( */
-            /*         stl::distance(strspan.begin() + end + 1, strspan.end()));
-             */
-            /* } */
-            /* else */
-#endif
-                {
-                    p.push(make_span(strspan.begin() + end + 1,
-                                     strspan.begin() + str_len));
-                }
+                auto push_span = make_span(strspan.begin() + end + 1,
+                                           strspan.begin() + str_len);
+                p.push(push_span);
             }
         }
         else {
@@ -155,7 +145,7 @@ struct type<T,
     }
 
     template <typename Writer>
-    static bool write(Writer& w, const T& val, writer_options<T> opt)
+    static bool write(Writer& w, T val, writer_options<T> opt)
     {
         CHECK_WRITER("type<span<Char>>::write<T>");
         SPIO_UNUSED(opt);
@@ -249,59 +239,158 @@ struct type<T,
 
         T tmp = 0;
         auto it = buf.begin();
-        const bool sign = [&]() {
-#if SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V
-            if constexpr (std::is_unsigned_v<T>) {
-#else
-            if (std::is_unsigned<T>::value) {
-#endif
-                if (*it == '-') {
-                    SPIO_THROW(
-                        invalid_input,
-                        "Cannot read a signed integer into an unsigned value");
-                }
-            }
-            else {
-                if (*it == '-') {
-                    return false;
-                }
-            }
-            if (*it == '+') {
-                return true;
-            }
-            if (is_digit(*it, opt.base)) {
-                tmp = tmp * static_cast<T>(opt.base) -
-                      char_to_int<T>(*it, opt.base);
-                return true;
-            }
-            stl::vector<char> errbuf(128, '\0');
-            std::snprintf(&errbuf[0], 128,
-                          "Invalid first character in integer: 0x%x",
-                          static_cast<int>(*it));
-            SPIO_THROW(invalid_input, &errbuf[0]);
-        }();
-        ++it;
 
-        for (; it != buf.end(); ++it) {
-            if (is_digit(*it, opt.base)) {
-                tmp = tmp * static_cast<T>(opt.base) -
-                      char_to_int<T>(*it, opt.base);
+#if SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V && false
+        auto stoi = [&](auto fn, char_type* str, char_type** endptr, auto max,
+                        auto min = 0) {
+            auto eno = errno;
+            errno = 0;
+            auto base = opt.base;
+
+            auto result = fn(str, endptr, base);
+            auto cond = [&]() {
+                if constexpr (std::is_unsigned_v<decltype(result)>) {
+                    return *endptr == str || **endptr ||
+                           (result == max && errno == ERANGE);
+                }
+                return *endptr == str || **endptr ||
+                       ((result == min || result == max) && errno == ERANGE);
+            }();
+            if (cond) {
+                stl::array<char, 128> errbuf{};
+                errbuf.fill('\0');
+                std::snprintf(&errbuf[0], 127, "Failed to read integer: '%s'",
+                              str);
+                SPIO_THROW(invalid_input, &errbuf[0]);
+            }
+            errno = eno;
+            return result;
+        };
+        auto i = &buf[0];
+        if constexpr (sizeof(char_type) == 1) {
+            if constexpr (std::is_unsigned_v<T>) {
+                if constexpr (sizeof(T) == sizeof(unsigned long long)) {
+                    tmp = stoi(std::strtoull, i, &i, ULLONG_MAX);
+                }
+                else {
+                    auto result = stoi(std::strtoul, i, &i, ULONG_MAX);
+                    if (result > std::numeric_limits<T>::max()) {
+                        stl::array<char, 128> errbuf{};
+                        errbuf.fill('\0');
+                        std::snprintf(&errbuf[0], 127,
+                                      "Integer out of range: '%lu'", result);
+                        SPIO_THROW(invalid_input, &errbuf[0]);
+                    }
+                    tmp = result;
+                }
             }
             else {
-                break;
+                if constexpr (sizeof(T) == sizeof(long long)) {
+                    tmp = stoi(std::strtol, i, &i, LLONG_MAX, LLONG_MIN);
+                }
+                else {
+                    auto result = stoi(std::strtol, i, &i, LONG_MAX, LONG_MIN);
+                    if (result > std::numeric_limits<T>::max() ||
+                        result < std::numeric_limits<T>::min()) {
+                        stl::array<char, 128> errbuf{};
+                        errbuf.fill('\0');
+                        std::snprintf(&errbuf[0], 127,
+                                      "Integer out of range: '%ld'", result);
+                        SPIO_THROW(invalid_input, &errbuf[0]);
+                    }
+                    tmp = result;
+                }
+            }
+            it += i - &buf[0];
+        }
+        else if constexpr (sizeof(char_type) == sizeof(wchar_t)) {
+            if constexpr (std::is_unsigned_v<T>) {
+                if constexpr (sizeof(T) == sizeof(unsigned long long)) {
+                    tmp = stoi(std::wcstoull, i, &i, ULLONG_MAX);
+                }
+                else {
+                    auto result = stoi(std::wcstoul, i, &i, ULONG_MAX);
+                    if (result > std::numeric_limits<T>::max()) {
+                        stl::array<char, 128> errbuf{};
+                        errbuf.fill('\0');
+                        std::snprintf(&errbuf[0], 127,
+                                      "Integer out of range: '%lu'", result);
+                        SPIO_THROW(invalid_input, &errbuf[0]);
+                    }
+                    tmp = result;
+                }
+            }
+            else {
+                if constexpr (sizeof(T) == sizeof(long long)) {
+                    tmp = stoi(std::wcstoll, i, &i, LLONG_MAX, LLONG_MIN);
+                }
+                else {
+                    auto result = stoi(std::wcstol, i, &i, LONG_MAX, LONG_MIN);
+                    if (result > std::numeric_limits<T>::max() ||
+                        result < std::numeric_limits<T>::min()) {
+                        stl::array<char, 128> errbuf{};
+                        errbuf.fill('\0');
+                        std::snprintf(&errbuf[0], 127,
+                                      "Integer out of range: '%ld'", result);
+                        SPIO_THROW(invalid_input, &errbuf[0]);
+                    }
+                    tmp = result;
+                }
+            }
+            it += i - &buf[0];
+        }
+        else
+#endif
+        {
+            const bool sign = [&]() {
+#if SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V
+                if constexpr (std::is_unsigned_v<T>) {
+#else
+                if (std::is_unsigned<T>::value) {
+#endif
+                    if (*it == '-') {
+                        SPIO_THROW(invalid_input,
+                                   "Cannot read a signed integer into an "
+                                   "unsigned value");
+                    }
+                }
+                else {
+                    if (*it == '-') {
+                        return false;
+                    }
+                }
+                if (*it == '+') {
+                    return true;
+                }
+                if (is_digit(*it, opt.base)) {
+                    tmp = tmp * static_cast<T>(opt.base) -
+                          char_to_int<T>(*it, opt.base);
+                    return true;
+                }
+                stl::array<char, 128> errbuf{};
+                errbuf.fill('\0');
+                std::snprintf(&errbuf[0], 128,
+                              "Invalid first character in integer: 0x%x",
+                              static_cast<int>(*it));
+                SPIO_THROW(invalid_input, &errbuf[0]);
+            }();
+            ++it;
+
+            for (; it != buf.end(); ++it) {
+                if (is_digit(*it, opt.base)) {
+                    tmp = tmp * static_cast<T>(opt.base) -
+                          char_to_int<T>(*it, opt.base);
+                }
+                else {
+                    break;
+                }
+            }
+            if (sign) {
+                tmp = -tmp;
             }
         }
-        if (sign) {
-            tmp = -tmp;
-        }
+
         val = tmp;
-        /* #if SPIO_HAS_IF_CONSTEXPR */
-        /*         if constexpr (Reader::readable_type::is_trivially_rewindable)
-         * { */
-        /*             p.get_readable().rewind(stl::distance(it, buf.end())); */
-        /*         } */
-        /*         else */
-        /* #endif */
         if (p.is_overreadable()) {
             if (it != buf.end()) {
                 const auto end = [&]() {
