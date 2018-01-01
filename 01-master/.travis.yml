@@ -82,11 +82,11 @@ matrix:
                 packages: ["clang-3.9", "g++-7"]
                 sources: *apt_sources
 
-        # Xcode 8.2 (Clang)
+        # Xcode 8.3 (Clang)
         - env: CXX_COMPILER=clang++ CXX_STANDARD=14
           os: osx
           compiler: clang
-          osx_image: xcode8.2
+          osx_image: xcode8.3
 
     allow_failures:
         - os: osx
