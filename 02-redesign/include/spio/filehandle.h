@@ -21,6 +21,7 @@
 #ifndef SPIO_FILEHANDLE_H
 #define SPIO_FILEHANDLE_H
 
+#include <cstdlib>
 #include "buffering.h"
 #include "config.h"
 #include "error.h"
