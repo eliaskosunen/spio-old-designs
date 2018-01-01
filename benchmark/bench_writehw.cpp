@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Elias Kosunen
+// Copyright 2017 Elias Kosunen
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,37 +18,40 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_FMT_H
-#define SPIO_FMT_H
+#include <sstream>
+#include "benchmark/benchmark.h"
+#include "spio/spio.h"
 
-#include "config.h"
+static std::string str = "Hello world";
 
-#if !defined(FMT_HEADER_ONLY)
-#define FMT_HEADER_ONLY
-#endif
-
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wswitch-enum"
-#endif
-
-#if SPIO_USE_FMT
-#include "fmt/fmt/format.h"
-#include "fmt/fmt/time.h"
-#endif
-
-#if SPIO_USE_FMT_OSTREAM
-#include "fmt/fmt/ostream.h"
-#endif
-
-namespace io {
-namespace fmt {
-    using namespace ::fmt;
+static void writehw_spio(benchmark::State& state)
+{
+    try {
+        size_t bytes = 0;
+        for (auto _ : state) {
+            io::buffer_outstream{}.write(str);
+            state.PauseTiming();
+            bytes += str.length();
+            state.ResumeTiming();
+        }
+        state.SetBytesProcessed(bytes);
+    }
+    catch (const io::failure& f) {
+        state.SkipWithError(f.what());
+    }
 }
-}  // namespace io
 
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
+static void writehw_ios(benchmark::State& state)
+{
+    size_t bytes = 0;
+    for (auto _ : state) {
+        std::ostringstream{} << str;
+        state.PauseTiming();
+        bytes += str.length();
+        state.ResumeTiming();
+    }
+    state.SetBytesProcessed(bytes);
+}
 
-#endif  // SPIO_FMT_H
+BENCHMARK(writehw_spio);
+BENCHMARK(writehw_ios);

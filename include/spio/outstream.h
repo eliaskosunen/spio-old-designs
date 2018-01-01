@@ -209,13 +209,6 @@ public:
     {
     }
 
-    constexpr auto to_instream()
-    {
-        auto readable = base_type::m_writable.to_readable();
-        return basic_buffer_instream<typename decltype(readable)::value_type>{
-            std::move(readable)};
-    }
-
     auto get_buffer()
     {
         return base_type::m_writable.get_buffer().to_span();
