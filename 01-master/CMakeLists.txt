@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.2.3)
 project(spio CXX)
 
-set(WERROR ON CACHE BOOL "Treat warnings as errors")
+set(WERROR OFF CACHE BOOL "Treat warnings as errors")
 set(SPIO_HEADER_ONLY ON CACHE BOOL "Build as a header only library")
 set(SPIO_USE_STL ON CACHE BOOL "Use the STL")
 set(SPIO_USE_EXCEPTIONS ON CACHE BOOL "Enable exceptions")
