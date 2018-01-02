@@ -87,9 +87,6 @@ matrix:
           os: osx
           compiler: clang
           osx_image: xcode8.3
-
-    allow_failures:
-        - os: osx
  
 install:
     - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
