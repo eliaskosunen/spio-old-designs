@@ -158,8 +158,16 @@ public:
     }
     bool flush()
     {
-        auto s = base_type::m_buf.get_flushable_data();
-        base_type::write(s);
+        if (base_type::m_buf.mode() == filebuffer::BUFFER_LINE ||
+            base_type::m_buf.mode() == filebuffer::BUFFER_FULL) {
+            auto s = base_type::m_buf.get_flushable_data();
+            auto w = base_type::write(s);
+            if (w != s.size_us()) {
+                base_type::m_buf.flag_flushed(w);
+                return base_type::flush();
+            }
+            base_type::m_buf.flag_flushed();
+        }
         return base_type::flush();
     }
 };
