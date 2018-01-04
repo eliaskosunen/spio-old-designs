@@ -99,6 +99,11 @@ TEST_CASE("filebuffer")
             str = std::string{"Long line without line break"};
             w = buf.write(io::as_bytes(io::make_span(str)), flush);
             CHECK(w == str.size());
+
+            flush(buf.get_flushable_data());
+            buf.flag_flushed();
+            CHECK(flush_target == str);
+            CHECK(buf.get_flushable_data().empty());
         }
     }
 }
