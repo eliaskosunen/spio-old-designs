@@ -28,7 +28,8 @@ TEST_CASE("filebuffer")
     {
         io::filebuffer buf{};
 
-        REQUIRE(buf.size() == io::filebuffer::default_size);
+        // Avoid ODR-using to not get a linker error on C++14
+        REQUIRE(buf.size() == std::size_t{io::filebuffer::default_size});
         CHECK(buf.mode() == io::filebuffer::BUFFER_FULL);
         buf.get_buffer();
         CHECK(buf.get_flushable_data().empty());
