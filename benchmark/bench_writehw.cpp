@@ -22,7 +22,14 @@
 #include "benchmark/benchmark.h"
 #include "spio/spio.h"
 
+#if defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wexit-time-destructors"
+#endif
 static std::string str = "Hello world";
+#if defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 static void writehw_spio(benchmark::State& state)
 {
