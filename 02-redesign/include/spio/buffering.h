@@ -60,7 +60,8 @@ public:
     }
 
     basic_filebuffer(buffer_mode mode = BUFFER_FULL,
-                     std::size_t len = default_size,
+                     // Avoid ODR-using to not get a linker error on C++14
+                     std::size_t len = std::size_t{default_size},
                      const Alloc& alloc = Alloc{})
         : m_alloc(alloc),
           m_buffer{_initialize_buffer(mode, len, m_alloc)},
