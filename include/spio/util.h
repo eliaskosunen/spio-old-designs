@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <cstring>
 #include <limits>
+#include <mutex>
 #include "config.h"
 #include "error.h"
 #include "span.h"
@@ -146,6 +147,151 @@ protected:
 private:
     Pointer m_inner{};
 };
+
+#if SPIO_USE_THREADING
+template <typename T>
+class basic_lockable_stream {
+public:
+    using lock_type = std::unique_lock<std::mutex>;
+
+    class locked_stream {
+    public:
+        friend class basic_lockable_stream<T>;
+
+        T& get()
+        {
+            assert(owns_lock());
+            return m_stream;
+        }
+        const T& get() const
+        {
+            assert(owns_lock());
+            return m_stream;
+        }
+
+        T& operator*()
+        {
+            assert(owns_lock());
+            return get();
+        }
+        const T& operator*() const
+        {
+            assert(owns_lock());
+            return get();
+        }
+
+        T* operator->()
+        {
+            if (!owns_lock()) {
+                return nullptr;
+            }
+            return &get();
+        }
+        const T* operator->() const
+        {
+            if (!owns_lock()) {
+                return nullptr;
+            }
+            return &get();
+        }
+
+        const lock_type& get_lock() const
+        {
+            return m_lock;
+        }
+
+        void unlock()
+        {
+            m_lock.unlock();
+        }
+
+        bool owns_lock() const
+        {
+            return m_lock.owns_lock();
+        }
+        operator bool() const
+        {
+            return owns_lock();
+        }
+
+    private:
+        locked_stream(T& s, lock_type l = {})
+            : m_stream(s), m_lock(std::move(l))
+        {
+        }
+
+        void set_lock(lock_type lock)
+        {
+            m_lock = std::move(lock);
+        }
+        lock_type& get_lock()
+        {
+            return m_lock;
+        }
+
+        T& m_stream;
+        lock_type m_lock{};
+    };
+
+    basic_lockable_stream(T&& stream) : m_stream{std::move(stream)} {}
+
+    locked_stream lock()
+    {
+        auto s = _get_locked();
+        s.get_lock().lock();
+        return s;
+    }
+    locked_stream try_lock(bool& success)
+    {
+        auto s = _get_locked();
+        success = s.get_lock().try_lock();
+        return s;
+    }
+
+    template <typename Rep, typename Period>
+    locked_stream try_lock_for(bool& success,
+                               const std::chrono::duration<Rep, Period>& dur)
+    {
+        auto s = _get_locked();
+        success = s.get_lock().try_lock_for(dur);
+        return s;
+    }
+    template <typename Clock, typename Duration>
+    locked_stream try_lock_until(
+        bool& success,
+        const std::chrono::time_point<Clock, Duration>& timeout)
+    {
+        auto s = _get_locked();
+        success = s.get_lock().try_lock_until(timeout);
+        return s;
+    }
+
+    std::mutex& mutex()
+    {
+        return m_mutex;
+    }
+    const std::mutex& mutex() const
+    {
+        return m_mutex;
+    }
+
+    T&& stream()
+    {
+        return std::move(m_stream);
+    }
+
+private:
+    locked_stream _get_locked()
+    {
+        lock_type l{m_mutex, std::defer_lock};
+        locked_stream s{m_stream, std::move(l)};
+        return s;
+    }
+
+    T m_stream;
+    std::mutex m_mutex{};
+};
+#endif
 
 bool is_eof(error c);
 

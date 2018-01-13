@@ -256,6 +256,13 @@ using file_winstream = basic_file_instream<wchar_t>;
 using buffer_instream = basic_buffer_instream<char>;
 using buffer_winstream = basic_buffer_instream<wchar_t>;
 
+#if SPIO_USE_THREADING
+using mt_file_instream = basic_lockable_stream<file_instream>;
+using mt_file_winstream = basic_lockable_stream<file_winstream>;
+using mt_buffer_instream = basic_lockable_stream<buffer_instream>;
+using mt_buffer_winstream = basic_lockable_stream<buffer_winstream>;
+#endif
+
 static_assert(is_reader<file_instream>::value,
               "file_instream does not satisfy the requirements of Reader");
 static_assert(is_reader<file_winstream>::value,
@@ -266,27 +273,55 @@ static_assert(is_reader<buffer_winstream>::value,
               "buffer_winstream does not satisfy the requirements of Reader");
 
 template <typename T>
-auto get_stdin()
+auto& get_stdin()
 {
 #if defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wexit-time-destructors"
 #endif
     static auto f = stdio_filehandle{filebuffer::BUFFER_DEFAULT, stdin};
-    return basic_file_instream<T, stdio_filehandle>{f};
+    static auto s = basic_file_instream<T, stdio_filehandle>{f};
+    return s;
 #if defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 }
 
-inline auto sin()
+inline auto& sin()
 {
     return get_stdin<char>();
 }
-inline auto wsin()
+inline auto& wsin()
 {
     return get_stdin<wchar_t>();
 }
+
+#if SPIO_USE_THREADING
+template <typename T>
+auto& get_mt_stdin()
+{
+#if defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wexit-time-destructors"
+#endif
+    static auto f = stdio_filehandle{filebuffer::BUFFER_DEFAULT, stdin};
+    static auto s = basic_file_instream<T, stdio_filehandle>{f};
+    static basic_lockable_stream<decltype(s)> mt{std::move(s)};
+    return mt;
+#if defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+}
+
+inline auto& mt_sin()
+{
+    return get_mt_stdin<char>();
+}
+inline auto& mt_wsin()
+{
+    return get_mt_stdin<wchar_t>();
+}
+#endif
 }  // namespace io
 
 #include "instream.impl.h"

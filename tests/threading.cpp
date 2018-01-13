@@ -18,33 +18,43 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// stdio.cpp
-// Standard input/output stream example
+#include <iostream>
+#include <thread>
+#include "doctest.h"
+#include "spio.h"
 
-#include <cmath>
-#include "examples.h"
-#include "spio/spio.h"
-
-#define PI 3.14159265358979323846L
-
-void stdio()
+TEST_CASE("multithreaded buffer_outstream")
 {
-    io::sout().println(" *** Standard streams IO *** ");
+    auto fn = [](io::mt_buffer_outstream& stream, auto id) {
+        for (auto i = 0; i < 10; ++i) {
+            auto s = stream.lock();
+            s->println("Thread {}, Row {}", id, i);
+        }
+    };
+    auto s = io::buffer_outstream{};
+    io::mt_buffer_outstream mt_s{std::move(s)};
+    std::vector<std::thread> threads;
+    for (auto i = 0; i < 5; ++i) {
+        threads.emplace_back(fn, std::ref(mt_s), i);
+    }
+    for (auto& t : threads) {
+        t.join();
+    }
+}
 
-    io::sout().write("Hello world!\n");
-
-    io::sout().write("What's your name and age? ");
-    std::string str;
-    int age;
-    auto& in = io::sin();
-    in.scan("{} {}", str, age);
-
-    io::sout().println("Hi, {}, {}", str, age);
-
-    io::sout().write("How well do you remember pi? ");
-    long double pi;
-    in.read(pi);
-
-    io::sout().println("You were {}% off from {}!", std::fabs((PI - pi) / PI),
-                       PI);
+TEST_CASE("multithreaded stdout")
+{
+    auto fn = [](decltype(io::mt_sout()) stream, auto id) {
+        for (auto i = 0; i < 3; ++i) {
+            auto s = stream.lock();
+            s->println("Thread {}, Row {}", id, i);
+        }
+    };
+    std::vector<std::thread> threads;
+    for (auto i = 0; i < 5; ++i) {
+        threads.emplace_back(fn, std::ref(io::mt_sout()), i);
+    }
+    for (auto& t : threads) {
+        t.join();
+    }
 }

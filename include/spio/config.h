@@ -33,6 +33,10 @@
 #define SPIO_USE_STL 1
 #endif
 
+#ifndef SPIO_USE_THREADING
+#define SPIO_USE_THREADING 1
+#endif
+
 #ifndef SPIO_USE_FMT
 #define SPIO_USE_FMT 1
 #endif

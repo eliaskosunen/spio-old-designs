@@ -223,18 +223,17 @@ public:
     }
 };
 
-#if 0
-template <typename CharT, typename FileHandle = filehandle>
-using basic_file_outstream =
-    basic_outstream<basic_writable_file<CharT, FileHandle>>;
-template <typename CharT>
-using basic_buffer_outstream = basic_outstream<basic_writable_buffer<CharT>>;
-#endif
-
 using file_outstream = basic_file_outstream<char>;
 using file_woutstream = basic_file_outstream<wchar_t>;
 using buffer_outstream = basic_buffer_outstream<char>;
 using buffer_woutstream = basic_buffer_outstream<wchar_t>;
+
+#if SPIO_USE_THREADING
+using mt_file_outstream = basic_lockable_stream<file_outstream>;
+using mt_file_woutstream = basic_lockable_stream<file_woutstream>;
+using mt_buffer_outstream = basic_lockable_stream<buffer_outstream>;
+using mt_buffer_woutstream = basic_lockable_stream<buffer_woutstream>;
+#endif
 
 static_assert(is_writer<file_outstream>::value,
               "file_outstream does not satisfy the requirements of Writer");
@@ -251,52 +250,116 @@ static_assert(is_writer<buffer_woutstream>::value,
 #endif
 
 template <typename T>
-auto get_stdout()
+auto& get_stdout()
 {
     static auto f = stdio_filehandle{stdout};
-    return basic_file_outstream<T, stdio_filehandle>{f};
+    static auto s = basic_file_outstream<T, stdio_filehandle>{f};
+    return s;
 }
 template <typename T>
-auto get_stderr()
+auto& get_stderr()
 {
     static auto f = stdio_filehandle{filebuffer::BUFFER_NONE, stderr};
-    return basic_file_outstream<T, stdio_filehandle>{f};
+    static auto s = basic_file_outstream<T, stdio_filehandle>{f};
+    return s;
 }
 template <typename T>
-auto get_stdlog()
+auto& get_stdlog()
 {
     static auto f = stdio_filehandle{stderr};
-    return basic_file_outstream<T, stdio_filehandle>{f};
+    static auto s = basic_file_outstream<T, stdio_filehandle>{f};
+    return s;
 }
 
 #if defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
-inline auto sout()
+inline auto& sout()
 {
     return get_stdout<char>();
 }
-inline auto serr()
+inline auto& serr()
 {
     return get_stderr<char>();
 }
-inline auto slog()
+inline auto& slog()
 {
     return get_stdlog<char>();
 }
-inline auto wsout()
+inline auto& wsout()
 {
     return get_stdout<wchar_t>();
 }
-inline auto wserr()
+inline auto& wserr()
 {
     return get_stderr<wchar_t>();
 }
-inline auto wslog()
+inline auto& wslog()
 {
     return get_stdlog<wchar_t>();
 }
+
+#if SPIO_USE_THREADING
+#if defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wexit-time-destructors"
+#endif
+
+template <typename T>
+auto& get_mt_stdout()
+{
+    static auto f = stdio_filehandle{stdout};
+    static auto s = basic_file_outstream<T, stdio_filehandle>{f};
+    static basic_lockable_stream<decltype(s)> mt{std::move(s)};
+    return mt;
+}
+template <typename T>
+auto& get_mt_stderr()
+{
+    static auto f = stdio_filehandle{filebuffer::BUFFER_NONE, stderr};
+    static auto s = basic_file_outstream<T, stdio_filehandle>{f};
+    static basic_lockable_stream<decltype(s)> mt{std::move(s)};
+    return mt;
+}
+template <typename T>
+auto& get_mt_stdlog()
+{
+    static auto f = stdio_filehandle{stderr};
+    static auto s = basic_file_outstream<T, stdio_filehandle>{f};
+    static basic_lockable_stream<decltype(s)> mt{std::move(s)};
+    return mt;
+}
+
+#if defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+inline auto& mt_sout()
+{
+    return get_mt_stdout<char>();
+}
+inline auto& mt_wsout()
+{
+    return get_mt_stdout<wchar_t>();
+}
+inline auto& mt_serr()
+{
+    return get_mt_stderr<char>();
+}
+inline auto& mt_wserr()
+{
+    return get_mt_stderr<wchar_t>();
+}
+inline auto& mt_slog()
+{
+    return get_mt_stdlog<char>();
+}
+inline auto& mt_wslog()
+{
+    return get_mt_stdlog<wchar_t>();
+}
+#endif
 }  // namespace io
 
 #include "outstream.impl.h"
