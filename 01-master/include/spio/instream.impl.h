@@ -138,6 +138,15 @@ void basic_instream<Readable>::_scan(const char_type* format,
                                      T& a,
                                      Args&... args)
 {
+    {
+        char_type ch;
+        while(get(ch)) {
+            if(!is_space(ch)) {
+                push(ch);
+                break;
+            }
+        }
+    }
     while (*format) {
         for (; *format && is_space(*format); ++format) {
             char_type ch;
