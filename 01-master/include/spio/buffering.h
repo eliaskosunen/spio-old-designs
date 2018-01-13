@@ -80,20 +80,16 @@ public:
     /**
      * Get a pointer to the beginning of the buffer sized `size()`.
      * Due to implementation details, to get properly sized buffer use
-     * `get_flushable_data()`. Requires: `size() != 0 && mode() !=
-     * buffer_mode::BUFFER_DEFAULT && mode()
-     * != buffer_mode::BUFFER_NONE`
+     * `get_flushable_data()`. Requires: `size() != 0 && is_writable_mode()`
      */
     char* get_buffer()
     {
-        assert(size() != 0 && mode() != BUFFER_DEFAULT &&
-               mode() != BUFFER_NONE);
+        assert(size() != 0 && is_writable_mode());
         return &m_buffer[0];
     }
     const char* get_buffer() const
     {
-        assert(size() != 0 && mode() != BUFFER_DEFAULT &&
-               mode() != BUFFER_NONE);
+        assert(size() != 0 && is_writable_mode());
         return &m_buffer[0];
     }
 
@@ -104,9 +100,16 @@ public:
     }
 
     /// Get buffering mode
-    auto mode() const
+    constexpr auto mode() const
     {
         return m_mode;
+    }
+
+    /// Can buffer be written to.
+    /// Equivalent to `mode() != BUFFER_DEFAULT && mode() != BUFFER_NONE`
+    constexpr bool is_writable_mode() const
+    {
+        return mode() != BUFFER_DEFAULT && mode() != BUFFER_NONE;
     }
 
     /**
@@ -118,13 +121,12 @@ public:
      *              decltype(flush), const_byte_span>` must evaluate to `true`
      * \return Bytes processed, either written to the buffer or flushed
      *
-     * Requires `mode() != BUFFER_NONE && mode() !=
-     * BUFFER_DEFAULT`
+     * Requires `is_writable_mode()`
      */
     template <typename FlushFn>
     std::size_t write(const_byte_span data, FlushFn&& flush)
     {
-        assert(m_mode != BUFFER_NONE && m_mode != BUFFER_DEFAULT);
+        assert(is_writable_mode());
 #if SPIO_HAS_INVOCABLE
         static_assert(std::is_invocable_r_v<std::size_t, decltype(flush),
                                             const_byte_span>,
@@ -207,7 +209,7 @@ public:
     template <typename FlushFn>
     std::pair<bool, std::size_t> flush_if_needed(FlushFn&& flush)
     {
-        assert(m_mode != BUFFER_NONE && m_mode != BUFFER_DEFAULT);
+        assert(is_writable_mode());
 #if SPIO_HAS_INVOCABLE
         static_assert(
             std::is_invocable_r_v<std::size_t, decltype(flush),
@@ -276,7 +278,7 @@ private:
                                           std::size_t len,
                                           const Alloc& a)
     {
-        if (mode == BUFFER_NONE || mode == BUFFER_DEFAULT) {
+        if (mode == BUFFER_DEFAULT || mode == BUFFER_NONE) {
             return vector_type(a);
         }
         return vector_type(len, '\0', a);
