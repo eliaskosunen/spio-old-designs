@@ -38,7 +38,5 @@ build:
 
 test_script:
     - cd %APPVEYOR_BUILD_FOLDER%\tests
-    - dir /ad /b /s
-    - dir /a-d /b /s
     - ..\build\tests\Debug\tests.exe
     - cd ..
