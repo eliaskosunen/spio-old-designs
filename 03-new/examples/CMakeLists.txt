@@ -1,2 +1,5 @@
 file(GLOB sources_examples *.cpp)
 add_executable(examples ${sources_examples})
+if(SPIO_USE_THREADING)
+    target_link_libraries(examples Threads::Threads)
+endif()

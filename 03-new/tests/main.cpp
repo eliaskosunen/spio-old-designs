@@ -46,6 +46,10 @@ template class io::basic_outstream<io::writable_file>;
 /* template class io::basic_file_outstream<wchar_t, io::native_filehandle>; */
 /* template class io::basic_buffer_outstream<char>; */
 /* template class io::basic_buffer_outstream<wchar_t>; */
+template class io::basic_lockable_stream<io::file_instream>;
+template class io::basic_lockable_stream<io::buffer_instream>;
+template class io::basic_lockable_stream<io::file_outstream>;
+template class io::basic_lockable_stream<io::buffer_outstream>;
 template class io::basic_readable_file<char, io::stdio_filehandle>;
 template class io::basic_readable_file<wchar_t, io::stdio_filehandle>;
 template class io::basic_readable_file<char, io::native_filehandle>;
