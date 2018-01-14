@@ -39,6 +39,7 @@ enum error_code {
     io_error,
     assertion_failure,
     end_of_file,
+    logic_error,
     default_error,
     unknown_error
 };
@@ -78,6 +79,8 @@ struct error {
                 return "Assertion failure";
             case end_of_file:
                 return "End of file";
+            case logic_error:
+                return "Logic error";
             case default_error:
                 return "Default error";
             case unknown_error:
@@ -126,21 +129,25 @@ private:
 #define SPIO_THROW_EC(ec) throw ::io::failure(ec, ::io::error(ec).to_string())
 #define SPIO_THROW(ec, msg) throw ::io::failure(ec, msg)
 #define SPIO_THROW_FAILURE(f) throw f
+#define SPIO_RETHROW throw
 #else
 class failure {
 };
 #define SPIO_THROW_MSG(msg) \
     assert(false && (msg)); \
-    std::terminate();
+    std::terminate()
 #define SPIO_THROW_EC(ec)            \
     assert(false && ec.to_string()); \
-    std::terminate();
+    std::terminate()
 #define SPIO_THROW(ec, msg) \
     assert(false && (msg)); \
-    std::terminate();
+    std::terminate()
 #define SPIO_THROW_FAILURE(f)    \
     assert(false && (f.what())); \
-    std::terminate();
+    std::terminate()
+#define SPIO_RETHROW                                   \
+    assert(false && "Rethrowing caught exception..."); \
+    std::terminate()
 #endif
 
 #if SPIO_THROW_ON_ASSERT
