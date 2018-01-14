@@ -237,47 +237,39 @@ public:
 
     locked_stream lock()
     {
-        auto s = _get_locked();
-        s.get_lock().lock();
-        return s;
+        return _do_lock([](locked_stream& s) { s.get_lock().lock(); });
     }
     locked_stream try_lock(bool& success)
     {
-        auto s = _get_locked();
-        success = s.get_lock().try_lock();
-        return s;
+        return _do_lock(
+            [&](locked_stream& s) { success = s.get_lock().try_lock(); });
     }
 
     template <typename Rep, typename Period>
     locked_stream try_lock_for(bool& success,
                                const std::chrono::duration<Rep, Period>& dur)
     {
-        auto s = _get_locked();
-        success = s.get_lock().try_lock_for(dur);
-        return s;
+        return _do_lock([&](locked_stream& s) {
+            success = s.get_lock().try_lock_for(dur);
+        });
     }
     template <typename Clock, typename Duration>
     locked_stream try_lock_until(
         bool& success,
         const std::chrono::time_point<Clock, Duration>& timeout)
     {
-        auto s = _get_locked();
-        success = s.get_lock().try_lock_until(timeout);
-        return s;
+        return _do_lock([&](locked_stream& s) {
+            success = s.get_lock().try_lock_until(timeout);
+        });
     }
 
-    std::mutex& mutex()
-    {
-        return m_mutex;
-    }
     const std::mutex& mutex() const
     {
         return m_mutex;
     }
-
-    T&& stream()
+    const T& stream() const
     {
-        return std::move(m_stream);
+        return m_stream;
     }
 
 private:
@@ -286,6 +278,25 @@ private:
         lock_type l{m_mutex, std::defer_lock};
         locked_stream s{m_stream, std::move(l)};
         return s;
+    }
+
+    template <typename F>
+    locked_stream _do_lock(F&& fn)
+    {
+        try {
+            auto s = _get_locked();
+            fn(s);
+            return s;
+        }
+        catch (std::system_error& e) {
+            assert(e.code() != std::errc::operation_not_permitted);
+            assert(e.code() != std::errc::resource_deadlock_would_occur);
+            SPIO_THROW_FAILURE(e);
+        }
+        catch (...) {
+            SPIO_RETHROW;
+        }
+        SPIO_THROW(logic_error, "Unreachable in lockable_stream::_do_lock");
     }
 
     T m_stream;
