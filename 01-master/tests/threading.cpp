@@ -40,6 +40,8 @@ TEST_CASE("multithreaded buffer_outstream")
     for (auto& t : threads) {
         t.join();
     }
+    CHECK(mt_s.lock()->get_buffer().size() ==
+          50 * std::strlen("Thread 0, Row 1\n"));
 }
 
 TEST_CASE("multithreaded stdout")
