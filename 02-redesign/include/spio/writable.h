@@ -88,15 +88,15 @@ public:
         _flush_destruct();
     }
 
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error write(span<T, N> buf);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error write(span<T, N> buf, characters length);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error write(span<T, N> buf, elements length);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error write(span<T, N> buf, bytes length);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error write(span<T, N> buf, bytes_contiguous length);
     error write(CharT c);
 
@@ -179,10 +179,11 @@ struct dynamic_writable_buffer : public stl::vector<T, Alloc> {
         return span<T, extent>{this->begin(), this->end()};
     }
 };
-template <typename T, span_extent_type Extent = dynamic_extent>
+template <typename T, extent_t Extent = dynamic_extent>
 class span_writable_buffer {
 public:
     using span_type = span<T, Extent>;
+    using iterator_type = typename span_type::iterator;
     using value_type = typename span_type::value_type;
     using size_type = typename span_type::index_type_us;
     using index_type = typename span_type::index_type;
@@ -213,7 +214,9 @@ public:
 
     constexpr size_type size() const
     {
-        return static_cast<size_type>(stl::distance(m_buf.begin(), m_it));
+        return static_cast<size_type>(stl::distance(
+            m_buf.begin(),
+            static_cast<typename span_type::const_iterator>(m_it)));
     }
     constexpr size_type max_size() const
     {
@@ -271,16 +274,14 @@ public:
     }
 
 private:
-    span<T, Extent> m_buf{};
-    typename span<T, Extent>::iterator m_it{};
+    span_type m_buf{};
+    iterator_type m_it{};
 };
-template <typename T,
-          std::size_t N,
-          span_extent_type Extent = static_cast<span_extent_type>(N)>
+template <typename T, std::size_t N, extent_t Extent = static_cast<extent_t>(N)>
 class static_writable_buffer : public span_writable_buffer<T, Extent> {
 public:
     static constexpr auto extent = Extent;
-    
+
     static_writable_buffer(stl::array<T, N> a = {})
         : m_buf(std::move(a)), span_writable_buffer<T, Extent>(m_buf)
     {
@@ -325,15 +326,15 @@ public:
         default;
     ~basic_writable_buffer() noexcept = default;
 
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error write(span<T, N> buf);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error write(span<T, N> buf, characters length);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error write(span<T, N> buf, elements length);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error write(span<T, N> buf, bytes length);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error write(span<T, N> buf, bytes_contiguous length);
     error write(CharT c);
 

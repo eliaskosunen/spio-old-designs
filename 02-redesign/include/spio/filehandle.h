@@ -264,6 +264,9 @@ public:
 
     bool open(const char* filename, const char* mode)
     {
+        SPIO_ASSERT(!good(),
+                    "unbuf_stdio_filehandle::open: Cannot reopen a file in an "
+                    "already opened filehandle; `good()` is true");
         assert(!good());
         m_handle = s_open(filename, mode);
         return good();
@@ -272,14 +275,18 @@ public:
               uint32_t mode,
               uint32_t flags = open_flags::NONE)
     {
-        assert(!good());
+        SPIO_ASSERT(!good(),
+                    "unbuf_stdio_filehandle::open: Cannot reopen a file in an "
+                    "already opened filehandle; `good()` is true");
         m_handle = s_open(filename, mode, flags);
         return good();
     }
 
     void close()
     {
-        assert(good());
+        SPIO_ASSERT(good(),
+                    "unbuf_stdio_filehandle::close: Cannot close a bad "
+                    "filehandle; `good()` is false");
         std::fclose(m_handle);
         m_handle = nullptr;
     }
@@ -311,7 +318,7 @@ public:
 
     bool error() const
     {
-        assert(m_handle);
+        SPIO_ASSERT(good(), "unbuf_stdio_filehandle::error: Bad filehandle");
         return std::ferror(m_handle) != 0;
     }
     void check_error() const
@@ -337,23 +344,23 @@ public:
 
     std::size_t read(writable_byte_span data)
     {
-        assert(good());
+        SPIO_ASSERT(good(), "unbuf_stdio_filehandle::read: Bad filehandle");
         return std::fread(data.data(), 1, data.size_us(), m_handle);
     }
     std::size_t write(const_byte_span data)
     {
-        assert(good());
+        SPIO_ASSERT(good(), "unbuf_stdio_filehandle::write: Bad filehandle");
         return std::fwrite(data.data(), 1, data.size_us(), m_handle);
     }
 
     bool seek(seek_origin origin, seek_type offset)
     {
-        assert(good());
+        SPIO_ASSERT(good(), "unbuf_stdio_filehandle::seek: Bad filehandle");
         return std::fseek(m_handle, offset, static_cast<int>(origin)) == 0;
     }
     bool tell(seek_type& pos)
     {
-        assert(good());
+        SPIO_ASSERT(good(), "unbuf_stdio_filehandle::tell: Bad filehandle");
         auto p = std::ftell(m_handle);
         if (p == -1) {
             return false;
@@ -365,7 +372,7 @@ public:
 protected:
     bool _set_buffering(filebuffer& buf)
     {
-        assert(m_handle);
+        assert(good());
         if (buf.mode() == filebuffer::BUFFER_NONE) {
             std::setbuf(m_handle, nullptr);
             return true;
@@ -479,14 +486,12 @@ public:
     {
         SPIO_UNUSED(origin);
         SPIO_UNUSED(offset);
-        assert(false && "native_filehandle::seek: unimplemented");
-        std::abort();
+        SPIO_UNIMPLEMENTED;
     }
     [[noreturn]] bool tell(seek_type& pos)
     {
         SPIO_UNUSED(pos);
-        assert(false && "native_filehandle::tell: unimplemented");
-        std::abort();
+        SPIO_UNIMPLEMENTED;
     }
 
 protected:
@@ -677,7 +682,7 @@ inline void unbuf_native_filehandle::check_error() const
             FORMAT_MESSAGE_IGNORE_INSERTS,
         nullptr, errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
         reinterpret_cast<LPSTR>(&msgBuf), 0, nullptr);
-    failure f{default_error, msgBuf, size};
+    failure f{default_error, msgBuf, static_cast<int>(size)};
     ::LocalFree(msgBuf);
     SPIO_THROW_FAILURE(f);
 }

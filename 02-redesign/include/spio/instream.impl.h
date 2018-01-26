@@ -22,13 +22,15 @@
 
 namespace io {
 template <typename Readable>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_instream<Readable>::_read(span<T, N> s, elements length)
 {
     if (m_buffer.empty()) {
         return m_readable.read(s, length);
     }
-    assert(s.size() >= length);
+    SPIO_ASSERT(s.size() >= length,
+                "basic_instream<>::_read: span.size() must be greater or equal "
+                "to the element count to read");
     auto len_bytes = length.get_unsigned() * sizeof(T);
     if (m_buffer.size() >= len_bytes) {
         auto len = static_cast<typename decltype(m_buffer)::difference_type>(
@@ -60,7 +62,7 @@ void basic_instream<Readable>::push(T elem)
 }
 
 template <typename Readable>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 void basic_instream<Readable>::push(span<T, N> elems)
 {
     if (elems.empty()) {
@@ -140,8 +142,8 @@ void basic_instream<Readable>::_scan(const char_type* format,
 {
     {
         char_type ch;
-        while(get(ch)) {
-            if(!is_space(ch)) {
+        while (get(ch)) {
+            if (!is_space(ch)) {
                 push(ch);
                 break;
             }

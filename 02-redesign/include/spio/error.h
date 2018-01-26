@@ -26,6 +26,8 @@
 
 #if SPIO_USE_EXCEPTIONS
 #include <exception>
+#include <string>
+#include <system_error>
 #endif
 #include <cassert>
 #include <cerrno>
@@ -40,6 +42,7 @@ enum error_code {
     assertion_failure,
     end_of_file,
     logic_error,
+    unimplemented,
     default_error,
     unknown_error
 };
@@ -78,9 +81,11 @@ struct error {
             case assertion_failure:
                 return "Assertion failure";
             case end_of_file:
-                return "End of file";
+                return "EOF";
             case logic_error:
                 return "Logic error";
+            case unimplemented:
+                return "Unimplemented";
             case default_error:
                 return "Default error";
             case unknown_error:
@@ -97,22 +102,66 @@ struct error {
 };
 #if SPIO_USE_EXCEPTIONS
 class failure : public std::exception {
+#if SPIO_FAILURE_USE_STRING
+    struct storage {
+        storage(const char* m) : m_str(m) {}
+        storage(const char* m, std::size_t s) : m_str(m, s) {}
+
+        const char* what() const noexcept
+        {
+            return m_str.c_str();
+        }
+
+    private:
+        std::string m_str;
+    };
+#else
+    struct storage {
+        storage(const char* m) : storage(m, stl::strlen(n)) {}
+        storage(const char* m, std::size_t n)
+        {
+            assert(n < SPIO_FAILURE_STATIC_STORAGE);
+            stl::copy_n(m, n, m_str.begin());
+            m_str[n] = '\0';
+        }
+
+        const char* what() const noexcept
+        {
+            return &m_str[0];
+        }
+
+    private:
+        stl::array<char, SPIO_FAILURE_STATIC_STORAGE> m_str{};
+    };
+#endif
 public:
-    explicit failure(error e) : failure(e, e.to_string()) {}
-    failure(error e, const char* message) : m_error(e)
+    explicit failure(error e, const char* file, int line)
+        : failure(e, e.to_string(), file, line)
     {
-        ::memcpy(&m_message[0], message, m_message.size());
     }
-    explicit failure(error e, const char* message, std::size_t s) : m_error(e)
+    explicit failure(error e, const char* message, const char* file, int line)
+        : m_file(file), m_line(line), m_error(e), m_message(message)
     {
-        assert(s < 64);
-        ::memcpy(&m_message[0], &message[0], s);
-        m_message[s] = '\0';
     }
+    explicit failure(error e,
+                     const char* message,
+                     std::size_t s,
+                     const char* file,
+                     int line)
+        : m_file(file), m_line(line), m_error(e), m_message(message, s)
+    {
+    }
+
+    failure(const failure&) = default;
+    failure& operator=(const failure&) = default;
+    failure(failure&&) = default;
+    failure& operator=(failure&&) = default;
+
+    virtual ~failure() noexcept override = default;
 
     const char* what() const noexcept override
     {
-        return m_message.data();
+        return m_message.what();
     }
 
     error get_error() const noexcept
@@ -120,14 +169,26 @@ public:
         return m_error;
     }
 
+    const char* file() const noexcept
+    {
+        return m_file;
+    }
+    int line() const noexcept
+    {
+        return m_line;
+    }
+
 private:
+    const char* m_file;
+    int m_line;
     error m_error;
-    stl::array<char, 64> m_message{};
+    storage m_message;
 };
 
-#define SPIO_THROW_MSG(msg) throw ::io::failure(default_error, msg)
-#define SPIO_THROW_EC(ec) throw ::io::failure(ec, ::io::error(ec).to_string())
-#define SPIO_THROW(ec, msg) throw ::io::failure(ec, msg)
+#define SPIO_THROW_MSG(msg) \
+    throw ::io::failure(::io::default_error, msg, __FILE__, __LINE__)
+#define SPIO_THROW_EC(ec) throw ::io::failure(ec, __FILE__, __LINE__)
+#define SPIO_THROW(ec, msg) throw ::io::failure(ec, msg, __FILE__, __LINE__)
 #define SPIO_THROW_FAILURE(f) throw f
 #define SPIO_RETHROW throw
 #else
@@ -161,6 +222,7 @@ class failure {
 #define SPIO_ASSERT(cond, msg) assert((cond) && msg)
 #endif
 
+#define SPIO_UNIMPLEMENTED SPIO_THROW(::io::unimplemented, "Unimplemented")
 #define SPIO_UNUSED(x) (static_cast<void>(sizeof(x)))
 }  // namespace io
 

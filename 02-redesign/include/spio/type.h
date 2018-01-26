@@ -125,7 +125,7 @@ struct type<T,
             }();
             auto bytespan =
                 as_bytes(make_span(strspan.begin(), strspan.begin() + end));
-            copy_contiguous(bytespan, as_writable_bytes(s));
+            stl::copy(bytespan.begin(), bytespan.end(), as_writable_bytes(s).begin());
             if (end + 1 < str_len) {
                 auto push_span = make_span(strspan.begin() + end + 1,
                                            strspan.begin() + str_len);
@@ -177,9 +177,9 @@ struct type<detail::string_tag<T, N>> {
         else
 #endif
         {
-            const auto len = [&]() -> span_extent_type {
+            const auto len = [&]() -> extent_t {
                 if (N != 0) {
-                    return static_cast<span_extent_type>(
+                    return static_cast<extent_t>(
                         N - 1);  // Don't write the null terminator
                 }
                 return stl::strlen(ptr);
