@@ -309,7 +309,7 @@ bool is_eof(error c);
 template <typename InputIt>
 constexpr std::size_t distance_nonneg(InputIt first, InputIt last);
 
-using quantity_type = span_extent_type;
+using quantity_type = extent_t;
 namespace detail {
 #if !(SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V)
     template <bool Signed>

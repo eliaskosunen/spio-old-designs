@@ -88,15 +88,15 @@ public:
         default;
     ~basic_readable_file() noexcept = default;
 
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error read(span<T, N> buf);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error read(span<T, N> buf, characters length);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error read(span<T, N> buf, elements length);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error read(span<T, N> buf, bytes length);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error read(span<T, N> buf, bytes_contiguous length);
     error read(CharT& c);
 
@@ -133,10 +133,11 @@ static_assert(is_readable<basic_readable_file<wchar_t>>::value,
               "basic_readable_file<wchar_t> does not satisfy the requirements "
               "of Readable");
 
-template <typename CharT, span_extent_type BufferExtent = dynamic_extent>
+template <typename CharT>
 class basic_readable_buffer {
 public:
     using value_type = CharT;
+    static constexpr const extent_t BufferExtent = dynamic_extent;
     using buffer_type = span<CharT, BufferExtent>;
     static constexpr bool is_trivially_rewindable = true;
 
@@ -161,15 +162,15 @@ public:
     }
     ~basic_readable_buffer() noexcept = default;
 
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error read(span<T, N> buf);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error read(span<T, N> buf, characters length);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error read(span<T, N> buf, elements length);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error read(span<T, N> buf, bytes length);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error read(span<T, N> buf, bytes_contiguous length);
     error read(CharT& c);
 

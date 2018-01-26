@@ -50,14 +50,14 @@ matrix:
           compiler: gcc
           addons: &gcc6
             apt:
-                packages: ["g++-6", "g++-7"]
+                packages: ["g++-6"]
                 sources: *apt_sources
         # GCC 5
         - env: CXX_COMPILER=g++-5 CXX_STANDARD=14
           compiler: gcc
           addons: &gcc5
             apt:
-                packages: ["g++-5", "g++-7"]
+                packages: ["g++-5"]
                 sources: *apt_sources
 
         # Clang 5
@@ -65,21 +65,21 @@ matrix:
           compiler: clang
           addons: &clang5
             apt:
-                packages: ["clang-5.0", "g++-7"]
+                packages: ["clang-5.0", "libstdc++-7-dev"]
                 sources: *apt_sources
         # Clang 4
         - env: CXX_COMPILER=clang++-4.0 CXX_STANDARD=14
           compiler: clang
           addons: &clang4
             apt:
-                packages: ["clang-4.0", "g++-7"]
+                packages: ["clang-4.0", "libstdc++-7-dev"]
                 sources: *apt_sources
         # Clang 3.9
         - env: CXX_COMPILER=clang++-3.9 CXX_STANDARD=14
           compiler: clang
           addons: &clang39
             apt:
-                packages: ["clang-3.9", "g++-7"]
+                packages: ["clang-3.9", "libstdc++-7-dev"]
                 sources: *apt_sources
 
         # Xcode 8.3 (Clang)

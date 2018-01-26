@@ -185,7 +185,7 @@ namespace detail {
         }
         else {
 #ifdef _MSC_VER
-            return stl::array<long double, 11>{{10.l, 100.l, 1.0e4l, 1.0e8l,
+            return stl::array<long double, 9>{{10.l, 100.l, 1.0e4l, 1.0e8l,
                                                 1.0e16l, 1.0e32l, 1.0e64l,
                                                 1.0e128l, 1.0e256l}};
 #else

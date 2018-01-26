@@ -56,7 +56,7 @@ public:
         m_eof = !type<T>::read(*this, elem, std::move(opt));
         return *this;
     }
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     basic_instream& read(span<T, N> elem, reader_options<span<T, N>> opt = {})
     {
         if (eof()) {
@@ -71,7 +71,7 @@ public:
     {
         return read_raw(make_span<1>(&elem));
     }
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     basic_instream& read_raw(span<T, N> elems)
     {
         if (eof()) {
@@ -92,7 +92,7 @@ public:
         return read_raw(ch);
     }
 
-    template <typename T, span_extent_type N = dynamic_extent>
+    template <typename T, extent_t N = dynamic_extent>
     basic_instream& getline(span<T, N> s, char_type delim = char_type{'\n'})
     {
         reader_options<span<T, N>> opt = {make_span<1>(&delim)};
@@ -136,7 +136,7 @@ public:
 
     template <typename T>
     void push(T elem);
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     void push(span<T, N> elems);
 
     bool is_overreadable() const
@@ -179,7 +179,7 @@ public:
 protected:
     basic_instream() = default;
 
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     error _read(span<T, N> s, elements length);
 
     void _scan(const char_type* format)
@@ -236,7 +236,7 @@ public:
     /*     : basic_buffer_instream(readable_type{b}) */
     /* { */
     /* } */
-    template <span_extent_type N = dynamic_extent>
+    template <extent_t N = dynamic_extent>
     explicit basic_buffer_instream(span<CharT, N> b)
         : basic_buffer_instream(readable_type{buffer_type{b.begin(), b.end()}})
     {
