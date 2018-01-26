@@ -33,14 +33,14 @@ basic_readable_file<CharT, FileHandle, Alloc>::basic_readable_file(
 }
 
 template <typename CharT, typename FileHandle, typename Alloc>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_readable_file<CharT, FileHandle, Alloc>::read(span<T, N> buf)
 {
     return write(buf, elements{buf.length()});
 }
 
 template <typename CharT, typename FileHandle, typename Alloc>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_readable_file<CharT, FileHandle, Alloc>::read(span<T, N> buf,
                                                           characters length)
 {
@@ -62,7 +62,7 @@ error basic_readable_file<CharT, FileHandle, Alloc>::read(span<T, N> buf,
 }
 
 template <typename CharT, typename FileHandle, typename Alloc>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_readable_file<CharT, FileHandle, Alloc>::read(span<T, N> buf,
                                                           elements length)
 {
@@ -71,7 +71,7 @@ error basic_readable_file<CharT, FileHandle, Alloc>::read(span<T, N> buf,
 }
 
 template <typename CharT, typename FileHandle, typename Alloc>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_readable_file<CharT, FileHandle, Alloc>::read(span<T, N> buf,
                                                           bytes length)
 {
@@ -81,7 +81,7 @@ error basic_readable_file<CharT, FileHandle, Alloc>::read(span<T, N> buf,
 }
 
 template <typename CharT, typename FileHandle, typename Alloc>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_readable_file<CharT, FileHandle, Alloc>::read(
     span<T, N> buf,
     bytes_contiguous length)
@@ -114,10 +114,10 @@ error basic_readable_file<CharT, FileHandle, Alloc>::seek(seek_origin origin,
                                                           seek_type offset)
 {
     assert(get_file());
-    if(!get_file()->flush()) {
+    if (!get_file()->flush()) {
         return io_error;
     }
-    if(get_file()->seek(origin, offset)) {
+    if (get_file()->seek(origin, offset)) {
         return {};
     }
     return io_error;
@@ -127,7 +127,7 @@ template <typename CharT, typename FileHandle, typename Alloc>
 error basic_readable_file<CharT, FileHandle, Alloc>::tell(seek_type& pos)
 {
     assert(get_file());
-    if(get_file()->tell(pos)) {
+    if (get_file()->tell(pos)) {
         return {};
     }
     return io_error;
@@ -151,24 +151,23 @@ error basic_readable_file<CharT, FileHandle, Alloc>::get_error(
     return default_error;
 }
 
-template <typename CharT, span_extent_type BufferExtent>
-constexpr basic_readable_buffer<CharT, BufferExtent>::basic_readable_buffer(
-    span<CharT, BufferExtent> buf)
+template <typename CharT>
+constexpr basic_readable_buffer<CharT>::basic_readable_buffer(
+    typename basic_readable_buffer<CharT>::buffer_type buf)
     : m_buffer(buf), m_it(m_buffer.begin())
 {
 }
 
-template <typename CharT, span_extent_type BufferExtent>
-template <typename T, span_extent_type N>
-error basic_readable_buffer<CharT, BufferExtent>::read(span<T, N> buf)
+template <typename CharT>
+template <typename T, extent_t N>
+error basic_readable_buffer<CharT>::read(span<T, N> buf)
 {
     return write(buf, elements{buf.length()});
 }
 
-template <typename CharT, span_extent_type BufferExtent>
-template <typename T, span_extent_type N>
-error basic_readable_buffer<CharT, BufferExtent>::read(span<T, N> buf,
-                                                       characters length)
+template <typename CharT>
+template <typename T, extent_t N>
+error basic_readable_buffer<CharT>::read(span<T, N> buf, characters length)
 {
     SPIO_ASSERT(length <= buf.size(), "buf is not big enough");
     static_assert(sizeof(T) >= sizeof(CharT),
@@ -191,29 +190,27 @@ error basic_readable_buffer<CharT, BufferExtent>::read(span<T, N> buf,
     return {};
 }
 
-template <typename CharT, span_extent_type BufferExtent>
-template <typename T, span_extent_type N>
-error basic_readable_buffer<CharT, BufferExtent>::read(span<T, N> buf,
-                                                       elements length)
+template <typename CharT>
+template <typename T, extent_t N>
+error basic_readable_buffer<CharT>::read(span<T, N> buf, elements length)
 {
     return read(buf, characters{length * quantity_type{sizeof(T)} /
                                 quantity_type{sizeof(CharT)}});
 }
 
-template <typename CharT, span_extent_type BufferExtent>
-template <typename T, span_extent_type N>
-error basic_readable_buffer<CharT, BufferExtent>::read(span<T, N> buf,
-                                                       bytes length)
+template <typename CharT>
+template <typename T, extent_t N>
+error basic_readable_buffer<CharT>::read(span<T, N> buf, bytes length)
 {
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
     return read(buf,
                 characters{length / static_cast<quantity_type>(sizeof(CharT))});
 }
 
-template <typename CharT, span_extent_type BufferExtent>
-template <typename T, span_extent_type N>
-error basic_readable_buffer<CharT, BufferExtent>::read(span<T, N> buf,
-                                                       bytes_contiguous length)
+template <typename CharT>
+template <typename T, extent_t N>
+error basic_readable_buffer<CharT>::read(span<T, N> buf,
+                                         bytes_contiguous length)
 {
     SPIO_ASSERT(length % sizeof(CharT) == 0,
                 "Length is not divisible by sizeof CharT");
@@ -237,22 +234,22 @@ error basic_readable_buffer<CharT, BufferExtent>::read(span<T, N> buf,
     return {};
 }
 
-template <typename CharT, span_extent_type BufferExtent>
-error basic_readable_buffer<CharT, BufferExtent>::read(CharT& c)
+template <typename CharT>
+error basic_readable_buffer<CharT>::read(CharT& c)
 {
     span<CharT> s{&c, 1};
     return read(s, characters{1});
 }
 
-template <typename CharT, span_extent_type BufferExtent>
-error basic_readable_buffer<CharT, BufferExtent>::skip()
+template <typename CharT>
+error basic_readable_buffer<CharT>::skip()
 {
     CharT c = 0;
     return read(c);
 }
 
-template <typename CharT, span_extent_type BufferExtent>
-error basic_readable_buffer<CharT, BufferExtent>::rewind(
+template <typename CharT>
+error basic_readable_buffer<CharT>::rewind(
     typename buffer_type::difference_type steps)
 {
     const auto dist = stl::distance(m_buffer.begin(), m_it);
@@ -263,49 +260,46 @@ error basic_readable_buffer<CharT, BufferExtent>::rewind(
     return {};
 }
 
-template <typename CharT, span_extent_type BufferExtent>
-error basic_readable_buffer<CharT, BufferExtent>::seek(
-        seek_origin origin, seek_type offset)
+template <typename CharT>
+error basic_readable_buffer<CharT>::seek(seek_origin origin, seek_type offset)
 {
-    if(origin == seek_origin::SET) {
-        if(m_buffer.size() < offset) {
+    if (origin == seek_origin::SET) {
+        if (m_buffer.size() < offset) {
             return invalid_argument;
         }
         m_it = m_buffer.begin() + offset;
         return {};
     }
-    if(origin == seek_origin::CUR) {
-        if(offset == 0) {
+    if (origin == seek_origin::CUR) {
+        if (offset == 0) {
             return {};
         }
-        if(offset > 0) {
+        if (offset > 0) {
             auto diff = stl::distance(m_it, m_buffer.end());
-            if(offset > diff) {
+            if (offset > diff) {
                 return invalid_argument;
             }
             m_it += offset;
             return {};
         }
         auto diff = stl::distance(m_it, m_buffer.begin());
-        if(offset < diff) {
+        if (offset < diff) {
             return invalid_argument;
         }
         m_it += offset;
         return {};
     }
-    if(offset > 0) {
+    if (offset > 0) {
         return invalid_argument;
     }
     m_it = m_buffer.end() + offset;
     return {};
 }
 
-
-template <typename CharT, span_extent_type BufferExtent>
-error basic_readable_buffer<CharT, BufferExtent>::tell(
-        seek_type& pos)
+template <typename CharT>
+error basic_readable_buffer<CharT>::tell(seek_type& pos)
 {
-    pos = stl::distance(m_buffer.begin(), m_it);
+    pos = static_cast<seek_type>(stl::distance(m_buffer.begin(), m_it));
     return {};
 }
 }  // namespace io

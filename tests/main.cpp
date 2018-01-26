@@ -56,9 +56,7 @@ template class io::basic_readable_file<char, io::native_filehandle>;
 template class io::basic_readable_file<wchar_t, io::native_filehandle>;
 template class io::basic_readable_buffer<char>;
 template class io::basic_readable_buffer<wchar_t>;
-template class io::basic_readable_buffer<char, 64>;
-template class io::span<char>;
-template class io::span<char, 64>;
+/* template class io::basic_readable_buffer<char, 64>; */
 template class io::basic_writable_file<char, io::stdio_filehandle>;
 template class io::basic_writable_file<wchar_t, io::stdio_filehandle>;
 template class io::basic_writable_file<char, io::native_filehandle>;

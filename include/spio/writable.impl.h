@@ -33,14 +33,14 @@ basic_writable_file<CharT, FileHandle>::basic_writable_file(FileHandle& file)
 }
 
 template <typename CharT, typename FileHandle>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf)
 {
     return write(buf, elements{buf.length()});
 }
 
 template <typename CharT, typename FileHandle>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
                                                     characters length)
 {
@@ -71,7 +71,7 @@ error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
 }
 
 template <typename CharT, typename FileHandle>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
                                                     elements length)
 {
@@ -80,7 +80,7 @@ error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
 }
 
 template <typename CharT, typename FileHandle>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
                                                     bytes length)
 {
@@ -88,7 +88,7 @@ error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
 }
 
 template <typename CharT, typename FileHandle>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
                                                     bytes_contiguous length)
 {
@@ -154,14 +154,14 @@ constexpr basic_writable_buffer<CharT, BufferT>::basic_writable_buffer(
 }
 
 template <typename CharT, typename BufferT>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf)
 {
     return write(buf, elements{buf.length()});
 }
 
 template <typename CharT, typename BufferT>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
                                                    characters length)
 {
@@ -183,7 +183,7 @@ error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
 }
 
 template <typename CharT, typename BufferT>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
                                                    elements length)
 {
@@ -192,14 +192,14 @@ error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
 }
 
 template <typename CharT, typename BufferT>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf, bytes length)
 {
     return write(buf, characters{length * quantity_type{sizeof(CharT)}});
 }
 
 template <typename CharT, typename BufferT>
-template <typename T, span_extent_type N>
+template <typename T, extent_t N>
 error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
                                                    bytes_contiguous length)
 {
@@ -228,7 +228,6 @@ template <typename CharT, typename BufferT>
 constexpr auto basic_writable_buffer<CharT, BufferT>::to_readable()
 {
     auto buffer = get_buffer().to_span();
-    return basic_readable_buffer<
-        CharT, std::remove_reference_t<decltype(buffer)>::extent>{buffer};
+    return basic_readable_buffer<CharT>{buffer};
 }
 }  // namespace io
