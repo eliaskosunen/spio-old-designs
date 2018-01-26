@@ -22,6 +22,7 @@
 #define SPIO_STL_H
 
 #include "config.h"
+#include "span.h"
 
 #if SPIO_USE_STL
 #include <algorithm>
@@ -59,6 +60,7 @@ namespace stl {
     using SPIO_STL_NS::advance;
     using SPIO_STL_NS::begin;
     using SPIO_STL_NS::copy;
+    using SPIO_STL_NS::copy_n;
     using SPIO_STL_NS::distance;
     using SPIO_STL_NS::end;
     using SPIO_STL_NS::equal;
@@ -86,6 +88,15 @@ namespace stl {
     inline std::ptrdiff_t strlen(const wchar_t* str) noexcept
     {
         return static_cast<std::ptrdiff_t>(SPIO_STL_NS::wcslen(str));
+    }
+    template <typename T, extent_t N>
+    constexpr std::ptrdiff_t strlen(span<T, N> str) noexcept
+    {
+        auto it = stl::find(str.begin(), str.end(), T{'\0'});
+        if (it == str.end()) {
+            return str.size();
+        }
+        return stl::distance(str.begin(), it);
     }
 }  // namespace stl
 }  // namespace io

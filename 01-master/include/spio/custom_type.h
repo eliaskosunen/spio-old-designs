@@ -42,7 +42,7 @@ struct custom_write {
         SPIO_UNUSED(opt);
         const auto str = fmt::format("{}", val);
         return w.write(
-            make_span(str.c_str(), static_cast<span_extent_type>(str.size())));
+            make_span(str.c_str(), static_cast<extent_t>(str.size())));
     }
 };
 #endif
@@ -133,7 +133,7 @@ struct custom_write<std::basic_string<CharT, Allocator>> {
     {
         SPIO_UNUSED(opt);
         return p.write(
-            make_span(val.c_str(), static_cast<span_extent_type>(val.size())));
+            make_span(val.c_str(), static_cast<extent_t>(val.size())));
     }
 };
 #endif

@@ -22,6 +22,7 @@
 #define SPIO_BUFFERING_H
 
 #include <cstdio>
+#include "error.h"
 #include "span.h"
 #include "stl.h"
 
@@ -84,12 +85,16 @@ public:
      */
     char* get_buffer()
     {
-        assert(size() != 0 && is_writable_mode());
+        SPIO_ASSERT(size() != 0 && is_writable_mode(),
+                    "basic_filebuffer<>::get_buffer: requires `size() != 0 && "
+                    "is_writable_mode()`");
         return &m_buffer[0];
     }
     const char* get_buffer() const
     {
-        assert(size() != 0 && is_writable_mode());
+        SPIO_ASSERT(size() != 0 && is_writable_mode(),
+                    "basic_filebuffer<>::get_buffer: requires `size() != 0 && "
+                    "is_writable_mode()`");
         return &m_buffer[0];
     }
 
@@ -126,7 +131,8 @@ public:
     template <typename FlushFn>
     std::size_t write(const_byte_span data, FlushFn&& flush)
     {
-        assert(is_writable_mode());
+        SPIO_ASSERT(is_writable_mode(),
+                    "basic_filebuffer<>::write: requires `is_writable_mode()`");
 #if SPIO_HAS_INVOCABLE
         static_assert(std::is_invocable_r_v<std::size_t, decltype(flush),
                                             const_byte_span>,
@@ -209,7 +215,9 @@ public:
     template <typename FlushFn>
     std::pair<bool, std::size_t> flush_if_needed(FlushFn&& flush)
     {
-        assert(is_writable_mode());
+        SPIO_ASSERT(is_writable_mode(),
+                    "basic_filebuffer<>::flush_if_needed: requires "
+                    "`is_writable_mode()`");
 #if SPIO_HAS_INVOCABLE
         static_assert(
             std::is_invocable_r_v<std::size_t, decltype(flush),
@@ -238,11 +246,11 @@ public:
             if (*m_it == '\n') {
                 return ret(doit(m_it));
             }
-            for (auto it = m_it; it-- != m_begin;) {
-                if (*it == '\n') {
-                    return ret(doit(it));
-                }
-            }
+			for (auto it = m_it; it != m_begin; --it) {
+				if (*it == '\n') {
+					return ret(doit(it));
+				}
+			}
         }
         return {false, 0};
     }
@@ -269,7 +277,10 @@ public:
         }
         else {
             m_begin += static_cast<std::ptrdiff_t>(bytes_flushed);
-            assert(m_begin <= m_it);
+            SPIO_ASSERT(m_begin <= m_it,
+                        "basic_filebuffer<>::flag_flushed: Begin pointer must "
+                        "be less or equal to end pointer; was the value "
+                        "`bytes_flushed` too big?");
         }
     }
 

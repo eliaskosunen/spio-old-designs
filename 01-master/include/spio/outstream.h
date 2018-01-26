@@ -90,7 +90,7 @@ public:
     {
         return write_raw(make_span<1>(&elem));
     }
-    template <typename T, span_extent_type N>
+    template <typename T, extent_t N>
     basic_outstream& write_raw(span<T, N> elems)
     {
         if (m_eof) {
