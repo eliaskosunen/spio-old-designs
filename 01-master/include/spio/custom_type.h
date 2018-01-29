@@ -47,14 +47,22 @@ struct custom_write {
 };
 #endif
 
-#if SPIO_USE_STL
-template <typename CharT, typename Allocator>
-struct custom_read<std::basic_string<CharT, Allocator>> {
-    using type = std::basic_string<CharT, Allocator>;
+template <typename Container,
+          typename = void_t<decltype(std::declval<Container>().begin()),
+                            decltype(std::declval<Container>().end()),
+                            decltype(std::declval<Container>().size()),
+                            decltype(std::declval<Container>().empty()),
+                            decltype(std::declval<Container>().resize(
+                                std::declval<typename Container::size_type>())),
+                            decltype(std::declval<Container>().erase(
+                                std::declval<typename Container::iterator>(),
+                                std::declval<typename Container::iterator>()))>>
+struct growable_read {
+    using type = Container;
 
     template <typename Reader,
               typename = std::enable_if_t<is_reader<Reader>::value>>
-    static bool read(Reader& p, type& val, reader_options<type> opt)
+    static bool read(Reader& p, Container& val, reader_options<Container> opt)
     {
         SPIO_UNUSED(opt);
         if (val.empty()) {
@@ -97,7 +105,7 @@ struct custom_read<std::basic_string<CharT, Allocator>> {
             auto it = val.begin();
             while (true) {
                 typename Reader::char_type ch;
-                auto ret = !!p.get(ch);
+                auto ret = p.get(ch) == true;
                 if (!is_space(ch)) {
                     if (it == val.end()) {
                         auto s = val.size();
@@ -110,18 +118,22 @@ struct custom_read<std::basic_string<CharT, Allocator>> {
                 else {
                     p.push(ch);
                     val.erase(it + 1, val.end());
-                    val.shrink_to_fit();
                     return ret;
                 }
                 if (!ret) {
                     val.erase(it + 1, val.end());
-                    val.shrink_to_fit();
                     return ret;
                 }
                 ++it;
             }
         }
     }
+};
+
+#if SPIO_USE_STL
+template <typename CharT, typename Allocator>
+struct custom_read<std::basic_string<CharT, Allocator>>
+    : public growable_read<std::basic_string<CharT, Allocator>> {
 };
 
 template <typename CharT, typename Allocator>
