@@ -40,13 +40,6 @@ public:
 
     explicit basic_outstream(writable_type w) : m_writable(std::move(w)) {}
 
-    basic_outstream(const basic_outstream&) = delete;
-    basic_outstream& operator=(const basic_outstream&) = delete;
-    basic_outstream(basic_outstream&&) = default;
-    basic_outstream& operator=(basic_outstream&&) = default;
-
-    virtual ~basic_outstream() = default;
-
     template <typename T,
               typename = std::enable_if_t<!detail::check_string_tag<T>::value>>
     basic_outstream& write(const T& elem, writer_options<T> opt = {})

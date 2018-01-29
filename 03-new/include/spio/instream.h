@@ -40,13 +40,6 @@ public:
 
     explicit basic_instream(readable_type r) : m_readable(std::move(r)) {}
 
-    basic_instream(const basic_instream&) = delete;
-    basic_instream& operator=(const basic_instream&) = delete;
-    basic_instream(basic_instream&&) = default;
-    basic_instream& operator=(basic_instream&&) = default;
-
-    virtual ~basic_instream() = default;
-
     template <typename T>
     basic_instream& read(T& elem, reader_options<T> opt = {})
     {
@@ -99,17 +92,7 @@ public:
         return read(s, opt);
     }
     template <typename T,
-              typename = void_t<typename T::value_type,
-                                typename T::difference_type,
-                                decltype(std::declval<T>().data()),
-                                decltype(std::declval<T>().size()),
-                                decltype(std::declval<T>().empty()),
-                                decltype(std::declval<T>().shrink_to_fit()),
-                                decltype(std::declval<T>().resize(
-                                    std::declval<typename T::size_type>())),
-                                decltype(std::declval<T>().erase(
-                                    std::declval<typename T::iterator>(),
-                                    std::declval<typename T::iterator>()))>>
+              typename = std::enable_if_t<is_growable_read_container<T>::value>>
     basic_instream& getline(T& s, char_type delim = char_type{'\n'});
 
     template <typename ElementT = char_type>
