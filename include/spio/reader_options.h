@@ -71,7 +71,26 @@ struct is_reader<
 };
 #endif
 
-template <typename T, typename Enable = void>
+template <typename Container, typename = void>
+struct is_growable_read_container : std::false_type {
+};
+
+template <typename Container>
+struct is_growable_read_container<
+    Container,
+    void_t<decltype(std::declval<Container>().begin()),
+           decltype(std::declval<Container>().end()),
+           decltype(std::declval<Container>().size()),
+           decltype(std::declval<Container>().empty()),
+           decltype(std::declval<Container>().resize(
+               std::declval<typename Container::size_type>())),
+           decltype(std::declval<Container>().erase(
+               std::declval<typename Container::iterator>(),
+               std::declval<typename Container::iterator>()))>>
+    : std::true_type {
+};
+
+template <typename T, typename = void>
 struct reader_options {
 };
 
@@ -101,6 +120,11 @@ struct reader_options<
                               char32_t>::value>> {
     span<typename T::element_type> spaces{nullptr};
     bool readall{true};
+};
+
+template <typename T>
+struct reader_options<T, std::enable_if_t<is_growable_read_container<T>::value>>
+    : public reader_options<span<typename T::value_type>> {
 };
 
 template <>
