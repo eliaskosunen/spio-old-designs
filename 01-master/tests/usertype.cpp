@@ -86,7 +86,7 @@ TEST_CASE("usertype")
     SUBCASE("read")
     {
         std::string buf{"1 2"};
-        io::buffer_instream in{{buf}};
+        io::buffer_instream in{io::make_span(buf)};
         my_type a{};
         in.read(a);
         CHECK(a == my_type{1, 2});
