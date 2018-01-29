@@ -91,20 +91,6 @@ using reader = io::buffer_instream;
 using writer = io::buffer_outstream;
 #if SPIO_USE_FMT
 template struct io::custom_write<int>;
-
-template bool io::custom_write<int>::write(writer&,
-                                           const int&,
-                                           io::writer_options<int>);
-template bool io::custom_read<std::string>::read(
-    reader&,
-    std::string&,
-    io::reader_options<std::string>);
-template bool io::custom_write<std::string>::write(
-    writer&,
-    const std::string&,
-    io::writer_options<std::string>);
-/* template std::size_t io::filebuffer::write(io::const_byte_span, */
-/*                                            void(io::const_byte_span)); */
 #endif
 
 #if defined(__clang__)
