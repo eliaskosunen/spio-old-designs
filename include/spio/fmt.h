@@ -34,6 +34,7 @@
 
 #if SPIO_USE_FMT
 #include "fmt/fmt/format.h"
+#include "fmt/fmt/string.h"
 #include "fmt/fmt/time.h"
 #endif
 
