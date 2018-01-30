@@ -69,8 +69,7 @@ template class io::basic_writable_buffer<char, io::span_writable_buffer<char>>;
 
 #if SPIO_USE_STL
 #include <string>
-template struct io::custom_read<std::string>;
-template struct io::custom_write<std::string>;
+template struct io::custom_type<std::string>;
 #endif
 
 template struct io::reader_options<float>;
@@ -90,7 +89,7 @@ template struct io::type<std::string>;
 using reader = io::buffer_instream;
 using writer = io::buffer_outstream;
 #if SPIO_USE_FMT
-template struct io::custom_write<int>;
+template struct io::custom_type<int>;
 #endif
 
 #if defined(__clang__)

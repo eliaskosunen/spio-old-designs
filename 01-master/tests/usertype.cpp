@@ -47,9 +47,15 @@ struct ostream_type {
     }
 };
 
-namespace io {
 template <>
-struct custom_write<my_type> {
+struct io::custom_type<my_type> {
+    template <typename Reader>
+    static bool read(Reader& w, my_type& val, reader_options<my_type> opt)
+    {
+        SPIO_UNUSED(opt);
+        return w.scan("{} {}", val.a, val.b);
+    }
+
     template <typename Writer>
     static bool write(Writer& w,
                       const my_type& val,
@@ -59,17 +65,6 @@ struct custom_write<my_type> {
         return w.print("[my_type: a={}, b={}]", val.a, val.b);
     }
 };
-
-template <>
-struct custom_read<my_type> {
-    template <typename Reader>
-    static bool read(Reader& w, my_type& val, reader_options<my_type> opt)
-    {
-        SPIO_UNUSED(opt);
-        return w.scan("{} {}", val.a, val.b);
-    }
-};
-}  // namespace io
 
 TEST_CASE("usertype")
 {
