@@ -43,14 +43,14 @@ struct type {
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
         CHECK_READER("type<>::read<T>");
-        return custom_read<T>::read(p, val, opt);
+        return custom_type<T>::read(p, val, opt);
     }
 
     template <typename Writer>
     static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
         CHECK_WRITER("type<>::write<T>");
-        return custom_write<T>::write(w, val, opt);
+        return custom_type<T>::write(w, val, opt);
     }
 };
 
