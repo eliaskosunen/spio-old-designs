@@ -28,18 +28,30 @@
 
 namespace io {
 template <typename T>
-struct custom_read;
+struct disable_read {
+    template <typename Reader,
+              typename = std::enable_if_t<is_reader<Reader>::value>>
+    static bool read(Reader& p, T& val, reader_options<T> opt) = delete;
+};
 
 template <typename T>
-struct custom_write;
+struct disable_write {
+    template <typename Writer,
+              typename = std::enable_if_t<is_writer<Writer>::value>>
+    static bool write(Writer& p, const T& val, reader_options<T> opt) = delete;
+};
+
+template <typename T>
+struct custom_type;
 
 #if SPIO_USE_FMT
 template <typename T>
-struct custom_write {
+struct custom_type : disable_read<T> {
     template <typename Writer>
     static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
         SPIO_UNUSED(opt);
+        /* const auto str = fmt::to_string(val); */
         const auto str = fmt::format("{}", val);
         return w.write(
             make_span(str.c_str(), static_cast<extent_t>(str.size())));
@@ -132,12 +144,8 @@ struct growable_read {
 
 #if SPIO_USE_STL
 template <typename CharT, typename Allocator>
-struct custom_read<std::basic_string<CharT, Allocator>>
+struct custom_type<std::basic_string<CharT, Allocator>>
     : public growable_read<std::basic_string<CharT, Allocator>> {
-};
-
-template <typename CharT, typename Allocator>
-struct custom_write<std::basic_string<CharT, Allocator>> {
     using type = std::basic_string<CharT, Allocator>;
 
     template <typename Writer>
