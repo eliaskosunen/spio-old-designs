@@ -38,26 +38,40 @@ template <typename T>
 struct disable_write {
     template <typename Writer,
               typename = std::enable_if_t<is_writer<Writer>::value>>
-    static bool write(Writer& p, const T& val, reader_options<T> opt) = delete;
+    static bool write(Writer& w, const T& val, writer_options<T> opt) = delete;
 };
 
 template <typename T>
-struct custom_type;
+struct default_read {
+    template <typename Reader,
+              typename = std::enable_if_t<is_reader<Reader>::value>>
+    static bool read(Reader& p, T& val, reader_options<T> opt)
+    {
+        SPIO_UNUSED(opt);
+        return p.read(val);
+    }
+};
 
-#if SPIO_USE_FMT
 template <typename T>
-struct custom_type : disable_read<T> {
-    template <typename Writer>
+struct default_write {
+    template <typename Writer,
+              typename = std::enable_if_t<is_writer<Writer>::value>>
     static bool write(Writer& w, const T& val, writer_options<T> opt)
     {
         SPIO_UNUSED(opt);
-        /* const auto str = fmt::to_string(val); */
+#if SPIO_USE_FMT
         const auto str = fmt::format("{}", val);
         return w.write(
             make_span(str.c_str(), static_cast<extent_t>(str.size())));
+#else
+        return w.write(val);
+#endif
     }
 };
-#endif
+
+template <typename T>
+struct custom_type : disable_read<T>, default_write<T> {
+};
 
 template <typename Container,
           typename = void_t<decltype(std::declval<Container>().begin()),

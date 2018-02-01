@@ -22,6 +22,10 @@
 #ifndef SPIO_SPAN_H
 #define SPIO_SPAN_H
 
+#if !SPIO_USE_EXCEPTIONS
+#define SPAN_NOTHROW
+#endif
+
 #define SPAN_BYTE_USE_UCHAR 1
 #include "span/span/span.h"
 
