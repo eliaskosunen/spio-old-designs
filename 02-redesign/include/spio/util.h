@@ -283,10 +283,14 @@ private:
     template <typename F>
     locked_stream _do_lock(F&& fn)
     {
-        try {
+        auto _do = [&]() {
             auto s = _get_locked();
             fn(s);
             return s;
+        };
+#if SPIO_USE_EXCEPTIONS
+        try {
+            return _do();
         }
         catch (std::system_error& e) {
             assert(e.code() != std::errc::operation_not_permitted);
@@ -297,6 +301,9 @@ private:
             SPIO_RETHROW;
         }
         SPIO_THROW(logic_error, "Unreachable in lockable_stream::_do_lock");
+#else
+        return _do();
+#endif
     }
 
     T m_stream;
