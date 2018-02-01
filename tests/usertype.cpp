@@ -47,8 +47,9 @@ struct ostream_type {
     }
 };
 
+namespace io {
 template <>
-struct io::custom_type<my_type> {
+struct custom_type<my_type> {
     template <typename Reader>
     static bool read(Reader& w, my_type& val, reader_options<my_type> opt)
     {
@@ -65,6 +66,7 @@ struct io::custom_type<my_type> {
         return w.print("[my_type: a={}, b={}]", val.a, val.b);
     }
 };
+}  // namespace io
 
 TEST_CASE("usertype")
 {
