@@ -560,7 +560,7 @@ inline void unbuf_native_filehandle::close()
     assert(good());
     auto ret = ::close(get());
     if (ret == -1) {
-        auto code = [&]() {
+        const auto code = [&]() {
             assert(errno != EBADF);
             if (errno == EIO) {
                 return io_error;
