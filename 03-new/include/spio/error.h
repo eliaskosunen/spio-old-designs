@@ -201,6 +201,7 @@ class failure {
     assert(false && ec.to_string()); \
     std::terminate()
 #define SPIO_THROW(ec, msg) \
+    SPIO_UNUSED(ec);        \
     assert(false && (msg)); \
     std::terminate()
 #define SPIO_THROW_FAILURE(f)    \
