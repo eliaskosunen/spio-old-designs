@@ -560,7 +560,7 @@ inline void unbuf_native_filehandle::close()
     assert(good());
     auto ret = ::close(get());
     if (ret == -1) {
-        auto code = [&]() {
+        const auto code = [&]() {
             assert(errno != EBADF);
             if (errno == EIO) {
                 return io_error;
@@ -649,7 +649,7 @@ inline os_filehandle::handle_type unbuf_native_filehandle::s_open(
         open_type |= CREATE_ALWAYS;
     }
     return ::CreateFile(filename, open_type, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                        nullptr, open_flags, FILE_ATTRIBUTE_NORMAL, NULL);
+                        nullptr, open_flags, FILE_ATTRIBUTE_NORMAL, nullptr);
 }
 inline bool unbuf_native_filehandle::open(const char* file,
                                           uint32_t mode,

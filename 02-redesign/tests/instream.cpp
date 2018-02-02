@@ -76,6 +76,7 @@ TEST_CASE("instream int")
         p.read(val);
         CHECK(val == -273);
     }
+#if SPIO_USE_EXCEPTIONS
     SUBCASE("error")
     {
         std::string buf = "foo";
@@ -85,6 +86,7 @@ TEST_CASE("instream int")
         int val;
         CHECK_THROWS_AS(p.read(val), io::failure);
     }
+#endif
 }
 TEST_CASE("instream uint")
 {
@@ -98,6 +100,7 @@ TEST_CASE("instream uint")
         p.read(val);
         CHECK(val == 123);
     }
+#if SPIO_USE_EXCEPTIONS
     SUBCASE("signed")
     {
         std::string buf = "-273";
@@ -116,6 +119,7 @@ TEST_CASE("instream uint")
         uint32_t val;
         CHECK_THROWS_AS(p.read(val), io::failure);
     }
+#endif
 }
 TEST_CASE("instream float")
 {
@@ -129,6 +133,7 @@ TEST_CASE("instream float")
         p.read(val);
         CHECK(val == doctest::Approx(3.14));
     }
+#if SPIO_USE_EXCEPTIONS
     SUBCASE("error")
     {
         std::string buf = "foo";
@@ -138,6 +143,7 @@ TEST_CASE("instream float")
         double val;
         CHECK_THROWS_AS(p.read(val), io::failure);
     }
+#endif
 }
 TEST_CASE("instream string")
 {

@@ -30,8 +30,8 @@ TEST_CASE("error")
         CHECK(!e);
         CHECK(e.operator bool() == e.is_error());
         CHECK(!e.is_eof());
-		CHECK_EQ(std::strcmp(e.message(), e.to_string()), 0);
-		CHECK_EQ(std::strcmp(e.message(), "Success"), 0);
+        CHECK_EQ(std::strcmp(e.message(), e.to_string()), 0);
+        CHECK_EQ(std::strcmp(e.message(), "Success"), 0);
     }
     SUBCASE("io_error")
     {
@@ -39,8 +39,8 @@ TEST_CASE("error")
         CHECK(e);
         CHECK(e.operator bool() == e.is_error());
         CHECK(!e.is_eof());
-		CHECK_EQ(std::strcmp(e.message(), e.to_string()), 0);
-		CHECK_EQ(std::strcmp(e.message(), "IO error"), 0);
+        CHECK_EQ(std::strcmp(e.message(), e.to_string()), 0);
+        CHECK_EQ(std::strcmp(e.message(), "IO error"), 0);
     }
     SUBCASE("end_of_file")
     {
@@ -48,11 +48,12 @@ TEST_CASE("error")
         CHECK(!e);
         CHECK(e.operator bool() == e.is_error());
         CHECK(e.is_eof());
-		CHECK_EQ(std::strcmp(e.message(), e.to_string()), 0);
-		CHECK_EQ(std::strcmp(e.message(), "EOF"), 0);
+        CHECK_EQ(std::strcmp(e.message(), e.to_string()), 0);
+        CHECK_EQ(std::strcmp(e.message(), "EOF"), 0);
     }
 }
 
+#if SPIO_USE_EXCEPTIONS
 TEST_CASE("failure")
 {
     auto file = __FILE__;
@@ -105,3 +106,4 @@ TEST_CASE("throw macros")
         }
     }
 }
+#endif
