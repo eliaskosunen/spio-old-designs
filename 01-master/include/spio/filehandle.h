@@ -482,17 +482,8 @@ public:
     std::size_t read(writable_byte_span data);
     std::size_t write(const_byte_span data);
 
-    [[noreturn]] bool seek(seek_origin origin, seek_type offset)
-    {
-        SPIO_UNUSED(origin);
-        SPIO_UNUSED(offset);
-        SPIO_UNIMPLEMENTED;
-    }
-    [[noreturn]] bool tell(seek_type& pos)
-    {
-        SPIO_UNUSED(pos);
-        SPIO_UNIMPLEMENTED;
-    }
+    bool seek(seek_origin origin, seek_type offset);
+    bool tell(seek_type& pos);
 
 protected:
     bool _set_buffering(filebuffer& buf)
@@ -622,6 +613,23 @@ inline std::size_t unbuf_native_filehandle::write(const_byte_span data)
     }
     return static_cast<std::size_t>(ret);
 }
+
+inline bool unbuf_native_filehandle::seek(seek_origin origin, seek_type offset)
+{
+    assert(good());
+    return ::lseek(get(), static_cast<off_t>(offset),
+                   static_cast<int>(origin)) != -1;
+}
+inline bool unbuf_native_filehandle::tell(seek_type& pos)
+{
+    assert(good());
+    auto ret = ::lseek(get(), 0, SEEK_CUR);
+    if (ret == -1) {
+        return false;
+    }
+    pos = static_cast<seek_type>(ret);
+    return true;
+}
 #elif SPIO_WIN32
 inline os_filehandle::handle_type unbuf_native_filehandle::s_open(
     const char* filename,
@@ -744,8 +752,8 @@ using stdio_filehandle = basic_buffered_filehandle<unbuf_stdio_filehandle>;
 
 #if SPIO_HAS_NATIVE_FILEIO
 using native_filehandle = basic_buffered_filehandle<unbuf_native_filehandle>;
-/* using filehandle = native_filehandle; */
-using filehandle = stdio_filehandle;
+using filehandle = native_filehandle;
+/* using filehandle = stdio_filehandle; */
 #else
 using filehandle = stdio_filehandle;
 #endif
