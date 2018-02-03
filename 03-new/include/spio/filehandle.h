@@ -617,8 +617,17 @@ inline std::size_t unbuf_native_filehandle::write(const_byte_span data)
 inline bool unbuf_native_filehandle::seek(seek_origin origin, seek_type offset)
 {
     assert(good());
-    return ::lseek(get(), static_cast<off_t>(offset),
-                   static_cast<int>(origin)) != -1;
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wuseless-cast"
+#endif
+    auto off = static_cast<off_t>(offset);
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+    return ::lseek(get(), off, static_cast<int>(origin)) != -1;
 }
 inline bool unbuf_native_filehandle::tell(seek_type& pos)
 {
@@ -627,7 +636,16 @@ inline bool unbuf_native_filehandle::tell(seek_type& pos)
     if (ret == -1) {
         return false;
     }
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wuseless-cast"
+#endif
     pos = static_cast<seek_type>(ret);
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
     return true;
 }
 #elif SPIO_WIN32
@@ -744,6 +762,38 @@ inline std::size_t unbuf_native_filehandle::write(const_byte_span data)
         return 0;
     }
     return bytes_written;
+}
+
+namespace detail {
+    inline constexpr DWORD win32_move_method(seek_origin o)
+    {
+        switch (o) {
+            case seek_origin::CUR:
+                return FILE_CURRENT;
+            case seek_origin::END:
+                return FILE_END;
+            case seek_origin::SET:
+            default:
+                return FILE_BEGIN;
+        }
+    }
+}  // namespace detail
+inline bool unbuf_native_filehandle::seek(seek_origin origin, seek_type offset)
+{
+    assert(good());
+    return ::SetFilePointer(get(), static_cast<LONG>(offset), nullptr,
+                            detail::win32_move_method(origin)) !=
+           INVALID_SET_FILE_POINTER;
+}
+inline bool unbuf_native_filehandle::tell(seek_type& pos)
+{
+    assert(good());
+    auto ret = ::SetFilePointer(get(), 0, nullptr, FILE_CURRENT);
+    if (ret == INVALID_SET_FILE_POINTER) {
+        return false;
+    }
+    pos = static_cast<seek_type>(ret);
+    return true;
 }
 #endif
 #endif  // SPIO_HAS_NATIVE_FILEIO
