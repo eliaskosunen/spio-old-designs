@@ -29,6 +29,21 @@ inline bool is_eof(error c)
     return c.is_eof();
 }
 
+template <typename Dest, typename Source>
+Dest bit_cast(const Source& s)
+{
+    static_assert(sizeof(Dest) == sizeof(Source),
+                  "bit_cast<>: sizeof Dest and Source must be equal");
+    static_assert(std::is_trivially_copyable<Dest>::value,
+                  "bit_cast<>: Dest must be TriviallyCopyable");
+    static_assert(std::is_trivially_copyable<Source>::value,
+                  "bit_cast<>: Source must be TriviallyCopyable");
+
+    Dest d;
+    std::memcpy(&d, &s, sizeof(Dest));
+    return d;
+}
+
 template <typename InputIt>
 constexpr std::size_t distance_nonneg(InputIt first, InputIt last)
 {
@@ -186,8 +201,8 @@ namespace detail {
         else {
 #ifdef _MSC_VER
             return stl::array<long double, 9>{{10.l, 100.l, 1.0e4l, 1.0e8l,
-                                                1.0e16l, 1.0e32l, 1.0e64l,
-                                                1.0e128l, 1.0e256l}};
+                                               1.0e16l, 1.0e32l, 1.0e64l,
+                                               1.0e128l, 1.0e256l}};
 #else
             return stl::array<long double, 11>{
                 {10.l, 100.l, 1.0e4l, 1.0e8l, 1.0e16l, 1.0e32l, 1.0e64l,
