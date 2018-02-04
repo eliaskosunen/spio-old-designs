@@ -81,23 +81,17 @@ struct type<
     }
 };
 
-template <typename T>
-struct type<T,
-            std::enable_if_t<contains<std::decay_t<typename T::element_type>,
-                                      char,
-                                      wchar_t,
-                                      unsigned char,
-                                      signed char,
-                                      char16_t,
-                                      char32_t>::value>> {
+template <typename T, extent_t N>
+struct type<span<T, N>> {
+    using span_type = span<T, N>;
+
     template <typename Reader>
-    static bool read(Reader& p, T val, reader_options<T> opt)
+    static std::enable_if_t<std::is_same<T, typename Reader::char_type>::value,
+                            bool>
+    read(Reader& p, span_type val, reader_options<span_type> opt)
     {
         CHECK_READER("type<span<Char>>::read<T>");
         using char_type = typename Reader::char_type;
-        span<char_type> s =
-            make_span(reinterpret_cast<char_type*>(&val[0]),
-                      val.size_bytes() / quantity_type{sizeof(char_type)});
 
         char_type ch{};
         while (p.get(ch)) {
@@ -111,7 +105,7 @@ struct type<T,
         }
 
         if (opt.readall) {
-            stl::vector<char_type> str(s.size_us(), '\0');
+            stl::vector<char_type> str(val.size_us(), '\0');
             auto strspan = make_span(str);
             p.read_raw(strspan);
             const auto str_len = stl::strlen(strspan);
@@ -125,7 +119,8 @@ struct type<T,
             }();
             auto bytespan =
                 as_bytes(make_span(strspan.begin(), strspan.begin() + end));
-            stl::copy(bytespan.begin(), bytespan.end(), as_writable_bytes(s).begin());
+            stl::copy(bytespan.begin(), bytespan.end(),
+                      as_writable_bytes(val).begin());
             if (end + 1 < str_len) {
                 auto push_span = make_span(strspan.begin() + end + 1,
                                            strspan.begin() + str_len);
@@ -145,7 +140,7 @@ struct type<T,
     }
 
     template <typename Writer>
-    static bool write(Writer& w, T val, writer_options<T> opt)
+    static bool write(Writer& w, span_type val, writer_options<span_type> opt)
     {
         CHECK_WRITER("type<span<Char>>::write<T>");
         SPIO_UNUSED(opt);
@@ -588,7 +583,7 @@ struct type<void*> {
 
         writer_options<std::uintptr_t> o;
         o.base = 16;
-        return w.write(reinterpret_cast<std::uintptr_t>(val), o);
+        return w.write(bit_cast<std::uintptr_t>(val), o);
     }
 };
 

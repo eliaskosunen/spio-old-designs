@@ -91,9 +91,9 @@ public:
         reader_options<span<T, N>> opt = {make_span<1>(&delim)};
         return read(s, opt);
     }
-    template <typename T,
-              typename = std::enable_if_t<is_growable_read_container<T>::value>>
-    basic_instream& getline(T& s, char_type delim = char_type{'\n'});
+    template <typename T>
+    std::enable_if_t<is_growable_read_container<T>::value, basic_instream>&
+    getline(T& s, char_type delim = char_type{'\n'});
 
     template <typename ElementT = char_type>
     basic_instream& ignore(std::size_t count = 1)
@@ -149,8 +149,8 @@ public:
         return *this;
     }
 
-    template <typename = std::enable_if_t<!std::is_const<readable_type>::value>>
-    readable_type& get_readable()
+    std::enable_if_t<!std::is_const<readable_type>::value, readable_type>&
+    get_readable()
     {
         return m_readable;
     }
