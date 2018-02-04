@@ -40,9 +40,9 @@ public:
 
     explicit basic_outstream(writable_type w) : m_writable(std::move(w)) {}
 
-    template <typename T,
-              typename = std::enable_if_t<!detail::check_string_tag<T>::value>>
-    basic_outstream& write(const T& elem, writer_options<T> opt = {})
+    template <typename T>
+    std::enable_if_t<!detail::check_string_tag<T>::value, basic_outstream>&
+    write(const T& elem, writer_options<T> opt = {})
     {
         if (m_eof) {
             SPIO_THROW(end_of_file, "io::writer::write: EOF reached");
@@ -51,9 +51,9 @@ public:
         return *this;
     }
 #ifndef _MSC_VER  // Visual Studio really can't handle templates
-    template <typename T,
-              typename = std::enable_if_t<detail::check_string_tag<T>::value>>
-    basic_outstream& write(T elem, writer_options<T> opt = {})
+    template <typename T>
+    std::enable_if_t<detail::check_string_tag<T>::value, basic_outstream>&
+    write(T elem, writer_options<T> opt = {})
     {
         if (m_eof) {
             SPIO_THROW(end_of_file, "io::writer::write: EOF reached");
@@ -62,12 +62,10 @@ public:
             !type<detail::string_tag<T>>::write(*this, elem, std::move(opt));
         return *this;
     }
-    template <typename T,
-              std::size_t N = 0,
-              typename = std::enable_if_t<
-                  detail::check_string_tag<const T (&)[N], N>::value>>
-    basic_outstream& write(const T (&elem)[N],
-                           writer_options<const T (&)[N]> opt = {})
+    template <typename T, std::size_t N = 0>
+    std::enable_if_t<detail::check_string_tag<const T (&)[N], N>::value,
+                     basic_outstream>&
+    write(const T (&elem)[N], writer_options<const T (&)[N]> opt = {})
     {
         if (m_eof) {
             SPIO_THROW(end_of_file, "io::writer::write: EOF reached");
@@ -144,8 +142,8 @@ public:
     }
 #endif
 
-    template <typename = std::enable_if_t<!std::is_const<writable_type>::value>>
-    writable_type& get_writable()
+    std::enable_if_t<!std::is_const<writable_type>::value, writable_type>&
+    get_writable()
     {
         return m_writable;
     }

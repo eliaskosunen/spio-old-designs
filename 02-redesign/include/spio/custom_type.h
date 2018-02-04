@@ -29,23 +29,21 @@
 namespace io {
 template <typename T>
 struct disable_read {
-    template <typename Reader,
-              typename = std::enable_if_t<is_reader<Reader>::value>>
+    template <typename Reader>
     static bool read(Reader& p, T& val, reader_options<T> opt) = delete;
 };
 
 template <typename T>
 struct disable_write {
-    template <typename Writer,
-              typename = std::enable_if_t<is_writer<Writer>::value>>
+    template <typename Writer>
     static bool write(Writer& w, const T& val, writer_options<T> opt) = delete;
 };
 
 template <typename T>
 struct default_read {
-    template <typename Reader,
-              typename = std::enable_if_t<is_reader<Reader>::value>>
-    static bool read(Reader& p, T& val, reader_options<T> opt)
+    template <typename Reader>
+    static std::enable_if_t<is_reader<Reader>::value, bool>
+    read(Reader& p, T& val, reader_options<T> opt)
     {
         SPIO_UNUSED(opt);
         return p.read(val);
@@ -54,9 +52,9 @@ struct default_read {
 
 template <typename T>
 struct default_write {
-    template <typename Writer,
-              typename = std::enable_if_t<is_writer<Writer>::value>>
-    static bool write(Writer& w, const T& val, writer_options<T> opt)
+    template <typename Writer>
+    static std::enable_if_t<is_writer<Writer>::value, bool>
+    write(Writer& w, const T& val, writer_options<T> opt)
     {
         SPIO_UNUSED(opt);
 #if SPIO_USE_FMT
@@ -86,9 +84,9 @@ template <typename Container,
 struct growable_read {
     using type = Container;
 
-    template <typename Reader,
-              typename = std::enable_if_t<is_reader<Reader>::value>>
-    static bool read(Reader& p, Container& val, reader_options<Container> opt)
+    template <typename Reader>
+    static std::enable_if_t<is_reader<Reader>::value, bool>
+    read(Reader& p, Container& val, reader_options<Container> opt)
     {
         SPIO_UNUSED(opt);
         if (val.empty()) {
@@ -163,7 +161,8 @@ struct custom_type<std::basic_string<CharT, Allocator>>
     using type = std::basic_string<CharT, Allocator>;
 
     template <typename Writer>
-    static bool write(Writer& p, const type& val, writer_options<type> opt)
+    static std::enable_if_t<is_writer<Writer>::value, bool>
+    write(Writer& p, const type& val, writer_options<type> opt)
     {
         SPIO_UNUSED(opt);
         return p.write(
