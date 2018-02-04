@@ -508,6 +508,9 @@ constexpr void int_to_char(IntT value, span<CharT> result, int base = 10);
 
 template <typename IntT>
 constexpr int max_digits() noexcept;
+
+template <typename Dest, typename Source>
+Dest bit_cast(const Source& s);
 }  // namespace io
 
 #include "util.impl.h"
