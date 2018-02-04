@@ -669,12 +669,12 @@ inline os_filehandle::handle_type unbuf_native_filehandle::s_open(
     }
     DWORD open_flags = 0;
     if (a) {
-        open_type |= OPEN_ALWAYS;
+        open_flags |= OPEN_ALWAYS;
     }
     else {
-        open_type |= CREATE_ALWAYS;
+        open_flags |= CREATE_ALWAYS;
     }
-    return ::CreateFile(filename, open_type, FILE_SHARE_READ | FILE_SHARE_WRITE,
+    return ::CreateFileA(filename, open_type, FILE_SHARE_READ | FILE_SHARE_WRITE,
                         nullptr, open_flags, FILE_ATTRIBUTE_NORMAL, nullptr);
 }
 inline bool unbuf_native_filehandle::open(const char* file,

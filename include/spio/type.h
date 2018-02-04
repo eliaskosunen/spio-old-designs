@@ -381,7 +381,14 @@ struct type<T,
                 }
             }
             if (sign) {
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4146)
+#endif
                 tmp = -tmp;
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
             }
         }
 
