@@ -62,7 +62,7 @@ struct is_readable<T,
 
 template <typename CharT,
           typename FileHandle = filehandle,
-          typename Alloc = stl::allocator<CharT>>
+          typename Alloc = std::allocator<CharT>>
 class basic_readable_file {
 public:
     using value_type = CharT;
@@ -89,21 +89,21 @@ public:
     ~basic_readable_file() noexcept = default;
 
     template <typename T, extent_t N>
-    error read(span<T, N> buf);
+    std::error_code read(span<T, N> buf);
     template <typename T, extent_t N>
-    error read(span<T, N> buf, characters length);
+    std::error_code read(span<T, N> buf, characters length);
     template <typename T, extent_t N>
-    error read(span<T, N> buf, elements length);
+    std::error_code read(span<T, N> buf, elements length);
     template <typename T, extent_t N>
-    error read(span<T, N> buf, bytes length);
+    std::error_code read(span<T, N> buf, bytes length);
     template <typename T, extent_t N>
-    error read(span<T, N> buf, bytes_contiguous length);
-    error read(CharT& c);
+    std::error_code read(span<T, N> buf, bytes_contiguous length);
+    std::error_code read(CharT& c);
 
-    error skip();
+    std::error_code skip();
 
-    error seek(seek_origin origin, seek_type offset);
-    error tell(seek_type& pos);
+    std::error_code seek(seek_origin origin, seek_type offset);
+    std::error_code tell(seek_type& pos);
 
     bool is_overreadable() const
     {
@@ -121,7 +121,8 @@ public:
     }
 
 private:
-    error get_error(quantity_type read_count, quantity_type expected) const;
+    std::error_code get_error(quantity_type read_count,
+                              quantity_type expected) const;
 
     FileHandle* m_file{};
 };
@@ -154,32 +155,32 @@ public:
     constexpr basic_readable_buffer& operator=(
         basic_readable_buffer&& other) noexcept
     {
-        auto n = stl::distance(other.m_buffer.begin(), other.m_it);
+        auto n = std::distance(other.m_buffer.begin(), other.m_it);
         m_buffer = std::move(other.m_buffer);
         m_it = m_buffer.begin();
-        stl::advance(m_it, n);
+        std::advance(m_it, n);
         return *this;
     }
     ~basic_readable_buffer() noexcept = default;
 
     template <typename T, extent_t N>
-    error read(span<T, N> buf);
+    std::error_code read(span<T, N> buf);
     template <typename T, extent_t N>
-    error read(span<T, N> buf, characters length);
+    std::error_code read(span<T, N> buf, characters length);
     template <typename T, extent_t N>
-    error read(span<T, N> buf, elements length);
+    std::error_code read(span<T, N> buf, elements length);
     template <typename T, extent_t N>
-    error read(span<T, N> buf, bytes length);
+    std::error_code read(span<T, N> buf, bytes length);
     template <typename T, extent_t N>
-    error read(span<T, N> buf, bytes_contiguous length);
-    error read(CharT& c);
+    std::error_code read(span<T, N> buf, bytes_contiguous length);
+    std::error_code read(CharT& c);
 
-    error skip();
+    std::error_code skip();
 
-    error rewind(typename buffer_type::difference_type steps = 1);
+    std::error_code rewind(typename buffer_type::difference_type steps = 1);
 
-    error seek(seek_origin origin, seek_type offset);
-    error tell(seek_type& pos);
+    std::error_code seek(seek_origin origin, seek_type offset);
+    std::error_code tell(seek_type& pos);
 
     bool is_overreadable() const
     {

@@ -24,11 +24,6 @@
 #include "util.h"
 
 namespace io {
-inline bool is_eof(error c)
-{
-    return c.is_eof();
-}
-
 template <typename Dest, typename Source>
 Dest bit_cast(const Source& s)
 {
@@ -63,7 +58,7 @@ constexpr bool is_space(CharT c, span<CharT> spaces)
         //       space         \n        \t         \r         \v
         return c == 32 || c == 10 || c == 9 || c == 13 || c == 11;
     }
-    return stl::find(spaces.begin(), spaces.end(), c) != spaces.end();
+    return std::find(spaces.begin(), spaces.end(), c) != spaces.end();
 }
 
 template <typename CharT>
@@ -133,8 +128,7 @@ namespace detail {
         }
 
         auto reverse = [](CharT* str) {
-            for (std::ptrdiff_t i = 0, j = stl::strlen(str) - 1; i < j;
-                 i++, j--) {
+            for (std::ptrdiff_t i = 0, j = strlen(str) - 1; i < j; i++, j--) {
                 CharT tmp = str[i];
                 str[i] = str[j];
                 str[j] = tmp;
@@ -191,20 +185,20 @@ namespace detail {
     {
         using T = std::decay_t<FloatingT>;
         if constexpr (is_same<T, float>()) {
-            return stl::array<float, 6>{
+            return std::array<float, 6>{
                 {10.f, 100.f, 1.0e4f, 1.0e8f, 1.0e16f, 1.0e32f}};
         }
         if constexpr (is_same<T, double>()) {
-            return stl::array<double, 9>{{10., 100., 1.0e4, 1.0e8, 1.0e16,
+            return std::array<double, 9>{{10., 100., 1.0e4, 1.0e8, 1.0e16,
                                           1.0e32, 1.0e64, 1.0e128, 1.0e256}};
         }
         else {
 #ifdef _MSC_VER
-            return stl::array<long double, 9>{{10.l, 100.l, 1.0e4l, 1.0e8l,
+            return std::array<long double, 9>{{10.l, 100.l, 1.0e4l, 1.0e8l,
                                                1.0e16l, 1.0e32l, 1.0e64l,
                                                1.0e128l, 1.0e256l}};
 #else
-            return stl::array<long double, 11>{
+            return std::array<long double, 11>{
                 {10.l, 100.l, 1.0e4l, 1.0e8l, 1.0e16l, 1.0e32l, 1.0e64l,
                  1.0e128l, 1.0e256l, 1.0e512l, 1.0e1024l}};
 #endif
@@ -230,11 +224,11 @@ namespace detail {
     constexpr auto powersOf10()
     {
 #ifdef _MSC_VER
-        return stl::array<long double, 11>{{10.l, 100.l, 1.0e4l, 1.0e8l,
+        return std::array<long double, 11>{{10.l, 100.l, 1.0e4l, 1.0e8l,
                                             1.0e16l, 1.0e32l, 1.0e64l, 1.0e128l,
                                             1.0e256l}};
 #else
-        return stl::array<long double, 11>{{10.l, 100.l, 1.0e4l, 1.0e8l,
+        return std::array<long double, 11>{{10.l, 100.l, 1.0e4l, 1.0e8l,
                                             1.0e16l, 1.0e32l, 1.0e64l, 1.0e128l,
                                             1.0e256l, 1.0e512l, 1.0e1024l}};
 #endif
@@ -242,13 +236,13 @@ namespace detail {
     template <>
     constexpr auto powersOf10<float>()
     {
-        return stl::array<float, 6>{
+        return std::array<float, 6>{
             {10.f, 100.f, 1.0e4f, 1.0e8f, 1.0e16f, 1.0e32f}};
     }
     template <>
     constexpr auto powersOf10<double>()
     {
-        return stl::array<double, 9>{{10., 100., 1.0e4, 1.0e8, 1.0e16, 1.0e32,
+        return std::array<double, 9>{{10., 100., 1.0e4, 1.0e8, 1.0e16, 1.0e32,
                                       1.0e64, 1.0e128, 1.0e256}};
     }
 

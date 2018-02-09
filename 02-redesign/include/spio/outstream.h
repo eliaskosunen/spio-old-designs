@@ -87,12 +87,12 @@ public:
         if (m_eof) {
             SPIO_THROW(end_of_file, "io::writer::write: EOF reached");
         }
-        auto error = m_writable.write(elems);
-        if (error.is_eof()) {
-            m_eof = true;
-        }
-        if (error) {
-            SPIO_THROW_EC(error);
+        if (auto e = m_writable.write(elems)) {
+            if (is_eof(e)) {
+                m_eof = true;
+                return *this;
+            }
+            SPIO_THROW_EC(e);
         }
         return *this;
     }
@@ -103,9 +103,8 @@ public:
     }
     basic_outstream& flush()
     {
-        auto error = get_writable().flush();
-        if (error) {
-            SPIO_THROW_EC(error);
+        if (auto e = get_writable().flush()) {
+            SPIO_THROW_EC(e);
         }
         return *this;
     }

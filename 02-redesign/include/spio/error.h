@@ -22,172 +22,143 @@
 #define SPIO_ERROR_H
 
 #include "config.h"
-#include "stl.h"
+#include "fmt.h"
 
-#if SPIO_USE_EXCEPTIONS
-#include <exception>
-#include <string>
-#include <system_error>
-#endif
 #include <cassert>
 #include <cerrno>
+#include <exception>
+#include <stdexcept>
+#include <string>
+#include <system_error>
 
 namespace io {
-enum error_code {
-    no_error = 0,
-    invalid_argument,
+enum error {
     invalid_input,
     invalid_operation,
-    io_error,
     assertion_failure,
     end_of_file,
-    logic_error,
     unimplemented,
-    default_error,
-    unknown_error
+    unreachable,
+    undefined_error
 };
+}
 
-struct error {
-    error() = default;
-    error(error_code c) : code(c) {}
+namespace std {
+template <>
+struct is_error_condition_enum<io::error> : true_type {
+};
+}  // namespace std
 
-    constexpr bool is_error() const
+namespace io {
+struct error_category : public std::error_category {
+    const char* name() const noexcept override
     {
-        return code != no_error && !is_eof();
-    }
-    constexpr bool is_eof() const
-    {
-        return code == end_of_file;
-    }
-
-    constexpr operator bool() const
-    {
-        return is_error();
+        return "spio";
     }
 
-    constexpr const char* to_string() const
+    std::string message(int ev) const override
     {
-        switch (code) {
-            case no_error:
-                return "Success";
-            case invalid_argument:
-                return "Invalid argument";
+        switch (static_cast<error>(ev)) {
             case invalid_input:
                 return "Invalid input";
             case invalid_operation:
                 return "Invalid operation";
-            case io_error:
-                return "IO error";
             case assertion_failure:
                 return "Assertion failure";
             case end_of_file:
                 return "EOF";
-            case logic_error:
-                return "Logic error";
             case unimplemented:
                 return "Unimplemented";
-            case default_error:
-                return "Default error";
-            case unknown_error:
-                return "Unknown error";
+            case unreachable:
+                return "Unreachable code";
+            case undefined_error:
+                return "[undefined error]";
         }
-        return "";
+        assert(false);
     }
-    constexpr const char* message() const
+
+    bool equivalent(const std::error_code& code, int condition) const
+        noexcept override
     {
-        return to_string();
+        SPIO_UNUSED(code);
+        SPIO_UNUSED(condition);
+        return false;
     }
-
-    error_code code{no_error};
 };
-#if SPIO_USE_EXCEPTIONS
-class failure : public std::exception {
-#if SPIO_FAILURE_USE_STRING
-    struct storage {
-        storage(const char* m) : m_str(m) {}
-        storage(const char* m, std::size_t s) : m_str(m, s) {}
 
-        const char* what() const noexcept
-        {
-            return m_str.c_str();
-        }
-
-    private:
-        std::string m_str;
-    };
-#else
-    struct storage {
-        storage(const char* m) : storage(m, stl::strlen(n)) {}
-        storage(const char* m, std::size_t n)
-        {
-            assert(n < SPIO_FAILURE_STATIC_STORAGE);
-            stl::copy_n(m, n, m_str.begin());
-            m_str[n] = '\0';
-        }
-
-        const char* what() const noexcept
-        {
-            return &m_str[0];
-        }
-
-    private:
-        stl::array<char, SPIO_FAILURE_STATIC_STORAGE> m_str{};
-    };
+namespace detail {
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wexit-time-destructors"
 #endif
+    inline const error_category& get_error_category()
+    {
+        static error_category inst;
+        return inst;
+    }
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif
+}  // namespace detail
+
+inline std::error_code make_error_condition(error e)
+{
+    return {static_cast<int>(e), detail::get_error_category()};
+}
+
+inline bool is_eof(const std::error_code& e)
+{
+    return e == make_error_condition(end_of_file);
+}
+
+#if SPIO_WIN32
+#define SPIO_MAKE_ERRNO ::std::error_code(errno, ::std::generic_category())
+#define SPIO_MAKE_WIN32_ERROR \
+    ::std::error_code(::GetLastError(), ::std::system_category())
+#else
+#define SPIO_MAKE_ERRNO ::std::error_code(errno, ::std::system_category())
+#endif
+
+class failure : public std::system_error {
+    static std::string _stringify_loc(const std::string& desc,
+                                      const char* f,
+                                      int l)
+    {
+        return desc + fmt::format(" (in {}:{})", f, l);
+    }
+
 public:
-    explicit failure(error e, const char* file, int line)
-        : failure(e, e.to_string(), file, line)
+    failure(std::error_code c) : system_error(c) {}
+    failure(std::error_code c, const std::string& desc) : system_error(c, desc)
     {
     }
-    explicit failure(error e, const char* message, const char* file, int line)
-        : m_file(file), m_line(line), m_error(e), m_message(message)
-    {
-    }
-    explicit failure(error e,
-                     const char* message,
-                     std::size_t s,
-                     const char* file,
-                     int line)
-        : m_file(file), m_line(line), m_error(e), m_message(message, s)
+    failure(std::error_code c, const std::string& desc, const char* f, int l)
+        : system_error(c, _stringify_loc(desc, f, l))
     {
     }
 
-    failure(const failure&) = default;
-    failure& operator=(const failure&) = default;
-    failure(failure&&) = default;
-    failure& operator=(failure&&) = default;
-
-    virtual ~failure() noexcept override = default;
-
-    const char* what() const noexcept override
+    failure(error c)
+        : system_error(static_cast<int>(c), detail::get_error_category())
     {
-        return m_message.what();
     }
-
-    error get_error() const noexcept
+    failure(error c, const std::string& desc)
+        : system_error(static_cast<int>(c), detail::get_error_category(), desc)
     {
-        return m_error;
     }
-
-    const char* file() const noexcept
+    failure(error c, const std::string& desc, const char* f, int l)
+        : system_error(static_cast<int>(c),
+                       detail::get_error_category(),
+                       _stringify_loc(desc, f, l))
     {
-        return m_file;
     }
-    int line() const noexcept
-    {
-        return m_line;
-    }
-
-private:
-    const char* m_file;
-    int m_line;
-    error m_error;
-    storage m_message;
 };
 
+#if SPIO_USE_EXCEPTIONS
 #define SPIO_THROW_MSG(msg) \
     throw ::io::failure(::io::default_error, msg, __FILE__, __LINE__)
-#define SPIO_THROW_EC(ec) throw ::io::failure(ec, __FILE__, __LINE__)
+#define SPIO_THROW_EC(ec) throw ::io::failure(ec)
+#define SPIO_THROW_ERRNO \
+    throw ::io::failure(SPIO_MAKE_ERRNO, __FILE__, __LINE__)
 #define SPIO_THROW(ec, msg) throw ::io::failure(ec, msg, __FILE__, __LINE__)
 #define SPIO_THROW_FAILURE(f) throw f
 #define SPIO_RETHROW throw
@@ -197,15 +168,19 @@ class failure {
 #define SPIO_THROW_MSG(msg) \
     assert(false && (msg)); \
     std::terminate()
-#define SPIO_THROW_EC(ec)            \
-    assert(false && ec.to_string()); \
+#define SPIO_THROW_EC(ec) \
+    assert(false && ec);  \
+    std::terminate()
+#define SPIO_THROW_ERRNO    \
+    assert(false && errno); \
     std::terminate()
 #define SPIO_THROW(ec, msg) \
     SPIO_UNUSED(ec);        \
     assert(false && (msg)); \
     std::terminate()
-#define SPIO_THROW_FAILURE(f)    \
-    assert(false && (f.what())); \
+#define SPIO_THROW_FAILURE(f) \
+    SPIO_UNUSED(f);           \
+    assert(false);            \
     std::terminate()
 #define SPIO_RETHROW                                   \
     assert(false && "Rethrowing caught exception..."); \
@@ -224,7 +199,7 @@ class failure {
 #endif
 
 #define SPIO_UNIMPLEMENTED SPIO_THROW(::io::unimplemented, "Unimplemented")
-#define SPIO_UNUSED(x) (static_cast<void>(sizeof(x)))
+#define SPIO_UNREACHABLE SPIO_THROW(::io::unreachable, "Unreachable")
 }  // namespace io
 
 #endif  // SPIO_ERROR_H
