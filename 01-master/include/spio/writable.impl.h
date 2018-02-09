@@ -55,28 +55,22 @@ std::error_code basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
         "basic_writable_file<CharT>::write: T must be TriviallyCopyable");
 
     std::size_t bytes = 0;
-    const auto error = [&]() {
 #if SPIO_HAS_IF_CONSTEXPR
-        if constexpr (sizeof(CharT) == 1) {
+    if constexpr (sizeof(CharT) == 1) {
 #else
-        if (sizeof(CharT) == 1) {
+    if (sizeof(CharT) == 1) {
 #endif
-            return [&](std::size_t& b) {
-                return m_file->write(as_bytes(buf.first(length)), b);
-            };
+        if (auto e = m_file->write(as_bytes(buf.first(length)), bytes)) {
+            return e;
         }
-        else {
-            return [&](std::size_t& b) {
-                auto char_buf =
-                    as_bytes(buf).first(length * quantity_type{sizeof(T)});
-                auto e = m_file->write(char_buf, b);
-                b /= sizeof(T);
-                return e;
-            };
+    }
+    else {
+        auto char_buf = as_bytes(buf).first(length * quantity_type{sizeof(T)});
+        auto e = m_file->write(char_buf, bytes);
+        bytes /= sizeof(T);
+        if (e) {
+            return e;
         }
-    }()(bytes);
-    if (error) {
-        return error;
     }
     return get_error(static_cast<quantity_type>(bytes), length);
 }
