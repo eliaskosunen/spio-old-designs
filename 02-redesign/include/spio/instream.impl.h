@@ -92,14 +92,25 @@ void basic_instream<Readable>::push(span<T, N> elems)
 
 template <typename Readable>
 template <typename T>
-std::enable_if_t<is_growable_read_container<T>::value,
-                 basic_instream<Readable>>&
+std::enable_if_t<
+    is_growable_read_container<T>::value &&
+        std::is_same<typename T::value_type,
+                     typename basic_instream<Readable>::char_type>::value,
+    basic_instream<Readable>>&
 basic_instream<Readable>::getline(T& val, char_type delim)
 {
     struct getline_growable_read : public growable_read<T> {
     };
     span<char_type, 1> spaces{&delim, 1};
-    m_eof = !getline_growable_read::read(*this, val, {{spaces, false}});
+#if defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-braces"
+#endif
+    reader_options<std::remove_reference_t<T>> opt = {spaces, false};
+#if defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+    m_eof = !getline_growable_read::read(*this, val, opt);
     return *this;
 }
 
