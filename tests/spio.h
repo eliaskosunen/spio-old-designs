@@ -28,4 +28,4 @@ static inline auto check_error(const std::error_code& e)
         return e;
     }
     return std::error_code{};
-};
+}

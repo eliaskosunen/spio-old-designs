@@ -93,9 +93,22 @@ struct growable_read {
             val.resize(15);
         }
 
+        {
+            typename Reader::char_type ch{};
+            while (p.get(ch)) {
+                if (!is_space(ch, opt.spaces)) {
+                    p.push(ch);
+                    break;
+                }
+            }
+            if (p.eof()) {
+                return false;
+            }
+        }
+
         if (p.is_overreadable()) {
             auto s = make_span(val);
-            reader_options<span<typename Reader::char_type>> o = {nullptr,
+            reader_options<span<typename Reader::char_type>> o = {opt.spaces,
                                                                   false};
             while (true) {
                 if (!p.read(s, o)) {
@@ -114,7 +127,7 @@ struct growable_read {
                 if (!p.get(ch)) {
                     return false;
                 }
-                if (!is_space(ch)) {
+                if (!is_space(ch, opt.spaces)) {
                     p.push(ch);
                     val.resize(val.size() + 64);
                     s = make_span(val.end() - 64, val.end());
@@ -130,7 +143,7 @@ struct growable_read {
             while (true) {
                 typename Reader::char_type ch;
                 auto ret = p.get(ch) == true;
-                if (!is_space(ch)) {
+                if (!is_space(ch, opt.spaces)) {
                     if (it == val.end()) {
                         auto s = val.size();
                         val.resize(s + 64);

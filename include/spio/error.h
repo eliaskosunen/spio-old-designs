@@ -76,14 +76,6 @@ struct error_category : public std::error_category {
         }
         assert(false);
     }
-
-    bool equivalent(const std::error_code& code, int condition) const
-        noexcept override
-    {
-        SPIO_UNUSED(code);
-        SPIO_UNUSED(condition);
-        return false;
-    }
 };
 
 namespace detail {
@@ -120,20 +112,9 @@ inline bool is_eof(const std::error_code& e)
 #endif
 
 class failure : public std::system_error {
-    static std::string _stringify_loc(const std::string& desc,
-                                      const char* f,
-                                      int l)
-    {
-        return desc + fmt::format(" (in {}:{})", f, l);
-    }
-
 public:
     failure(std::error_code c) : system_error(c) {}
     failure(std::error_code c, const std::string& desc) : system_error(c, desc)
-    {
-    }
-    failure(std::error_code c, const std::string& desc, const char* f, int l)
-        : system_error(c, _stringify_loc(desc, f, l))
     {
     }
 
@@ -145,21 +126,13 @@ public:
         : system_error(static_cast<int>(c), detail::get_error_category(), desc)
     {
     }
-    failure(error c, const std::string& desc, const char* f, int l)
-        : system_error(static_cast<int>(c),
-                       detail::get_error_category(),
-                       _stringify_loc(desc, f, l))
-    {
-    }
 };
 
 #if SPIO_USE_EXCEPTIONS
-#define SPIO_THROW_MSG(msg) \
-    throw ::io::failure(::io::default_error, msg, __FILE__, __LINE__)
+#define SPIO_THROW_MSG(msg) throw ::io::failure(::io::default_error, msg)
 #define SPIO_THROW_EC(ec) throw ::io::failure(ec)
-#define SPIO_THROW_ERRNO \
-    throw ::io::failure(SPIO_MAKE_ERRNO, __FILE__, __LINE__)
-#define SPIO_THROW(ec, msg) throw ::io::failure(ec, msg, __FILE__, __LINE__)
+#define SPIO_THROW_ERRNO throw ::io::failure(SPIO_MAKE_ERRNO)
+#define SPIO_THROW(ec, msg) throw ::io::failure(ec, msg)
 #define SPIO_THROW_FAILURE(f) throw f
 #define SPIO_RETHROW throw
 #else
