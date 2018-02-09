@@ -25,7 +25,6 @@
 #include "config.h"
 #include "custom_type.h"
 #include "reader_options.h"
-#include "stl.h"
 #include "util.h"
 #include "writer_options.h"
 
@@ -105,10 +104,10 @@ struct type<span<T, N>> {
         }
 
         if (opt.readall) {
-            stl::vector<char_type> str(val.size_us(), '\0');
+            std::vector<char_type> str(val.size_us(), '\0');
             auto strspan = make_span(str);
             p.read_raw(strspan);
-            const auto str_len = stl::strlen(strspan);
+            const auto str_len = strlen(strspan);
             const auto end = [&]() {
                 for (std::ptrdiff_t i = 0; i < str_len; ++i) {
                     if (is_space(strspan[i], opt.spaces)) {
@@ -119,7 +118,7 @@ struct type<span<T, N>> {
             }();
             auto bytespan =
                 as_bytes(make_span(strspan.begin(), strspan.begin() + end));
-            stl::copy(bytespan.begin(), bytespan.end(),
+            std::copy(bytespan.begin(), bytespan.end(),
                       as_writable_bytes(val).begin());
             if (end + 1 < str_len) {
                 auto push_span = make_span(strspan.begin() + end + 1,
@@ -177,7 +176,7 @@ struct type<detail::string_tag<T, N>> {
                     return static_cast<extent_t>(
                         N - 1);  // Don't write the null terminator
                 }
-                return stl::strlen(ptr);
+                return std::strlen(ptr);
             }();
             return w.write(make_span(ptr, len));
         }
@@ -186,15 +185,13 @@ struct type<detail::string_tag<T, N>> {
 
 template <typename T>
 struct type<T,
-            std::enable_if_t<contains<std::decay_t<T>,
-                                      short,
-                                      int,
-                                      long,
-                                      long long,
-                                      unsigned short,
-                                      unsigned int,
-                                      unsigned long,
-                                      unsigned long long>::value>> {
+            std::enable_if_t<std::is_integral<std::decay_t<T>>::value &&
+                             !contains<std::decay_t<T>,
+                                       char,
+                                       wchar_t,
+                                       char16_t,
+                                       char32_t,
+                                       unsigned char>::value>> {
     template <typename Reader>
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
@@ -213,7 +210,7 @@ struct type<T,
         }
 
         constexpr auto n = max_digits<std::remove_reference_t<T>>() + 1;
-        stl::array<char_type, n> buf{};
+        std::array<char_type, n> buf{};
         buf.fill(0);
         if (p.is_overreadable()) {
             p.read(make_span<n>(buf));
@@ -235,44 +232,44 @@ struct type<T,
         T tmp = 0;
         auto it = buf.begin();
 
-#if SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V && false
-        auto stoi = [&](auto fn, char_type* str, char_type** endptr, auto max,
-                        auto min = 0) {
-            auto eno = errno;
-            errno = 0;
-            auto base = opt.base;
+#if false && SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V
+    auto stoi = [&](auto fn, char_type* str, char_type** endptr, auto max,
+                    auto min = 0) {
+        auto eno = errno;
+        errno = 0;
+        auto base = opt.base;
 
-            auto result = fn(str, endptr, base);
-            auto cond = [&]() {
-                if constexpr (std::is_unsigned_v<decltype(result)>) {
-                    return *endptr == str || **endptr ||
-                           (result == max && errno == ERANGE);
-                }
+        auto result = fn(str, endptr, base);
+        auto cond = [&]() {
+            if constexpr (std::is_unsigned_v<decltype(result)>) {
                 return *endptr == str || **endptr ||
-                       ((result == min || result == max) && errno == ERANGE);
-            }();
-            if (cond) {
-                stl::array<char, 128> errbuf{};
-                errbuf.fill('\0');
-                std::snprintf(&errbuf[0], 127, "Failed to read integer: '%s'",
-                              str);
-                SPIO_THROW(invalid_input, &errbuf[0]);
+                       (result == max && errno == ERANGE);
             }
-            errno = eno;
-            return result;
-        };
-        auto i = &buf[0];
-        if constexpr (sizeof(char_type) == 1) {
-            if constexpr (std::is_unsigned_v<T>) {
-                if constexpr (sizeof(T) == sizeof(unsigned long long)) {
-                    tmp = stoi(std::strtoull, i, &i, ULLONG_MAX);
-                }
-                else {
-                    auto result = stoi(std::strtoul, i, &i, ULONG_MAX);
-                    if (result > std::numeric_limits<T>::max()) {
-                        stl::array<char, 128> errbuf{};
-                        errbuf.fill('\0');
-                        std::snprintf(&errbuf[0], 127,
+            return *endptr == str || **endptr ||
+                   ((result == min || result == max) && errno == ERANGE);
+        }();
+        if (cond) {
+            std::array<char, 128> errbuf{};
+            errbuf.fill('\0');
+            std::snprintf(&errbuf[0], 127, "Failed to read integer: '%s'",
+                          str);
+            SPIO_THROW(invalid_input, &errbuf[0]);
+        }
+        errno = eno;
+        return result;
+    };
+    auto i = &buf[0];
+    if constexpr (sizeof(char_type) == 1) {
+        if constexpr (std::is_unsigned_v<T>) {
+            if constexpr (sizeof(T) == sizeof(unsigned long long)) {
+                tmp = stoi(std::strtoull, i, &i, ULLONG_MAX);
+            }
+            else {
+                auto result = stoi(std::strtoul, i, &i, ULONG_MAX);
+                if (result > std::numeric_limits<T>::max()) {
+                    std::array<char, 128> errbuf{};
+                    errbuf.fill('\0');
+                    std::snprintf(&errbuf[0], 127,
                                       "Integer out of range: '%lu'", result);
                         SPIO_THROW(invalid_input, &errbuf[0]);
                     }
@@ -287,7 +284,7 @@ struct type<T,
                     auto result = stoi(std::strtol, i, &i, LONG_MAX, LONG_MIN);
                     if (result > std::numeric_limits<T>::max() ||
                         result < std::numeric_limits<T>::min()) {
-                        stl::array<char, 128> errbuf{};
+                        std::array<char, 128> errbuf{};
                         errbuf.fill('\0');
                         std::snprintf(&errbuf[0], 127,
                                       "Integer out of range: '%ld'", result);
@@ -306,7 +303,7 @@ struct type<T,
                 else {
                     auto result = stoi(std::wcstoul, i, &i, ULONG_MAX);
                     if (result > std::numeric_limits<T>::max()) {
-                        stl::array<char, 128> errbuf{};
+                        std::array<char, 128> errbuf{};
                         errbuf.fill('\0');
                         std::snprintf(&errbuf[0], 127,
                                       "Integer out of range: '%lu'", result);
@@ -323,7 +320,7 @@ struct type<T,
                     auto result = stoi(std::wcstol, i, &i, LONG_MAX, LONG_MIN);
                     if (result > std::numeric_limits<T>::max() ||
                         result < std::numeric_limits<T>::min()) {
-                        stl::array<char, 128> errbuf{};
+                        std::array<char, 128> errbuf{};
                         errbuf.fill('\0');
                         std::snprintf(&errbuf[0], 127,
                                       "Integer out of range: '%ld'", result);
@@ -362,7 +359,7 @@ struct type<T,
                           char_to_int<T>(*it, opt.base);
                     return true;
                 }
-                stl::array<char, 128> errbuf{};
+                std::array<char, 128> errbuf{};
                 errbuf.fill('\0');
                 std::snprintf(&errbuf[0], 128,
                               "Invalid first character in integer: 0x%x",
@@ -383,7 +380,7 @@ struct type<T,
             if (sign) {
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable: 4146)
+#pragma warning(disable : 4146)
 #endif
                 tmp = -tmp;
 #ifdef _MSC_VER
@@ -417,18 +414,18 @@ struct type<T,
 
         if (opt.base == 10) {
             constexpr auto n = max_digits<std::remove_reference_t<T>>() + 1;
-            stl::array<char_type, n> buf{};
+            std::array<char_type, n> buf{};
             buf.fill(char_type{0});
             auto s = make_span<n>(buf);
             int_to_char<char_type>(val, s, 10);
-            return w.write(s.first(stl::strlen(s)).as_const_span());
+            return w.write(s.first(strlen(s)).as_const_span());
         }
 
         auto n = sizeof(std::remove_reference_t<T>) * 8 + 1;
-        stl::vector<char_type> buf(n, char_type{0});
+        std::vector<char_type> buf(n, char_type{0});
         auto s = make_span(buf);
         int_to_char<char_type>(val, s, opt.base);
-        return w.write(s.first(stl::strlen(s)).as_const_span());
+        return w.write(s.first(strlen(s)).as_const_span());
     }
 };  // namespace io
 
@@ -437,7 +434,7 @@ namespace detail {
     template <typename T>
     auto floating_write_arr(T val)
     {
-        stl::vector<char> arr([&]() {
+        std::vector<char> arr([&]() {
             if constexpr (std::is_same<std::decay_t<T>, long double>::value) {
                 return static_cast<std::size_t>(
                     std::snprintf(nullptr, 0, "%Lg", val));
@@ -464,7 +461,7 @@ namespace detail {
     template <typename T>
     auto floating_write_arr(T val)
     {
-        stl::vector<char> arr(
+        std::vector<char> arr(
             static_cast<std::size_t>(std::snprintf(nullptr, 0, "%g", val)) + 1);
         std::snprintf(&arr[0], arr.size(), "%g", val);
         return arr;
@@ -473,7 +470,7 @@ namespace detail {
     template <>
     inline auto floating_write_arr(long double val)
     {
-        stl::vector<char> arr(
+        std::vector<char> arr(
             static_cast<std::size_t>(std::snprintf(nullptr, 0, "%Lg", val)) +
             1);
         std::snprintf(&arr[0], arr.size(), "%Lg", val);
@@ -484,8 +481,7 @@ namespace detail {
 
 template <typename T>
 struct type<T,
-            std::enable_if_t<
-                contains<std::decay_t<T>, float, double, long double>::value>> {
+            std::enable_if_t<std::is_floating_point<std::decay_t<T>>::value>> {
     template <typename Reader>
     static bool read(Reader& p, T& val, reader_options<T> opt)
     {
@@ -503,7 +499,7 @@ struct type<T,
             return false;
         }
 
-        stl::array<char_type, 64> buf{};
+        std::array<char_type, 64> buf{};
         buf.fill(char_type{0});
 
         bool point = false;
@@ -534,7 +530,7 @@ struct type<T,
 
         char_type* end = &buf[0];
         T tmp = str_to_floating<T, char_type>(&buf[0], &end);
-        if (&*stl::find(buf.begin(), buf.end(), 0) != end) {
+        if (&*std::find(buf.begin(), buf.end(), 0) != end) {
             SPIO_THROW(invalid_input, "Failed to parse floating-point value");
         }
         val = tmp;
@@ -549,7 +545,7 @@ struct type<T,
         using char_type = typename Writer::char_type;
 
         auto arr = detail::floating_write_arr(val);
-        auto char_span = make_span(&arr[0], stl::strlen(&arr[0]));
+        auto char_span = make_span(&arr[0], strlen(&arr[0]));
 
         SPIO_UNUSED(opt);
 
@@ -562,7 +558,7 @@ struct type<T,
             return w.write(char_span);
         }
         else {
-            stl::vector<char_type> buf{};
+            std::vector<char_type> buf{};
             buf.reserve(char_span.size_us());
             for (auto& c : char_span) {
                 buf.push_back(static_cast<char_type>(c));
@@ -602,21 +598,12 @@ struct type<bool> {
         CHECK_READER("type<bool>::read<T>");
         if (opt.alpha) {
             using char_type = typename Reader::char_type;
-            stl::array<char_type, 5> buf{};
+            std::array<char_type, 5> buf{};
             auto ret = p.read(make_span<5>(buf));
             if (buf[0] == 't' && buf[1] == 'r' && buf[2] == 'u' &&
                 buf[3] == 'e') {
                 val = true;
-#if SPIO_HAS_IF_CONSTEXPR
-                /* if constexpr (Reader::readable_type::is_trivially_rewindable)
-                 * { */
-                /*     p.get_readable().rewind(1); */
-                /* } */
-                /* else */
-#endif
-                {
-                    p.push(buf[4]);
-                }
+                p.push(buf[4]);
                 return ret;
             }
             if (buf[0] == 'f' && buf[1] == 'a' && buf[2] == 'l' &&

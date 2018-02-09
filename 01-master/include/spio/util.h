@@ -28,14 +28,13 @@
 #include "config.h"
 #include "error.h"
 #include "span.h"
-#include "stl.h"
 
 namespace io {
 template <typename Base>
 class erased_type {
 public:
     using base_type = Base;
-    using Pointer = stl::unique_ptr<Base>;
+    using Pointer = std::unique_ptr<Base>;
 
     template <typename T, typename Enable = void>
     class inner;
@@ -54,7 +53,7 @@ public:
 
     template <typename T>
     erased_type(T&& src)
-        : m_inner{stl::make_unique<inner<std::remove_reference_t<T>>>(
+        : m_inner{std::make_unique<inner<std::remove_reference_t<T>>>(
               std::forward<T>(src))}
     {
     }
@@ -62,7 +61,7 @@ public:
     template <typename T>
     erased_type& operator=(T&& o)
     {
-        m_inner = stl::make_unique<inner<std::remove_reference_t<T>>>(
+        m_inner = std::make_unique<inner<std::remove_reference_t<T>>>(
             std::forward<T>(o));
         return *this;
     }
@@ -295,12 +294,12 @@ private:
         catch (std::system_error& e) {
             assert(e.code() != std::errc::operation_not_permitted);
             assert(e.code() != std::errc::resource_deadlock_would_occur);
-            SPIO_THROW_FAILURE(e);
+            SPIO_RETHROW;
         }
         catch (...) {
             SPIO_RETHROW;
         }
-        SPIO_THROW(logic_error, "Unreachable in lockable_stream::_do_lock");
+        SPIO_UNREACHABLE;
 #else
         return _do();
 #endif
@@ -310,8 +309,6 @@ private:
     std::mutex m_mutex{};
 };
 #endif
-
-bool is_eof(error c);
 
 template <typename InputIt>
 constexpr std::size_t distance_nonneg(InputIt first, InputIt last);
@@ -511,6 +508,41 @@ constexpr int max_digits() noexcept;
 
 template <typename Dest, typename Source>
 Dest bit_cast(const Source& s);
+
+template <typename CharT>
+constexpr std::ptrdiff_t strlen(const CharT* str) noexcept
+{
+    assert(str);
+    const CharT* s = str;
+    for (; *s; ++s) {
+    }
+    return (s - str);
+}
+
+template <>
+inline std::ptrdiff_t strlen(const char* str) noexcept
+{
+    return static_cast<std::ptrdiff_t>(std::strlen(str));
+}
+
+template <>
+inline std::ptrdiff_t strlen(const wchar_t* str) noexcept
+{
+    return static_cast<std::ptrdiff_t>(std::wcslen(str));
+}
+
+template <typename T, extent_t N>
+constexpr std::enable_if_t<
+    contains<T, char, wchar_t, char16_t, char32_t>::value,
+    ptrdiff_t>
+strlen(span<T, N> str) noexcept
+{
+    auto it = std::find(str.begin(), str.end(), T{'\0'});
+    if (it == str.end()) {
+        return str.size();
+    }
+    return std::distance(str.begin(), it);
+}
 }  // namespace io
 
 #include "util.impl.h"
