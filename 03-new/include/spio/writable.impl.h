@@ -28,21 +28,22 @@ basic_writable_file<CharT, FileHandle>::basic_writable_file(FileHandle& file)
     : m_file(&file)
 {
     if (!file) {
-        SPIO_THROW(invalid_argument, "basic_writable_file: Invalid file given");
+        SPIO_THROW(make_error_code(std::errc::invalid_argument),
+                   "basic_writable_file: Invalid file given");
     }
 }
 
 template <typename CharT, typename FileHandle>
 template <typename T, extent_t N>
-error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf)
+std::error_code basic_writable_file<CharT, FileHandle>::write(span<T, N> buf)
 {
     return write(buf, elements{buf.length()});
 }
 
 template <typename CharT, typename FileHandle>
 template <typename T, extent_t N>
-error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
-                                                    characters length)
+std::error_code basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
+                                                              characters length)
 {
     assert(m_file && *m_file);
     SPIO_ASSERT(length <= buf.size(), "buf is not big enough");
@@ -53,27 +54,37 @@ error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
         std::is_trivially_copyable<T>::value,
         "basic_writable_file<CharT>::write: T must be TriviallyCopyable");
 
-    const auto ret = [&]() {
+    std::size_t bytes = 0;
+    const auto error = [&]() {
 #if SPIO_HAS_IF_CONSTEXPR
         if constexpr (sizeof(CharT) == 1) {
 #else
         if (sizeof(CharT) == 1) {
 #endif
-            return m_file->write(as_bytes(buf.first(length)));
+            return [&](std::size_t& b) {
+                return m_file->write(as_bytes(buf.first(length)), b);
+            };
         }
         else {
-            auto char_buf =
-                as_bytes(buf).first(length * quantity_type{sizeof(T)});
-            return m_file->write(char_buf) / sizeof(T);
+            return [&](std::size_t& b) {
+                auto char_buf =
+                    as_bytes(buf).first(length * quantity_type{sizeof(T)});
+                auto e = m_file->write(char_buf, b);
+                b /= sizeof(T);
+                return e;
+            };
         }
-    }();
-    return get_error(static_cast<quantity_type>(ret), length);
+    }()(bytes);
+    if (error) {
+        return error;
+    }
+    return get_error(static_cast<quantity_type>(bytes), length);
 }
 
 template <typename CharT, typename FileHandle>
 template <typename T, extent_t N>
-error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
-                                                    elements length)
+std::error_code basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
+                                                              elements length)
 {
     return write(buf, characters{length * quantity_type{sizeof(T)} /
                                  quantity_type{sizeof(CharT)}});
@@ -81,16 +92,17 @@ error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
 
 template <typename CharT, typename FileHandle>
 template <typename T, extent_t N>
-error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
-                                                    bytes length)
+std::error_code basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
+                                                              bytes length)
 {
     return write(buf, characters{length * quantity_type{sizeof(CharT)}});
 }
 
 template <typename CharT, typename FileHandle>
 template <typename T, extent_t N>
-error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
-                                                    bytes_contiguous length)
+std::error_code basic_writable_file<CharT, FileHandle>::write(
+    span<T, N> buf,
+    bytes_contiguous length)
 {
     assert(m_file && *m_file);
     SPIO_ASSERT(length % sizeof(CharT) == 0,
@@ -112,14 +124,14 @@ error basic_writable_file<CharT, FileHandle>::write(span<T, N> buf,
 }
 
 template <typename CharT, typename FileHandle>
-error basic_writable_file<CharT, FileHandle>::write(CharT c)
+std::error_code basic_writable_file<CharT, FileHandle>::write(CharT c)
 {
     span<CharT> s{&c, 1};
     return write(s, characters{1});
 }
 
 template <typename CharT, typename FileHandle>
-error basic_writable_file<CharT, FileHandle>::get_error(
+std::error_code basic_writable_file<CharT, FileHandle>::get_error(
     quantity_type read_count,
     quantity_type expected) const
 {
@@ -128,20 +140,20 @@ error basic_writable_file<CharT, FileHandle>::get_error(
         return {};
     }
     if (m_file->eof()) {
-        return end_of_file;
+        return make_error_condition(end_of_file);
     }
-    if (m_file->error()) {
-        return io_error;
+    if (auto e = m_file->error()) {
+        return e;
     }
-    return default_error;
+    return make_error_condition(undefined_error);
 }
 
 template <typename CharT, typename FileHandle>
-error basic_writable_file<CharT, FileHandle>::flush() noexcept
+std::error_code basic_writable_file<CharT, FileHandle>::flush() noexcept
 {
     assert(m_file && *m_file);
-    if (!m_file->flush()) {
-        return io_error;
+    if (auto e = m_file->flush()) {
+        return e;
     }
     return {};
 }
@@ -155,15 +167,15 @@ constexpr basic_writable_buffer<CharT, BufferT>::basic_writable_buffer(
 
 template <typename CharT, typename BufferT>
 template <typename T, extent_t N>
-error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf)
+std::error_code basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf)
 {
     return write(buf, elements{buf.length()});
 }
 
 template <typename CharT, typename BufferT>
 template <typename T, extent_t N>
-error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
-                                                   characters length)
+std::error_code basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
+                                                             characters length)
 {
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
     static_assert(
@@ -173,19 +185,19 @@ error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
 
     const auto i = m_buffer.size();
     m_buffer.resize(i + length.get_unsigned());
-    stl::copy(buf.begin(), buf.begin() + length,
+    std::copy(buf.begin(), buf.begin() + length,
               m_buffer.begin() +
                   static_cast<typename decltype(m_buffer)::difference_type>(i));
     if (m_buffer.is_end()) {
-        return end_of_file;
+        return make_error_condition(end_of_file);
     }
     return {};
 }
 
 template <typename CharT, typename BufferT>
 template <typename T, extent_t N>
-error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
-                                                   elements length)
+std::error_code basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
+                                                             elements length)
 {
     return write(buf, characters{length * quantity_type{sizeof(T)} /
                                  quantity_type{sizeof(CharT)}});
@@ -193,15 +205,17 @@ error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
 
 template <typename CharT, typename BufferT>
 template <typename T, extent_t N>
-error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf, bytes length)
+std::error_code basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
+                                                             bytes length)
 {
     return write(buf, characters{length * quantity_type{sizeof(CharT)}});
 }
 
 template <typename CharT, typename BufferT>
 template <typename T, extent_t N>
-error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
-                                                   bytes_contiguous length)
+std::error_code basic_writable_buffer<CharT, BufferT>::write(
+    span<T, N> buf,
+    bytes_contiguous length)
 {
     SPIO_ASSERT(length % sizeof(CharT) == 0,
                 "Length is not divisible by sizeof CharT");
@@ -212,13 +226,13 @@ error basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
     copy_contiguous({buf.begin(), buf.end()},
                     {m_buffer.begin() + i, m_buffer.end()});
     if (m_buffer.is_end()) {
-        return end_of_file;
+        return make_error_condition(end_of_file);
     }
     return {};
 }
 
 template <typename CharT, typename BufferT>
-error basic_writable_buffer<CharT, BufferT>::write(CharT c)
+std::error_code basic_writable_buffer<CharT, BufferT>::write(CharT c)
 {
     span<CharT> s{&c, 1};
     return write(s, characters{1});

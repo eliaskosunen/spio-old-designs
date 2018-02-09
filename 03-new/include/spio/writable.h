@@ -25,7 +25,6 @@
 #include "config.h"
 #include "error.h"
 #include "filehandle.h"
-#include "stl.h"
 #include "util.h"
 
 namespace io {
@@ -89,18 +88,18 @@ public:
     }
 
     template <typename T, extent_t N>
-    error write(span<T, N> buf);
+    std::error_code write(span<T, N> buf);
     template <typename T, extent_t N>
-    error write(span<T, N> buf, characters length);
+    std::error_code write(span<T, N> buf, characters length);
     template <typename T, extent_t N>
-    error write(span<T, N> buf, elements length);
+    std::error_code write(span<T, N> buf, elements length);
     template <typename T, extent_t N>
-    error write(span<T, N> buf, bytes length);
+    std::error_code write(span<T, N> buf, bytes length);
     template <typename T, extent_t N>
-    error write(span<T, N> buf, bytes_contiguous length);
-    error write(CharT c);
+    std::error_code write(span<T, N> buf, bytes_contiguous length);
+    std::error_code write(CharT c);
 
-    error flush() noexcept;
+    std::error_code flush() noexcept;
 
     FileHandle* get_file()
     {
@@ -112,7 +111,8 @@ public:
     }
 
 private:
-    error get_error(quantity_type read_count, quantity_type expected) const;
+    std::error_code get_error(quantity_type read_count,
+                              quantity_type expected) const;
 
     void _flush_destruct() noexcept
     {
@@ -163,11 +163,11 @@ struct is_writable_buffer_type<
 };
 #endif
 
-template <typename T, typename Alloc = stl::allocator<T>>
-struct dynamic_writable_buffer : public stl::vector<T, Alloc> {
+template <typename T, typename Alloc = std::allocator<T>>
+struct dynamic_writable_buffer : public std::vector<T, Alloc> {
     static constexpr auto extent = dynamic_extent;
 
-    using stl::vector<T, Alloc>::vector;
+    using std::vector<T, Alloc>::vector;
 
     constexpr bool is_end()
     {
@@ -214,7 +214,7 @@ public:
 
     constexpr size_type size() const
     {
-        return static_cast<size_type>(stl::distance(
+        return static_cast<size_type>(std::distance(
             m_buf.begin(),
             static_cast<typename span_type::const_iterator>(m_it)));
     }
@@ -282,7 +282,7 @@ class static_writable_buffer : public span_writable_buffer<T, Extent> {
 public:
     static constexpr auto extent = Extent;
 
-    static_writable_buffer(stl::array<T, N> a = {})
+    static_writable_buffer(std::array<T, N> a = {})
         : m_buf(std::move(a)), span_writable_buffer<T, Extent>(m_buf)
     {
     }
@@ -293,7 +293,7 @@ public:
     }
 
 private:
-    stl::array<T, N> m_buf{};
+    std::array<T, N> m_buf{};
 };
 
 static_assert(is_writable_buffer_type<dynamic_writable_buffer<char>>::value,
@@ -327,18 +327,18 @@ public:
     ~basic_writable_buffer() noexcept = default;
 
     template <typename T, extent_t N>
-    error write(span<T, N> buf);
+    std::error_code write(span<T, N> buf);
     template <typename T, extent_t N>
-    error write(span<T, N> buf, characters length);
+    std::error_code write(span<T, N> buf, characters length);
     template <typename T, extent_t N>
-    error write(span<T, N> buf, elements length);
+    std::error_code write(span<T, N> buf, elements length);
     template <typename T, extent_t N>
-    error write(span<T, N> buf, bytes length);
+    std::error_code write(span<T, N> buf, bytes length);
     template <typename T, extent_t N>
-    error write(span<T, N> buf, bytes_contiguous length);
-    error write(CharT c);
+    std::error_code write(span<T, N> buf, bytes_contiguous length);
+    std::error_code write(CharT c);
 
-    error flush() noexcept
+    std::error_code flush() noexcept
     {
         return {};
     }

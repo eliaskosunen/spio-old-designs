@@ -34,16 +34,19 @@ TEST_CASE("filebuffer")
         buf.get_buffer();
         CHECK(buf.get_flushable_data().empty());
 
-        auto f = buf.flush_if_needed([](io::const_byte_span) { return true; });
+        auto f = buf.flush_if_needed([](io::const_byte_span, std::size_t&) {
+            return std::error_code{};
+        });
         CHECK(!f.first);
         CHECK(f.second == 0);
     }
 
     {
         std::string flush_target{};
-        auto flush = [&](io::const_byte_span data) {
+        auto flush = [&](io::const_byte_span data, std::size_t& bytes) {
             flush_target.append(data.begin(), data.end());
-            return data.size_us();
+            bytes = data.size_us();
+            return std::error_code{};
         };
 
         SUBCASE("write: buffer_line")
@@ -101,7 +104,8 @@ TEST_CASE("filebuffer")
             w = buf.write(io::as_bytes(io::make_span(str)), flush);
             CHECK(w == str.size());
 
-            flush(buf.get_flushable_data());
+            std::size_t n = 0;
+            flush(buf.get_flushable_data(), n);
             buf.flag_flushed();
             CHECK(flush_target == str);
             CHECK(buf.get_flushable_data().empty());

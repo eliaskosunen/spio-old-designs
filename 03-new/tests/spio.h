@@ -21,3 +21,11 @@
 #pragma once
 
 #include "spio/spio.h"
+
+static inline auto check_error(const std::error_code& e)
+{
+    if (e && !io::is_eof(e)) {
+        return e;
+    }
+    return std::error_code{};
+};

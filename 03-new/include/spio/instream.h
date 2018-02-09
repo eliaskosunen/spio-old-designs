@@ -70,13 +70,7 @@ public:
         if (eof()) {
             SPIO_THROW(end_of_file, "io::reader::read_raw: EOF reached");
         }
-        auto error = _read(elems, elements{elems.length()});
-        if (error.is_eof()) {
-            m_eof = true;
-        }
-        if (error) {
-            SPIO_THROW_EC(error);
-        }
+        m_eof = !_read(elems, elements{elems.length()});
         return *this;
     }
 
@@ -101,7 +95,7 @@ public:
         SPIO_ASSERT(sizeof(ElementT) * count % sizeof(char_type) == 0,
                     "sizeof(ElementT) * count must be divisible by "
                     "sizeof(char_type) in reader::ignore");
-        stl::vector<char_type> arr(sizeof(ElementT) * count /
+        std::vector<char_type> arr(sizeof(ElementT) * count /
                                    sizeof(char_type));
         return read_raw(make_span(arr));
     }
@@ -163,7 +157,7 @@ protected:
     basic_instream() = default;
 
     template <typename T, extent_t N>
-    error _read(span<T, N> s, elements length);
+    bool _read(span<T, N> s, elements length);
 
     void _scan(const char_type* format)
     {
@@ -176,7 +170,7 @@ protected:
     const char_type* _scan_arg(const char_type* format, T& a);
 
     readable_type m_readable{};
-    stl::vector<char> m_buffer{};
+    std::vector<char> m_buffer{};
     bool m_eof{false};
 };
 
