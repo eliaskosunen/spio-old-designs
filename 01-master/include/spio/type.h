@@ -580,7 +580,10 @@ struct type<void*> {
         SPIO_UNUSED(opt);
         using char_type = typename Writer::char_type;
 
-        if (!w.put(char_type{'0'}) || !w.put(char_type{'x'})) {
+        if (!w.put(char_type{'0'})) {
+            return false;
+        }
+        if (!w.put(char_type{'x'})) {
             return false;
         }
 

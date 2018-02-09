@@ -75,6 +75,7 @@ struct error_category : public std::error_category {
                 return "[undefined error]";
         }
         assert(false);
+		std::terminate();
     }
 };
 

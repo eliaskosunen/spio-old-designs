@@ -40,7 +40,7 @@ TEST_CASE("file_instream")
         REQUIRE(h);
         io::file_instream f{h.get()};
         std::vector<char> str(20, '\0');
-        CHECK(f.getline(io::make_span(str)));
+        f.getline(io::make_span(str));
         CHECK_EQ(std::strcmp("Lorem ipsum", str.data()), 0);
     }
     SUBCASE("scan")
