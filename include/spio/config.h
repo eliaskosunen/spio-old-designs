@@ -83,7 +83,7 @@
 #define SPIO_WIN32 0
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(WIN32)
 #define SPIO_POSIX 0
 #define SPIO_WIN32 1
 #endif
@@ -162,6 +162,8 @@
 #define SPIO_STRINGIZE_DETAIL(x) #x
 #define SPIO_STRINGIZE(x) SPIO_STRINGIZE_DETAIL(x)
 #define SPIO_LINE SPIO_STRINGIZE(__LINE__)
+
+#define SPIO_UNUSED(x) (static_cast<void>(sizeof(x)))
 
 #include <type_traits>
 

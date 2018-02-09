@@ -27,7 +27,6 @@
 #include "filehandle.h"
 #include "readable.h"
 #include "span.h"
-#include "stl.h"
 #include "util.h"
 #include "writable.h"
 

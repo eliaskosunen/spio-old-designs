@@ -32,60 +32,43 @@ TEST_CASE("readable_file")
     {
         char c = '\0';
         auto error = r.read(c);
-        CHECK_FALSE(error);
-        CHECK_FALSE(io::is_eof(error));
-        if (error) {
-            std::cerr << error.message() << '\n';
-        }
+        CHECK_FALSE(check_error(error));
         CHECK(c == 'L');
     }
     SUBCASE("read_range")
     {
         std::array<char, 6> a{{0}};
         auto error = r.read(io::make_span(a), io::elements{5});
-        CHECK_FALSE(error);
-        CHECK_FALSE(io::is_eof(error));
-        if (error) {
-            std::cerr << error.message() << '\n';
-        }
+        CHECK_FALSE(check_error(error));
         REQUIRE(a[5] == '\0');
         CHECK(std::equal(a.begin(), a.end(), "Lorem"));
     }
     SUBCASE("seek and tell")
     {
-#define error_check(error)                        \
-    do {                                          \
-        CHECK_FALSE(error);                       \
-        CHECK_FALSE(io::is_eof(error));           \
-        if (error) {                              \
-            std::cerr << error.message() << '\n'; \
-        }                                         \
-    } while (0);
-
         io::seek_type pos;
         auto error = r.tell(pos);
-        error_check(error);
+        CHECK_FALSE(check_error(error));
         CHECK(pos == 0);
 
         error = r.seek(io::seek_origin::CUR, 6);
-        error_check(error);
+        CHECK_FALSE(check_error(error));
+        std::cerr << error.message() << '\n';
 
         char c{};
         error = r.read(c);
-        error_check(error);
+        CHECK_FALSE(check_error(error));
         CHECK(c == 'i');
 
         error = r.tell(pos);
-        error_check(error);
+        CHECK_FALSE(check_error(error));
         CHECK(pos == 7);
 
         error = r.seek(io::seek_origin::SET, 0);
-        error_check(error);
+        CHECK_FALSE(check_error(error));
 
         error = r.read(c);
-        error_check(error);
+        CHECK_FALSE(check_error(error));
         CHECK(c == 'L');
-#undef error_check
     }
 }
 #ifndef _WIN32
@@ -100,22 +83,14 @@ TEST_CASE("readable_wfile")
     {
         wchar_t c = L'\0';
         auto error = r.read(c);
-        CHECK_FALSE(error);
-        CHECK_FALSE(io::is_eof(error));
-        if (error) {
-            std::cerr << error.message() << '\n';
-        }
+        CHECK_FALSE(check_error(error));
         CHECK(c == L'L');
     }
     SUBCASE("read_range")
     {
         std::array<wchar_t, 6> a{{0}};
         auto error = r.read(io::make_span(a), io::elements{5});
-        CHECK_FALSE(error);
-        CHECK_FALSE(io::is_eof(error));
-        if (error) {
-            std::cerr << error.message() << '\n';
-        }
+        CHECK_FALSE(check_error(error));
         REQUIRE(a[5] == '\0');
         CHECK_EQ(std::wstring{a.data()}, L"Lorem");
     }

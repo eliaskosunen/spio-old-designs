@@ -24,14 +24,13 @@
 #include <cstdio>
 #include "error.h"
 #include "span.h"
-#include "stl.h"
 
 namespace io {
-template <typename Alloc = stl::allocator<char>>
+template <typename Alloc = std::allocator<char>>
 class basic_filebuffer {
 public:
     using allocator_type = Alloc;
-    using vector_type = stl::vector<char, Alloc>;
+    using vector_type = std::vector<char, Alloc>;
 
     /// Buffering mode
     enum buffer_mode {
@@ -120,10 +119,11 @@ public:
     /**
      * Write to the buffer, and flush if needed in the process.
      * \param data  Data to write
-     * \param flush Flush function, must be able to be invoked with argument
-     *              type `const_byte_span` and yield a result convertible
-     *              to `std::size_t`; `is_invocable_r_v<std::size_t,
-     *              decltype(flush), const_byte_span>` must evaluate to `true`
+     * \param flush Flush function, must be able to be invoked with arguments of
+     *              type `const_byte_span` and `std::size_t&` and yield a result
+     *              convertible to `std::error_code`;
+     *              `is_invocable_r_v<std::error_code, decltype(flush),
+     *              const_byte_span, std::size_t&>` must evaluate to `true`
      * \return Bytes processed, either written to the buffer or flushed
      *
      * Requires `is_writable_mode()`
@@ -134,46 +134,47 @@ public:
         SPIO_ASSERT(is_writable_mode(),
                     "basic_filebuffer<>::write: requires `is_writable_mode()`");
 #if SPIO_HAS_INVOCABLE
-        static_assert(std::is_invocable_r_v<std::size_t, decltype(flush),
-                                            const_byte_span>,
+        static_assert(std::is_invocable_r_v<std::error_code, decltype(flush),
+                                            const_byte_span, std::size_t&>,
                       "filebuffer::write: flush must be Invocable with type "
-                      "std::size_t(io::const_byte_span)");
+                      "std::error_code(io::const_byte_span, std::size_t&)");
 #endif
         // Check if data fits in the buffer
-        auto dist_till_end = stl::distance(m_it, m_buffer.end());
+        auto dist_till_end = std::distance(m_it, m_buffer.end());
         if (dist_till_end >= data.size()) {
             // If it does, copy the data to the buffer
-            m_it = stl::copy(data.begin(), data.end(), m_it);
+            m_it = std::copy(data.begin(), data.end(), m_it);
             flush_if_needed(flush);
             return data.size_us();
         }
 
         // Data wouldn't fit in one go, copy what fits
-        m_it = stl::copy(data.begin(), data.begin() + dist_till_end, m_it);
+        m_it = std::copy(data.begin(), data.begin() + dist_till_end, m_it);
         assert(m_it == m_buffer.end());
         m_it = m_buffer.begin();
 
         // Flush the buffer
         auto s = as_bytes(make_span(m_begin, m_buffer.end()));
-        auto flushed = flush(s);
-        if (flushed != s.size_us()) {
+        std::size_t flushed = 0;
+        auto error = flush(s, flushed);
+        if (flushed != s.size_us() || error) {
             // Not everything was flushed, move the begin pointer accordingly
             m_begin += static_cast<std::ptrdiff_t>(flushed);
             // Copy everything that was not flushed to the beginning of the
             // buffer
-            m_it = stl::copy(m_it + static_cast<std::ptrdiff_t>(flushed),
+            m_it = std::copy(m_it + static_cast<std::ptrdiff_t>(flushed),
                              m_buffer.end(), m_it);
 
             // Copy the rest of the data to the buffer
-            auto dist = stl::distance(m_it, m_buffer.end());
+            auto dist = std::distance(m_it, m_buffer.end());
             if (dist >= data.size() - dist_till_end) {
                 m_it =
-                    stl::copy(data.begin() + dist_till_end, data.end(), m_it);
+                    std::copy(data.begin() + dist_till_end, data.end(), m_it);
                 flushed += data.size_us();
             }
             else {
                 // If all of it does not fit, copy everything that does
-                m_it = stl::copy(data.begin() + dist_till_end,
+                m_it = std::copy(data.begin() + dist_till_end,
                                  data.begin() + dist_till_end + dist, m_it);
                 flushed += static_cast<std::size_t>(dist);
             }
@@ -190,7 +191,7 @@ public:
         if (written != s.size_us()) {
             // Not everything was written successfully, copy unwritten data to
             // the beginning
-            m_it = stl::copy(m_it + static_cast<std::ptrdiff_t>(written),
+            m_it = std::copy(m_it + static_cast<std::ptrdiff_t>(written),
                              m_buffer.end(), m_it);
             flush_if_needed(flush);
             return static_cast<std::size_t>(dist_till_end) + written;
@@ -220,22 +221,26 @@ public:
                     "`is_writable_mode()`");
 #if SPIO_HAS_INVOCABLE
         static_assert(
-            std::is_invocable_r_v<std::size_t, decltype(flush),
-                                  const_byte_span>,
+            std::is_invocable_r_v<std::error_code, decltype(flush),
+                                  const_byte_span, std::size_t&>,
             "filebuffer::flush_if_needed: flush must be Invocable with type "
             "std::size_t(io::const_byte_span)");
 #endif
         if (m_it == m_buffer.end()) {
             // If buffer is full, flush all of it
             m_begin = m_it = m_buffer.begin();
-            return {true, flush(as_bytes(make_span(m_begin, m_it)))};
+            std::size_t b = 0;
+            flush(as_bytes(make_span(m_begin, m_it)), b);
+            return {true, b};
         }
         if (m_mode == BUFFER_LINE && m_it != m_begin) {
             // If we're doing line buffering, check for newlines
             auto doit = [&](auto it) -> std::pair<bool, std::size_t> {
                 auto begin = m_begin;
                 m_begin = it + 1;
-                return {true, flush(as_bytes(make_span(begin, it + 1)))};
+                std::size_t b = 0;
+                flush(as_bytes(make_span(begin, it + 1)), b);
+                return {true, b};
             };
             auto ret = [&](auto r) {
                 if (m_begin == m_buffer.end()) {
@@ -246,11 +251,11 @@ public:
             if (*m_it == '\n') {
                 return ret(doit(m_it));
             }
-			for (auto it = m_it; it != m_begin; --it) {
-				if (*it == '\n') {
-					return ret(doit(it));
-				}
-			}
+            for (auto it = m_it; it != m_begin; --it) {
+                if (*it == '\n') {
+                    return ret(doit(it));
+                }
+            }
         }
         return {false, 0};
     }
@@ -266,9 +271,10 @@ public:
 
     /**
      * Flag part of the buffer as flushed.
-     * Must be used if data with `get_flushable_data()` is flushed
+     * Must be used if data with `get_flushable_data()` is flushed without using
+     * `flush_if_needed()`.
      * \param bytes_flushed Count of bytes that was flushed, 0 marks that the
-     *                      whole buffer was flushed
+     *        whole buffer was flushed
      */
     void flag_flushed(std::size_t bytes_flushed = 0)
     {

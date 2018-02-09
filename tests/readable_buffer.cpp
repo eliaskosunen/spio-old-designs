@@ -18,7 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include <iostream>
 #include "doctest.h"
 #include "spio.h"
 
@@ -26,15 +25,12 @@ TEST_CASE("readable_buffer")
 {
     std::string buf = "Lorem";
     io::readable_buffer r(io::make_span(buf));
+
     SUBCASE("read_elem")
     {
         char c = '\0';
         auto error = r.read(c);
-        CHECK_FALSE(error);
-        CHECK_FALSE(io::is_eof(error));
-        if (error) {
-            std::cerr << error.message() << '\n';
-        }
+        CHECK_FALSE(check_error(error));
         CHECK(c == 'L');
     }
     SUBCASE("read_bytes")
@@ -44,11 +40,7 @@ TEST_CASE("readable_buffer")
 
         std::array<char, 2> b{{0}};
         auto error = r2.read(io::make_span(b), io::bytes{2});
-        CHECK_FALSE(error);
-        CHECK_FALSE(io::is_eof(error));
-        if (error) {
-            std::cerr << error.message() << '\n';
-        }
+        CHECK_FALSE(check_error(error));
         CHECK(b[0] == 0x7f);
         CHECK(b[1] == 0x20);
     }
@@ -56,11 +48,7 @@ TEST_CASE("readable_buffer")
     {
         std::array<char, 6> a{{0}};
         auto error = r.read(io::make_span(a), io::elements{5});
-        CHECK_FALSE(error);
-        CHECK(io::is_eof(error));
-        if (error) {
-            std::cerr << error.message() << '\n';
-        }
+        CHECK_FALSE(check_error(error));
         REQUIRE(a[5] == '\0');
         CHECK(buf == a.data());
     }
@@ -68,20 +56,12 @@ TEST_CASE("readable_buffer")
     {
         std::array<char, 3> a{};
         auto error = r.read(io::make_span(a), io::elements{2});
-        CHECK_FALSE(error);
-        CHECK_FALSE(io::is_eof(error));
-        if (error) {
-            std::cerr << error.message() << '\n';
-        }
+        CHECK_FALSE(check_error(error));
         CHECK(a[0] == 'L');
         CHECK(a[1] == 'o');
 
         error = r.read(io::make_span(a), io::elements{3});
-        CHECK_FALSE(error);
-        CHECK(io::is_eof(error));
-        if (error) {
-            std::cerr << error.message() << '\n';
-        }
+        CHECK_FALSE(check_error(error));
         CHECK(a[0] == 'r');
         CHECK(a[1] == 'e');
         CHECK(a[2] == 'm');
@@ -89,41 +69,32 @@ TEST_CASE("readable_buffer")
 
     SUBCASE("seek and tell")
     {
-#define error_check(error)                        \
-    do {                                          \
-        CHECK_FALSE(error);                       \
-        CHECK_FALSE(io::is_eof(error));           \
-        if (error) {                              \
-            std::cerr << error.message() << '\n'; \
-        }                                         \
-    } while (0);
         buf = "Lorem ipsum";
         r = io::readable_buffer{io::make_span(buf)};
 
         io::seek_type pos;
         auto error = r.tell(pos);
-        error_check(error);
+        CHECK_FALSE(check_error(error));
         CHECK(pos == 0);
 
         error = r.seek(io::seek_origin::CUR, 6);
-        error_check(error);
+        CHECK_FALSE(check_error(error));
 
         char c{};
         error = r.read(c);
-        error_check(error);
+        CHECK_FALSE(check_error(error));
         CHECK(c == 'i');
 
         error = r.tell(pos);
-        error_check(error);
+        CHECK_FALSE(check_error(error));
         CHECK(pos == 7);
 
         error = r.seek(io::seek_origin::SET, 0);
-        error_check(error);
+        CHECK_FALSE(check_error(error));
 
         error = r.read(c);
-        error_check(error);
+        CHECK_FALSE(check_error(error));
         CHECK(c == 'L');
-#undef error_check
     }
 }
 TEST_CASE("readable_wbuffer")
@@ -134,11 +105,7 @@ TEST_CASE("readable_wbuffer")
     {
         wchar_t c = 0;
         auto error = r.read(c);
-        CHECK_FALSE(error);
-        CHECK_FALSE(io::is_eof(error));
-        if (error) {
-            std::cerr << error.message() << '\n';
-        }
+        CHECK_FALSE(check_error(error));
         CHECK(c == L'L');
     }
     SUBCASE("read_bytes")
@@ -151,11 +118,7 @@ TEST_CASE("readable_wbuffer")
             r2.read(io::make_span(reinterpret_cast<char32_t*>(&b[0]),
                                   reinterpret_cast<char32_t*>(&b[0]) + 2),
                     io::bytes{4});
-        CHECK_FALSE(error);
-        CHECK_FALSE(io::is_eof(error));
-        if (error) {
-            std::cerr << error.message() << '\n';
-        }
+        CHECK_FALSE(check_error(error));
         CHECK(b[0] == 0x7f);
         CHECK(b[1] == 0x00);
         CHECK(b[2] == 0x00);
@@ -165,11 +128,7 @@ TEST_CASE("readable_wbuffer")
     {
         std::array<wchar_t, 6> a{{0}};
         auto error = r.read(io::make_span(a), io::elements{5});
-        CHECK_FALSE(error);
-        CHECK(io::is_eof(error));
-        if (error) {
-            std::cerr << error.message() << '\n';
-        }
+        CHECK_FALSE(check_error(error));
         REQUIRE(a[5] == 0);
         CHECK(buf == a.data());
     }
