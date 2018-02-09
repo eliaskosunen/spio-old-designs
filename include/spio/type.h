@@ -176,7 +176,7 @@ struct type<detail::string_tag<T, N>> {
                     return static_cast<extent_t>(
                         N - 1);  // Don't write the null terminator
                 }
-                return std::strlen(ptr);
+                return strlen(ptr);
             }();
             return w.write(make_span(ptr, len));
         }
