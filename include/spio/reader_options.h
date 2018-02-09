@@ -111,20 +111,15 @@ struct reader_options<T,
 template <typename T>
 struct reader_options<
     T,
-    std::enable_if_t<contains<std::decay_t<typename T::element_type>,
+    std::enable_if_t<contains<typename T::value_type,
                               char,
                               wchar_t,
                               unsigned char,
                               signed char,
                               char16_t,
                               char32_t>::value>> {
-    span<typename T::element_type> spaces{nullptr};
+    span<typename T::value_type> spaces{nullptr};
     bool readall{true};
-};
-
-template <typename T>
-struct reader_options<T, std::enable_if_t<is_growable_read_container<T>::value>>
-    : public reader_options<span<typename T::value_type>> {
 };
 
 template <>

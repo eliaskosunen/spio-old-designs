@@ -175,7 +175,9 @@ public:
                 base_type::m_buf.flag_flushed(bytes);
                 return base_type::flush();
             }
-            base_type::m_buf.flag_flushed();
+			else if (bytes != 0) {
+				base_type::m_buf.flag_flushed();
+			}
         }
         return base_type::flush();
     }
@@ -482,6 +484,11 @@ public:
                             uint32_t flags = open_flags::NONE)
         : m_handle{s_open(file, mode, flags)}
     {
+#if SPIO_WIN32
+        if ((flags & open_flags::BINARY) != 0) {
+            m_binary = true;
+        }
+#endif
     }
 
     std::error_code open(const char* file,
@@ -538,6 +545,10 @@ protected:
 
 private:
     os_file_descriptor m_handle{};
+
+#if SPIO_WIN32
+    bool m_binary{false};
+#endif
 };
 
 #if SPIO_POSIX
@@ -558,7 +569,7 @@ inline os_file_descriptor::handle_type unbuf_native_filehandle::s_open(
     else if (r) {
         f |= O_RDONLY;
     }
-    else {
+    else if(w) {
         f |= O_WRONLY | O_TRUNC;
     }
 
@@ -637,6 +648,10 @@ inline std::error_code unbuf_native_filehandle::read(writable_byte_span data,
                                                      std::size_t& bytes)
 {
     assert(good());
+	if (data.size() == 0) {
+		bytes = 0;
+		return {};
+	}
     auto ret = ::read(get(), data.data(), data.size_us());
     if (ret == 0 && data.size() != 0) {
         return make_error_condition(end_of_file);
@@ -653,7 +668,7 @@ inline std::error_code unbuf_native_filehandle::write(const_byte_span data,
 {
     assert(good());
     if (data.size() == 0) {
-        bytes = data.size_us();
+        bytes = 0;
         return {};
     }
     auto ret = ::write(get(), data.data(), data.size_us());
@@ -722,61 +737,78 @@ inline os_file_descriptor::handle_type unbuf_native_filehandle::s_open(
     if (w) {
         open_type |= GENERIC_WRITE;
     }
+
     DWORD open_flags = 0;
-    if (a) {
-        open_flags |= OPEN_ALWAYS;
-    }
-    else {
-        open_flags |= CREATE_ALWAYS;
-    }
+	if (r && w) {
+		if (a) {
+			open_flags = OPEN_EXISTING;
+		}
+		else {
+			open_flags = CREATE_ALWAYS;
+		}
+	}
+	else if (r) {
+		open_flags = OPEN_EXISTING;
+	}
+	else if (w) {
+		if (a) {
+			open_flags = OPEN_ALWAYS;
+		}
+		else {
+			open_flags = CREATE_ALWAYS;
+		}
+	}
+
     return ::CreateFileA(filename, open_type,
                          FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
                          open_flags, FILE_ATTRIBUTE_NORMAL, nullptr);
 }
-inline bool unbuf_native_filehandle::open(const char* file,
-                                          uint32_t mode,
-                                          uint32_t flags)
+inline std::error_code unbuf_native_filehandle::open(const char* file,
+                                                     uint32_t mode,
+                                                     uint32_t flags)
 {
     assert(!good());
     get() = s_open(file, mode, flags);
-    return good();
+    if (!good()) {
+        return error();
+    }
+    if ((flags & open_flags::BINARY) != 0) {
+        m_binary = true;
+    }
+    return {};
 }
-inline void unbuf_native_filehandle::close()
+inline std::error_code unbuf_native_filehandle::close()
 {
     assert(good());
-    ::CloseHandle(get());
+    if (::CloseHandle(get())) {
+        return error();
+    }
+    return {};
 }
 
-inline bool unbuf_native_filehandle::error() const
+inline std::error_code unbuf_native_filehandle::error() const
 {
-    return ::GetLastError() != ERROR_SUCCESS;
+    return SPIO_MAKE_WIN32_ERROR;
 }
 inline void unbuf_native_filehandle::check_error() const
 {
-    DWORD errcode = ::GetLastError();
-    if (errcode == ERROR_SUCCESS) {
-        return;
+    if (auto e = error()) {
+        SPIO_THROW_EC(e);
     }
-
-    LPSTR msgBuf = nullptr;
-    auto size = ::FormatMessageA(
-        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
-            FORMAT_MESSAGE_IGNORE_INSERTS,
-        nullptr, errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        reinterpret_cast<LPSTR>(&msgBuf), 0, nullptr);
-    failure f{default_error, msgBuf, static_cast<int>(size)};
-    ::LocalFree(msgBuf);
-    SPIO_THROW_FAILURE(f);
 }
 
 inline bool unbuf_native_filehandle::eof() const
 {
     return m_handle.eof;
 }
-inline bool unbuf_native_filehandle::flush()
+inline std::error_code unbuf_native_filehandle::flush()
 {
     assert(good());
-    return ::FlushFileBuffers(get());
+	auto e = error();
+    if (!::FlushFileBuffers(get())) {
+        return error();
+    }
+    return {};
 }
 
 inline bool unbuf_native_filehandle::is_stdin() const
@@ -784,40 +816,87 @@ inline bool unbuf_native_filehandle::is_stdin() const
     return get() == ::GetStdHandle(STD_INPUT_HANDLE);
 }
 
-inline std::size_t unbuf_native_filehandle::read(writable_byte_span data)
+inline std::error_code unbuf_native_filehandle::read(writable_byte_span data,
+                                                     std::size_t& bytes)
 {
     assert(good());
-    DWORD bytes_read = 0;
-    if (!::ReadFile(get(), data.data(), static_cast<DWORD>(data.size()),
-                    &bytes_read, nullptr)) {
-        DWORD err = ::GetLastError();
-        if (err == ERROR_HANDLE_EOF) {
+	if (data.size() == 0)
+	{
+		bytes = 0;
+		return {};
+	}
+
+    if (m_binary) {
+        DWORD bytes_read = 0;
+        if (!::ReadFile(get(), data.data(), static_cast<DWORD>(data.size()),
+                        &bytes_read, nullptr)) {
+            if (error() ==
+                std::error_code(ERROR_HANDLE_EOF, std::system_category())) {
+                return make_error_condition(end_of_file);
+            }
+            bytes = bytes_read;
+            return error();
+        }
+        if (bytes_read == 0) {
             m_handle.eof = true;
         }
-        else {
-            SetLastError(err);
+        bytes = bytes_read;
+        return {};
+    }
+
+    DWORD bytes_read = 0;
+    std::vector<char> buf(data.size(), '\0');
+    if (!::ReadFile(get(), buf.data(), static_cast<DWORD>(data.size()),
+                    &bytes_read, nullptr)) {
+        if (error() ==
+            std::error_code(ERROR_HANDLE_EOF, std::system_category())) {
+            return make_error_condition(end_of_file);
         }
-        if (bytes_read == 0) {
-            m_handle.eof = data.size() != 0;
-        }
-        return 0;
+        bytes = bytes_read;
+        return error();
+    }
+
+    if (bytes_read == 0) {
+        m_handle.eof = true;
     }
     else {
-        if (bytes_read == 0) {
-            m_handle.eof = data.size() != 0;
+        if (buf.size() > 1) {
+            auto data_it = data.begin();
+            for (auto it = buf.begin(); it != buf.end() - 1; ++it) {
+                if (*it == '\r' && *(it + 1) == '\n') {
+                    continue;
+                }
+                *data_it = *it;
+                ++data_it;
+            }
+            bytes =
+                static_cast<std::size_t>(std::distance(data.begin(), data_it));
+        }
+        else {
+            data[0] = buf[0];
+            bytes = 1;
         }
     }
-    return bytes_read;
+    return {};
 }
-inline std::size_t unbuf_native_filehandle::write(const_byte_span data)
+
+inline std::error_code unbuf_native_filehandle::write(const_byte_span data,
+                                                      std::size_t& bytes)
 {
     assert(good());
+    if (data.size() == 0) {
+        bytes = 0;
+        return {};
+    }
+
     DWORD bytes_written = 0;
     if (!::WriteFile(get(), data.data(), static_cast<DWORD>(data.size()),
                      &bytes_written, nullptr)) {
-        return 0;
+        bytes = 0;
+        return error();
     }
-    return bytes_written;
+    bytes = bytes_written;
+    return {};
 }
 
 namespace detail {
@@ -834,22 +913,26 @@ namespace detail {
         }
     }
 }  // namespace detail
-inline bool unbuf_native_filehandle::seek(seek_origin origin, seek_type offset)
+inline std::error_code unbuf_native_filehandle::seek(seek_origin origin,
+                                                     seek_type offset)
 {
     assert(good());
-    return ::SetFilePointer(get(), static_cast<LONG>(offset), nullptr,
-                            detail::win32_move_method(origin)) !=
-           INVALID_SET_FILE_POINTER;
+    if (::SetFilePointer(get(), static_cast<LONG>(offset), nullptr,
+                         detail::win32_move_method(origin)) ==
+        INVALID_SET_FILE_POINTER) {
+        return error();
+    }
+    return {};
 }
-inline bool unbuf_native_filehandle::tell(seek_type& pos)
+inline std::error_code unbuf_native_filehandle::tell(seek_type& pos)
 {
     assert(good());
     auto ret = ::SetFilePointer(get(), 0, nullptr, FILE_CURRENT);
     if (ret == INVALID_SET_FILE_POINTER) {
-        return false;
+        return error();
     }
     pos = static_cast<seek_type>(ret);
-    return true;
+    return {};
 }
 #endif
 #endif  // SPIO_HAS_NATIVE_FILEIO

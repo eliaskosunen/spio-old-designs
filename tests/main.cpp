@@ -29,7 +29,6 @@
 
 template class io::basic_buffered_filehandle_base<io::filehandle>;
 template class io::basic_buffered_filehandle<io::stdio_filehandle>;
-template class io::basic_buffered_filehandle<io::native_filehandle>;
 template class io::basic_instream<io::readable_buffer>;
 template class io::basic_instream<io::readable_file>;
 /* template class io::basic_file_instream<char, io::stdio_filehandle>; */
@@ -52,20 +51,24 @@ template class io::basic_lockable_stream<io::file_outstream>;
 template class io::basic_lockable_stream<io::buffer_outstream>;
 template class io::basic_readable_file<char, io::stdio_filehandle>;
 template class io::basic_readable_file<wchar_t, io::stdio_filehandle>;
-template class io::basic_readable_file<char, io::native_filehandle>;
-template class io::basic_readable_file<wchar_t, io::native_filehandle>;
 template class io::basic_readable_buffer<char>;
 template class io::basic_readable_buffer<wchar_t>;
 /* template class io::basic_readable_buffer<char, 64>; */
 template class io::basic_writable_file<char, io::stdio_filehandle>;
 template class io::basic_writable_file<wchar_t, io::stdio_filehandle>;
-template class io::basic_writable_file<char, io::native_filehandle>;
-template class io::basic_writable_file<wchar_t, io::native_filehandle>;
 template class io::basic_writable_buffer<char>;
 template class io::basic_writable_buffer<wchar_t>;
 template class io::basic_writable_buffer<char,
                                          io::static_writable_buffer<char, 64>>;
 template class io::basic_writable_buffer<char, io::span_writable_buffer<char>>;
+
+#if SPIO_HAS_NATIVE_FILEIO
+template class io::basic_buffered_filehandle<io::native_filehandle>;
+template class io::basic_readable_file<char, io::native_filehandle>;
+template class io::basic_readable_file<wchar_t, io::native_filehandle>;
+template class io::basic_writable_file<char, io::native_filehandle>;
+template class io::basic_writable_file<wchar_t, io::native_filehandle>;
+#endif
 
 #if SPIO_USE_STL
 #include <string>

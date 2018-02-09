@@ -127,9 +127,6 @@ std::error_code basic_readable_file<CharT, FileHandle, Alloc>::seek(
     seek_type offset)
 {
     assert(get_file());
-    if (auto e = get_file()->flush()) {
-        return e;
-    }
     if (auto e = get_file()->seek(origin, offset)) {
         return e;
     }

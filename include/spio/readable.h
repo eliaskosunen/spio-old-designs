@@ -220,9 +220,11 @@ static_assert(
 
 template <typename CharT>
 using basic_readable_stdio_file = basic_readable_file<CharT, stdio_filehandle>;
+#if SPIO_HAS_NATIVE_FILEIO
 template <typename CharT>
 using basic_readable_native_file =
     basic_readable_file<CharT, native_filehandle>;
+#endif
 
 using readable_file = basic_readable_file<char>;
 using readable_wfile = basic_readable_file<wchar_t>;
