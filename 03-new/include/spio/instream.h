@@ -79,15 +79,20 @@ public:
         return read_raw(ch);
     }
 
-    template <typename T, extent_t N = dynamic_extent>
-    basic_instream& getline(span<T, N> s, char_type delim = char_type{'\n'})
+    template <extent_t N = dynamic_extent>
+    basic_instream& getline(span<char_type, N> s,
+                            char_type delim = char_type{'\n'})
     {
-        reader_options<span<T, N>> opt = {make_span<1>(&delim)};
+        reader_options<span<char_type, N>> opt = {make_span<1>(&delim)};
         return read(s, opt);
     }
     template <typename T>
-    std::enable_if_t<is_growable_read_container<T>::value, basic_instream>&
-    getline(T& s, char_type delim = char_type{'\n'});
+    std::enable_if_t<
+        is_growable_read_container<T>::value &&
+            std::is_same<typename T::value_type,
+                         typename basic_instream<Readable>::char_type>::value,
+        basic_instream<Readable>>&
+    getline(T& val, char_type delim = char_type{'\n'});
 
     template <typename ElementT = char_type>
     basic_instream& ignore(std::size_t count = 1)

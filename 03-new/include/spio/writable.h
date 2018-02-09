@@ -101,6 +101,9 @@ public:
 
     std::error_code flush() noexcept;
 
+    std::error_code seek(seek_origin origin, seek_type offset);
+    std::error_code tell(seek_type& pos);
+
     FileHandle* get_file()
     {
         return m_file;
@@ -183,13 +186,14 @@ template <typename T, extent_t Extent = dynamic_extent>
 class span_writable_buffer {
 public:
     using span_type = span<T, Extent>;
-    using iterator_type = typename span_type::iterator;
     using value_type = typename span_type::value_type;
     using size_type = typename span_type::index_type_us;
     using index_type = typename span_type::index_type;
     using difference_type = typename span_type::difference_type;
     using reference = value_type&;
     using const_reference = std::add_const_t<reference>;
+    using iterator = typename span_type::iterator;
+    using const_iterator = typename span_type::const_iterator;
 
     static constexpr auto extent = Extent;
 
@@ -268,6 +272,29 @@ public:
         SPIO_UNUSED(size);
     }
 
+	template <typename InputIt>
+	constexpr iterator insert(const_iterator pos, InputIt first, InputIt last)
+	{
+		if (pos == m_it)
+		{
+			for (auto it = first; it != last; ++it)
+			{
+				if (is_end()) {
+					break;
+				}
+				*m_it = std::move(*it);
+				++m_it;
+			}
+			return m_it;
+		}
+
+		std::array<T, 256> tail;
+		auto dist = std::distance(m_it, m_buf.end());
+		std::copy(m_it, m_buf.end(), tail.begin());
+		m_it = std::copy(first, last, m_it);
+        return insert(const_iterator{m_it}, tail.begin(), tail.begin() + dist);
+    }
+
     constexpr auto to_span()
     {
         return span<T, extent>{begin(), end()};
@@ -275,7 +302,7 @@ public:
 
 private:
     span_type m_buf{};
-    iterator_type m_it{};
+    iterator m_it{};
 };
 template <typename T, std::size_t N, extent_t Extent = static_cast<extent_t>(N)>
 class static_writable_buffer : public span_writable_buffer<T, Extent> {
@@ -343,6 +370,9 @@ public:
         return {};
     }
 
+    std::error_code seek(seek_origin origin, seek_type offset);
+    std::error_code tell(seek_type& pos);
+
     constexpr buffer_type& get_buffer()
     {
         return m_buffer;
@@ -360,6 +390,7 @@ public:
 
 private:
     buffer_type m_buffer{};
+    typename buffer_type::iterator m_it{m_buffer.begin()};
 };
 
 static_assert(is_writable<basic_writable_buffer<char>>::value,
@@ -370,9 +401,11 @@ static_assert(is_writable<basic_writable_buffer<wchar_t>>::value,
               "requirements of Writable");
 
 template <typename CharT>
-using basic_writable_native_file = basic_writable_file<char, native_filehandle>;
-template <typename CharT>
 using basic_writable_stdio_file = basic_writable_file<char, stdio_filehandle>;
+#if SPIO_HAS_NATIVE_FILEIO
+template <typename CharT>
+using basic_writable_native_file = basic_writable_file<char, native_filehandle>;
+#endif
 
 using writable_file = basic_writable_file<char>;
 using writable_wfile = basic_writable_file<wchar_t>;

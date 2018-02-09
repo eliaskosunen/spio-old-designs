@@ -125,6 +125,29 @@ std::error_code basic_writable_file<CharT, FileHandle>::write(CharT c)
 }
 
 template <typename CharT, typename FileHandle>
+std::error_code basic_writable_file<CharT, FileHandle>::seek(seek_origin origin, seek_type offset)
+{
+	assert(m_file && *m_file);
+	if (auto e = m_file->flush()) {
+		return e;
+	}
+	if (auto e = m_file->seek(origin, offset)) {
+		return e;
+	}
+	return {};
+}
+
+template <typename CharT, typename FileHandle>
+std::error_code basic_writable_file<CharT, FileHandle>::tell(seek_type& pos)
+{
+	assert(m_file && *m_file);
+	if (auto e = m_file->tell(pos)) {
+		return e;
+	}
+	return {};
+}
+
+template <typename CharT, typename FileHandle>
 std::error_code basic_writable_file<CharT, FileHandle>::get_error(
     quantity_type read_count,
     quantity_type expected) const
@@ -155,7 +178,7 @@ std::error_code basic_writable_file<CharT, FileHandle>::flush() noexcept
 template <typename CharT, typename BufferT>
 constexpr basic_writable_buffer<CharT, BufferT>::basic_writable_buffer(
     buffer_type b)
-    : m_buffer(std::move(b))
+    : m_buffer(std::move(b)), m_it{m_buffer.begin()}
 {
 }
 
@@ -177,11 +200,9 @@ std::error_code basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
         "Truncation in basic_writable_buffer<CharT, BufferT>::write: sizeof "
         "buffer is more than CharT");
 
-    const auto i = m_buffer.size();
-    m_buffer.resize(i + length.get_unsigned());
-    std::copy(buf.begin(), buf.begin() + length,
-              m_buffer.begin() +
-                  static_cast<typename decltype(m_buffer)::difference_type>(i));
+    m_it = m_buffer.insert(typename BufferT::const_iterator{m_it}, buf.begin(),
+                           buf.end());
+	m_it++;
     if (m_buffer.is_end()) {
         return make_error_condition(end_of_file);
     }
@@ -215,10 +236,9 @@ std::error_code basic_writable_buffer<CharT, BufferT>::write(
                 "Length is not divisible by sizeof CharT");
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
 
-    const auto i = m_buffer.size();
-    m_buffer.resize(i + length / sizeof(CharT));
-    copy_contiguous({buf.begin(), buf.end()},
-                    {m_buffer.begin() + i, m_buffer.end()});
+	auto b = as_bytes(buf);
+	m_it = m_buffer.insert(m_it, b.begin(), b.end());
+	m_it++;
     if (m_buffer.is_end()) {
         return make_error_condition(end_of_file);
     }
@@ -230,6 +250,50 @@ std::error_code basic_writable_buffer<CharT, BufferT>::write(CharT c)
 {
     span<CharT> s{&c, 1};
     return write(s, characters{1});
+}
+
+template <typename CharT, typename BufferT>
+std::error_code basic_writable_buffer<CharT, BufferT>::seek(seek_origin origin,
+                                                            seek_type offset)
+{
+    if (origin == seek_origin::SET) {
+        if (m_buffer.size() < offset) {
+            return make_error_code(std::errc::invalid_argument);
+        }
+        m_it = m_buffer.begin() + offset;
+        return {};
+    }
+    if (origin == seek_origin::CUR) {
+        if (offset == 0) {
+            return {};
+        }
+        if (offset > 0) {
+            auto diff = std::distance(m_it, m_buffer.end());
+            if (offset > diff) {
+                return make_error_code(std::errc::invalid_argument);
+            }
+            m_it += offset;
+            return {};
+        }
+        auto diff = std::distance(m_it, m_buffer.begin());
+        if (offset < diff) {
+            return make_error_code(std::errc::invalid_argument);
+        }
+        m_it += offset;
+        return {};
+    }
+    if (offset > 0) {
+        return make_error_code(std::errc::invalid_argument);
+    }
+    m_it = m_buffer.end() + offset;
+    return {};
+}
+
+template <typename CharT, typename BufferT>
+std::error_code basic_writable_buffer<CharT, BufferT>::tell(seek_type& pos)
+{
+    pos = static_cast<seek_type>(std::distance(m_buffer.begin(), m_it));
+    return {};
 }
 
 template <typename CharT, typename BufferT>
