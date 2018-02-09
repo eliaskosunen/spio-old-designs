@@ -99,7 +99,7 @@ basic_instream<Readable>::getline(T& val, char_type delim)
     struct getline_growable_read : public growable_read<T> {
     };
     span<char_type, 1> spaces{&delim, 1};
-    m_eof = getline_growable_read::read(*this, val, {spaces, false});
+    m_eof = !getline_growable_read::read(*this, val, {{spaces, false}});
     return *this;
 }
 
