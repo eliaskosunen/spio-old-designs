@@ -288,7 +288,7 @@ public:
 			return m_it;
 		}
 
-		std::array<T, 256> tail;
+		std::array<T, 256> tail{{0}};
 		auto dist = std::distance(m_it, m_buf.end());
 		std::copy(m_it, m_buf.end(), tail.begin());
 		m_it = std::copy(first, last, m_it);

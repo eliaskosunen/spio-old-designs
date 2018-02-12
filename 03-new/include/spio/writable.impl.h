@@ -125,26 +125,27 @@ std::error_code basic_writable_file<CharT, FileHandle>::write(CharT c)
 }
 
 template <typename CharT, typename FileHandle>
-std::error_code basic_writable_file<CharT, FileHandle>::seek(seek_origin origin, seek_type offset)
+std::error_code basic_writable_file<CharT, FileHandle>::seek(seek_origin origin,
+                                                             seek_type offset)
 {
-	assert(m_file && *m_file);
-	if (auto e = m_file->flush()) {
-		return e;
-	}
-	if (auto e = m_file->seek(origin, offset)) {
-		return e;
-	}
-	return {};
+    assert(m_file && *m_file);
+    if (auto e = m_file->flush()) {
+        return e;
+    }
+    if (auto e = m_file->seek(origin, offset)) {
+        return e;
+    }
+    return {};
 }
 
 template <typename CharT, typename FileHandle>
 std::error_code basic_writable_file<CharT, FileHandle>::tell(seek_type& pos)
 {
-	assert(m_file && *m_file);
-	if (auto e = m_file->tell(pos)) {
-		return e;
-	}
-	return {};
+    assert(m_file && *m_file);
+    if (auto e = m_file->tell(pos)) {
+        return e;
+    }
+    return {};
 }
 
 template <typename CharT, typename FileHandle>
@@ -202,7 +203,7 @@ std::error_code basic_writable_buffer<CharT, BufferT>::write(span<T, N> buf,
 
     m_it = m_buffer.insert(typename BufferT::const_iterator{m_it}, buf.begin(),
                            buf.end());
-	m_it++;
+    m_it++;
     if (m_buffer.is_end()) {
         return make_error_condition(end_of_file);
     }
@@ -236,9 +237,9 @@ std::error_code basic_writable_buffer<CharT, BufferT>::write(
                 "Length is not divisible by sizeof CharT");
     SPIO_ASSERT(length <= buf.size_bytes(), "buf is not big enough");
 
-	auto b = as_bytes(buf);
-	m_it = m_buffer.insert(m_it, b.begin(), b.end());
-	m_it++;
+    auto b = as_bytes(buf);
+    m_it = m_buffer.insert(m_it, b.begin(), b.end());
+    m_it++;
     if (m_buffer.is_end()) {
         return make_error_condition(end_of_file);
     }
@@ -257,7 +258,7 @@ std::error_code basic_writable_buffer<CharT, BufferT>::seek(seek_origin origin,
                                                             seek_type offset)
 {
     if (origin == seek_origin::SET) {
-        if (m_buffer.size() < offset) {
+        if (static_cast<seek_type>(m_buffer.size()) < offset) {
             return make_error_code(std::errc::invalid_argument);
         }
         m_it = m_buffer.begin() + offset;

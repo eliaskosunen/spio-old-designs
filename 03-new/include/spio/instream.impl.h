@@ -42,15 +42,15 @@ bool basic_instream<Readable>::_read(span<T, N> s, elements length)
         auto len = static_cast<typename decltype(m_buffer)::difference_type>(
             len_bytes);
         copy(m_buffer.begin(), m_buffer.begin() + len,
-             reinterpret_cast<char*>(s.data()));
+             as_writable_bytes(s).data());
         m_buffer.erase(m_buffer.begin(), m_buffer.begin() + len);
         return true;
     }
     auto i = m_buffer.size();
-    copy(m_buffer.begin(), m_buffer.end(), reinterpret_cast<char*>(&s[0]));
+    copy(m_buffer.begin(), m_buffer.end(), as_writable_bytes(s).data());
     m_buffer.clear();
     if (i % sizeof(T) == 0) {
-        auto range = make_span(&s[0] + i / sizeof(T), &s[0] + s.size());
+        auto range = make_span(s.data() + i / sizeof(T), s.data() + s.size());
         if (auto e = m_readable.read(range, elements{range.size()})) {
             if (is_eof(e)) {
                 return false;
@@ -59,8 +59,7 @@ bool basic_instream<Readable>::_read(span<T, N> s, elements length)
         }
         return true;
     }
-    auto range = make_span(reinterpret_cast<char*>(s.data() + i),
-                           reinterpret_cast<char*>(s.data() + s.size()));
+    auto range = make_span(s.data() + i, s.data() + s.size());
     if (auto e = m_readable.read(range, bytes{range.size()})) {
         if (is_eof(e)) {
             return false;
