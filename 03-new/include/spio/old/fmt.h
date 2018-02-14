@@ -18,18 +18,38 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_SPIO_H
-#define SPIO_SPIO_H
+#ifndef SPIO_FMT_H
+#define SPIO_FMT_H
 
 #include "config.h"
-#include "fwd.h"
-#include "traits.h"
 
-#include "error.h"
-#include "locale.h"
-#include "util.h"
-
-#include "file_device.h"
-#include "memory_device.h"
-
+#if !defined(FMT_HEADER_ONLY)
+#define FMT_HEADER_ONLY
 #endif
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch-enum"
+#endif
+
+#if SPIO_USE_FMT
+#include "fmt/fmt/format.h"
+#include "fmt/fmt/string.h"
+#include "fmt/fmt/time.h"
+#endif
+
+#if SPIO_USE_FMT_OSTREAM
+#include "fmt/fmt/ostream.h"
+#endif
+
+namespace io {
+namespace fmt {
+    using namespace ::fmt;
+}
+}  // namespace io
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+#endif  // SPIO_FMT_H

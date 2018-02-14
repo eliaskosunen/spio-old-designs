@@ -21,15 +21,21 @@
 #ifndef SPIO_SPIO_H
 #define SPIO_SPIO_H
 
+#include "buffering.h"
 #include "config.h"
-#include "fwd.h"
-#include "traits.h"
-
 #include "error.h"
-#include "locale.h"
+#include "filehandle.h"
+#include "readable.h"
+#include "span.h"
 #include "util.h"
+#include "writable.h"
 
-#include "file_device.h"
-#include "memory_device.h"
-
+#if SPIO_USE_STREAMS
+#include "custom_type.h"
+#include "fmt.h"
+#include "instream.h"
+#include "outstream.h"
+#include "type.h"
 #endif
+
+#endif  // SPIO_SPIO_H
