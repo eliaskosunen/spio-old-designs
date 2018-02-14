@@ -18,18 +18,40 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_SPIO_H
-#define SPIO_SPIO_H
+#ifndef SPIO_FWD_H
+#define SPIO_FWD_H
 
 #include "config.h"
-#include "fwd.h"
-#include "traits.h"
+#include <type_traits>
 
-#include "error.h"
-#include "locale.h"
-#include "util.h"
+namespace io {
+#if SPIO_HAS_LOGICAL_TRAITS
+template <typename... B>
+using disjunction = std::disjunction<B...>;
+#else
+template <typename...>
+struct disjunction : std::false_type {
+};
+template <typename B1>
+struct disjunction<B1> : B1 {
+};
+template <typename B1, typename... Bn>
+struct disjunction<B1, Bn...>
+    : std::conditional_t<bool(B1::value), B1, disjunction<Bn...>> {
+};
+#endif
 
-#include "file_device.h"
-#include "memory_device.h"
+template <typename T, typename... Ts>
+struct contains : disjunction<std::is_same<T, Ts>...> {
+};
+
+#if !SPIO_HAS_VOID_T
+template <typename...>
+using void_t = void;
+#else
+template <typename... T>
+using void_t = std::void_t<T...>;
+#endif
+}  // namespace io
 
 #endif

@@ -21,8 +21,8 @@
 #ifndef SPIO_ERROR_H
 #define SPIO_ERROR_H
 
+#include "config.h"
 #include "fmt.h"
-#include "fwd.h"
 
 #include <cassert>
 #include <cerrno>
@@ -31,7 +31,7 @@
 #include <string>
 #include <system_error>
 
-namespace spio {
+namespace io {
 enum error {
     invalid_input,
     invalid_operation,
@@ -45,11 +45,11 @@ enum error {
 
 namespace std {
 template <>
-struct is_error_condition_enum<spio::error> : true_type {
+struct is_error_condition_enum<io::error> : true_type {
 };
 }  // namespace std
 
-namespace spio {
+namespace io {
 struct error_category : public std::error_category {
     const char* name() const noexcept override
     {
@@ -75,7 +75,7 @@ struct error_category : public std::error_category {
                 return "[undefined error]";
         }
         assert(false);
-        std::terminate();
+		std::terminate();
     }
 };
 
@@ -129,6 +129,38 @@ public:
     }
 };
 
+#if SPIO_USE_EXCEPTIONS
+#define SPIO_THROW_MSG(msg) throw ::io::failure(::io::default_error, msg)
+#define SPIO_THROW_EC(ec) throw ::io::failure(ec)
+#define SPIO_THROW_ERRNO throw ::io::failure(SPIO_MAKE_ERRNO)
+#define SPIO_THROW(ec, msg) throw ::io::failure(ec, msg)
+#define SPIO_THROW_FAILURE(f) throw f
+#define SPIO_RETHROW throw
+#else
+class failure {
+};
+#define SPIO_THROW_MSG(msg) \
+    assert(false && (msg)); \
+    std::terminate()
+#define SPIO_THROW_EC(ec) \
+    assert(false && ec);  \
+    std::terminate()
+#define SPIO_THROW_ERRNO    \
+    assert(false && errno); \
+    std::terminate()
+#define SPIO_THROW(ec, msg) \
+    SPIO_UNUSED(ec);        \
+    assert(false && (msg)); \
+    std::terminate()
+#define SPIO_THROW_FAILURE(f) \
+    SPIO_UNUSED(f);           \
+    assert(false);            \
+    std::terminate()
+#define SPIO_RETHROW                                   \
+    assert(false && "Rethrowing caught exception..."); \
+    std::terminate()
+#endif
+
 #if SPIO_THROW_ON_ASSERT
 #define SPIO_ASSERT(cond, msg)                        \
     do {                                              \
@@ -140,8 +172,8 @@ public:
 #define SPIO_ASSERT(cond, msg) assert((cond) && msg)
 #endif
 
-#define SPIO_UNIMPLEMENTED throw failure(::spio::unimplemented, "Unimplemented")
-#define SPIO_UNREACHABLE throw failure(::spio::unreachable, "Unreachable")
-}  // namespace spio
+#define SPIO_UNIMPLEMENTED SPIO_THROW(::io::unimplemented, "Unimplemented")
+#define SPIO_UNREACHABLE SPIO_THROW(::io::unreachable, "Unreachable")
+}  // namespace io
 
 #endif  // SPIO_ERROR_H

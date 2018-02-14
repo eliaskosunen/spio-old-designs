@@ -17,19 +17,27 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+//
 
-#ifndef SPIO_SPIO_H
-#define SPIO_SPIO_H
+#ifndef SPIO_SPAN_H
+#define SPIO_SPAN_H
 
-#include "config.h"
-#include "fwd.h"
-#include "traits.h"
-
-#include "error.h"
-#include "locale.h"
-#include "util.h"
-
-#include "file_device.h"
-#include "memory_device.h"
-
+#if !SPIO_USE_EXCEPTIONS
+#define SPAN_NOTHROW
 #endif
+
+#define SPAN_BYTE_USE_UCHAR 1
+#include "span/span/span.h"
+
+namespace io {
+using ::span::as_bytes;
+using ::span::as_writable_bytes;
+using ::span::const_byte_span;
+using ::span::dynamic_extent;
+using ::span::extent_t;
+using ::span::make_span;
+using ::span::span;
+using ::span::writable_byte_span;
+}  // namespace io
+
+#endif  // SPIO_SPAN_H

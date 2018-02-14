@@ -18,18 +18,26 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_SPIO_H
-#define SPIO_SPIO_H
+#ifndef SPIO_LOCALE_H
+#define SPIO_LOCALE_H
 
-#include "config.h"
 #include "fwd.h"
-#include "traits.h"
 
-#include "error.h"
-#include "locale.h"
-#include "util.h"
+#if SPIO_USE_LOCALE
+#include <functional>
+#include <locale>
+#endif
 
-#include "file_device.h"
-#include "memory_device.h"
+namespace spio {
+    // Holy crap this is inefficient
+    inline const std::locale& global_locale() {
+        static auto loc = std::locale{};
+        auto tmp = std::locale{};
+        if(loc != tmp) {
+            loc = tmp;
+        }
+        return loc;
+    }
+}
 
 #endif
