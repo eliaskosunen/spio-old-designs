@@ -21,7 +21,7 @@
 #ifndef SPIO_FMT_H
 #define SPIO_FMT_H
 
-#include "config.h"
+#include "fwd.h"
 
 #if !defined(FMT_HEADER_ONLY)
 #define FMT_HEADER_ONLY
@@ -32,24 +32,22 @@
 #pragma GCC diagnostic ignored "-Wswitch-enum"
 #endif
 
-#if SPIO_USE_FMT
 #include "fmt/fmt/format.h"
 #include "fmt/fmt/string.h"
 #include "fmt/fmt/time.h"
-#endif
 
 #if SPIO_USE_FMT_OSTREAM
 #include "fmt/fmt/ostream.h"
 #endif
 
-namespace io {
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+namespace spio {
 namespace fmt {
     using namespace ::fmt;
 }
 }  // namespace io
-
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
 
 #endif  // SPIO_FMT_H
