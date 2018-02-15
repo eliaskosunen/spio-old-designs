@@ -151,14 +151,7 @@ bool basic_file_device<CharT, Traits>::putback(char_type c)
     if (sizeof(char_type) == 1) {
         return std::ungetc(m_handle, c) != Traits::eof();
     }
-    auto bytes = bit_cast<char>(c);
-    auto s = span<char, sizeof(char_type)>{&bytes};
-    for (auto it = s.rbegin(); it != s.rend(); ++it) {
-        if (std::ungetc(m_handle, *it) == std::char_traits<char>::eof()) {
-            throw failure{SPIO_MAKE_ERRNO};
-        }
-    }
-    return true;
+    SPIO_UNREACHABLE;
 }
 
 template <typename CharT, typename Traits>

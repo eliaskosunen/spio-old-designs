@@ -21,13 +21,12 @@
 #ifndef SPIO_SCANNER_H
 #define SPIO_SCANNER_H
 
+#include <cstdio>
 #include "codeconv.h"
 #include "fwd.h"
 #include "span.h"
 
 namespace spio {
-template <typename CharT>
-class basic_scanf_scanner;
-}
+}  // namespace spio
 
 #endif

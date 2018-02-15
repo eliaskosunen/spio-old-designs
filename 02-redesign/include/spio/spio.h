@@ -33,6 +33,7 @@
 #include "file_device.h"
 #include "formatter.h"
 #include "memory_device.h"
+#include "native_file_device.h"
 #include "scanner.h"
 
 #endif

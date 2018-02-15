@@ -28,17 +28,49 @@
 
 namespace spio {
 template <typename Source, typename Dest>
-class codeconv;
+class codeconv {
+    using converter_type = std::wstring_convert<std::codecvt_utf8<Dest>, Dest>;
+    converter_type converter;
+
+public:
+    typename converter_type::wide_string operator()(span<Source> s)
+    {
+        return converter.from_bytes({s.begin(), s.end()});
+    }
+    typename converter_type::wide_string operator()(
+        typename converter_type::byte_string s)
+    {
+        return converter.from_bytes(s);
+    }
+
+    typename converter_type::byte_string reverse(span<Dest> s)
+    {
+        return converter.to_bytes({s.begin(), s.end()});
+    }
+    typename converter_type::byte_string reverse(
+        typename converter_type::wide_string s)
+    {
+        return converter.to_bytes(s);
+    }
+};
 
 template <typename Char>
 class codeconv<Char, Char> {
 public:
-    std::basic_string<Char> operator(span<Char> s)
+    std::basic_string<Char> operator()(span<Char> s) const
     {
         return {s.begin(), s.end()};
     }
+    std::basic_string<Char> operator()(std::basic_string<Char> s) const
+    {
+        return s;
+    }
 
-    auto reverse(span<Char> s)
+    auto reverse(span<Char> s) const
+    {
+        return operator()(s);
+    }
+    auto reverse(std::basic_string<Char> s) const
     {
         return operator()(s);
     }

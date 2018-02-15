@@ -130,11 +130,11 @@ public:
 };
 
 #if SPIO_THROW_ON_ASSERT
-#define SPIO_ASSERT(cond, msg)                        \
-    do {                                              \
-        if (!(cond)) {                                \
-            SPIO_THROW(::io::assertion_failure, msg); \
-        }                                             \
+#define SPIO_ASSERT(cond, msg)                             \
+    do {                                                   \
+        if (!(cond)) {                                     \
+            throw failure(::spio::assertion_failure, msg); \
+        }                                                  \
     } while (false)
 #else
 #define SPIO_ASSERT(cond, msg) assert((cond) && msg)
