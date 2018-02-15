@@ -18,21 +18,54 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_SPIO_H
-#define SPIO_SPIO_H
-
-#include "config.h"
-#include "fwd.h"
-#include "traits.h"
+#ifndef SPIO_FORMATTER_H
+#define SPIO_FORMATTER_H
 
 #include "codeconv.h"
-#include "error.h"
+#include "fmt.h"
+#include "fwd.h"
 #include "locale.h"
-#include "util.h"
 
-#include "file_device.h"
-#include "formatter.h"
-#include "memory_device.h"
-#include "scanner.h"
+namespace spio {
+// TODO: Use codecvt
+template <typename CharT>
+class basic_fmt_formatter {
+public:
+    using result = std::basic_string<CharT>;
+
+    template <typename T>
+    result operator(const T& a) const
+    {
+        return codeconv<char, CharT>{}(fmt::format("{}", a));
+    }
+
+    template <typename... Args>
+    result format(CharT* f, const Args&... a) const
+    {
+        auto conv = codeconv<char, CharT>;
+        return conv(fmt::format(conv.reverse(f), a...));
+    }
+
+private:
+};
+
+template <>
+class basic_fmt_formatter<char> {
+public:
+    using result = std::string;
+
+    template <typename T>
+    result operator(const T& a)
+    {
+        return fmt::format("{}", a);
+    }
+
+    template <typename... Args>
+    result format(CharT* f, const Args&... a)
+    {
+        return fmt::format(f, a...);
+    }
+};
+}  // namespace spio
 
 #endif
