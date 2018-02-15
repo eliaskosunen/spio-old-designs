@@ -104,6 +104,9 @@ struct dual_seekable_device_tag : device_tag, dual_seekable {
 };
 struct bidirectional_seekable_device_tag : device_tag, bidirectional_seekable {
 };
+
+struct formatter_tag : virtual any_tag {
+};
 }  // namespace spio
 
 #endif
