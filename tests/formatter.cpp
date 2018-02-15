@@ -18,6 +18,33 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest.h>
 #include <spio/spio.h>
+
+TEST_CASE("formatter")
+{
+    SUBCASE("char")
+    {
+        spio::basic_fmt_formatter<char> fmt;
+        CHECK(fmt("str") == fmt::format("str"));
+        CHECK(fmt(0) == fmt::format("{}", 0));
+        CHECK(fmt(0x8000) == fmt::format("{}", 0x8000));
+        CHECK(fmt(-1) == fmt::format("{}", -1));
+        CHECK(fmt(3.14) == fmt::format("{}", 3.14));
+
+        CHECK(fmt.format("{} {}", 1, 2) == fmt::format("{} {}", 1, 2));
+    }
+    SUBCASE("wchar_t")
+    {
+        spio::basic_fmt_formatter<wchar_t> fmt;
+        spio::codeconv<char, wchar_t> conv;
+
+        CHECK(fmt(L"str") == conv(fmt::format("str")));
+        CHECK(fmt(0) == conv(fmt::format("{}", 0)));
+        CHECK(fmt(0x8000) == conv(fmt::format("{}", 0x8000)));
+        CHECK(fmt(-1) == conv(fmt::format("{}", -1)));
+        CHECK(fmt(3.14) == conv(fmt::format("{}", 3.14)));
+
+        CHECK(fmt.format(L"{} {}", 1, 2) == conv(fmt::format("{} {}", 1, 2)));
+    }
+}

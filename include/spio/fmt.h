@@ -30,14 +30,30 @@
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wswitch-enum"
-#endif
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+#pragma GCC diagnostic ignored "-Wmissing-noreturn"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 
-#include "fmt/fmt/format.h"
-#include "fmt/fmt/string.h"
-#include "fmt/fmt/time.h"
+#ifdef __clang__
+#pragma GCC diagnostic ignored "-Wshadow-field-in-constructor"
+#pragma GCC diagnostic ignored "-Wdeprecated-dynamic-exception-spec"
+#pragma GCC diagnostic ignored "-Wdocumentation-unknown-command"
+#pragma GCC diagnostic ignored "-Wunused-member-function"
+#pragma GCC diagnostic ignored "-Wshorten-64-to-32"
+#else
+#pragma GCC diagnostic ignored "-Wctor-dtor-privacy"
+#pragma GCC diagnostic ignored "-Wshadow"
+#endif
+#endif // defined(__GNUC__) || defined(__clang__)
+
+#include "fmt/include/fmt/format.h"
+#include "fmt/include/fmt/time.h"
 
 #if SPIO_USE_FMT_OSTREAM
-#include "fmt/fmt/ostream.h"
+#include "fmt/include/fmt/ostream.h"
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -48,6 +64,6 @@ namespace spio {
 namespace fmt {
     using namespace ::fmt;
 }
-}  // namespace io
+}  // namespace spio
 
 #endif  // SPIO_FMT_H

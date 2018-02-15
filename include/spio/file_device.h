@@ -38,15 +38,15 @@ public:
     struct category : seekable_device_tag, closable_tag, flushable_tag {
     };
 
-    basic_file_device() = default;
+    constexpr basic_file_device() = default;
     basic_file_device(const std::string& path,
                       uint64_t mode = openmode::in | openmode::out,
                       uint64_t base_mode = openmode::in | openmode::out);
 
-    basic_file_device(const basic_file_device&) = delete;
-    basic_file_device& operator=(const basic_file_device&) = delete;
-    basic_file_device(basic_file_device&&) = default;
-    basic_file_device& operator=(basic_file_device&&) = default;
+    constexpr basic_file_device(const basic_file_device&) = delete;
+    constexpr basic_file_device& operator=(const basic_file_device&) = delete;
+    constexpr basic_file_device(basic_file_device&&) = default;
+    constexpr basic_file_device& operator=(basic_file_device&&) = default;
 
     ~basic_file_device()
     {

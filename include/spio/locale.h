@@ -29,15 +29,23 @@
 #endif
 
 namespace spio {
-    // Holy crap this is inefficient
-    inline const std::locale& global_locale() {
-        static auto loc = std::locale{};
-        auto tmp = std::locale{};
-        if(loc != tmp) {
-            loc = tmp;
-        }
-        return loc;
+// Holy crap this is inefficient
+inline const std::locale& global_locale()
+{
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wexit-time-destructors"
+#endif
+    static auto loc = std::locale{};
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif
+    auto tmp = std::locale{};
+    if (loc != tmp) {
+        loc = tmp;
     }
+    return loc;
 }
+}  // namespace spio
 
 #endif
