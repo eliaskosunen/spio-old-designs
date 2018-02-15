@@ -18,6 +18,42 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include <doctest.h>
-#include <spio/spio.h>
+#ifndef SPIO_INDIRECT_DEVICE
+#define SPIO_INDIRECT_DEVICE
+
+#include "fwd.h"
+#include "span.h"
+#include "traits.h"
+
+namespace spio {
+    namespace detail {
+        template <typename T>
+        struct get_direct_buffer {
+
+        };
+    }
+
+template <typename Mode, typename Device>
+class basic_indirect_device {
+public:
+    using device_type = Device;
+    using char_type = typename Device::char_type;
+    using buffer_type = span<char_type>;
+    using iterator = typename buffer_type::iterator;
+    using const_iterator = typename buffer_type::const_iterator;
+
+    struct category : Mode {
+    };
+
+    constexpr basic_indirect_device() = default;
+    template <typename = std::enable_if_t<has_category<Device, input>::value>>
+    constexpr basic_indirect_device(Device& dev) : m_dev(std::addressof(dev)), {}
+
+private:
+    Device* m_dev{};
+    iterator m_input{};
+    iterator m_output{};
+};
+}  // namespace spio
+
+#endif

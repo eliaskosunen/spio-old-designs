@@ -22,6 +22,7 @@
 #define SPIO_TRAITS_H
 
 #include <cstddef>
+#include <type_traits>
 
 namespace spio {
 using streamsize = std::ptrdiff_t;
@@ -106,6 +107,10 @@ struct bidirectional_seekable_device_tag : device_tag, bidirectional_seekable {
 };
 
 struct formatter_tag : virtual any_tag {
+};
+
+template <typename T, typename Category>
+struct has_category : std::is_base_of<Category, typename T::category> {
 };
 }  // namespace spio
 

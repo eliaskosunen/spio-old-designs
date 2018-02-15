@@ -18,6 +18,30 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest.h>
 #include <spio/spio.h>
+
+TEST_CASE("codeconv")
+{
+    SUBCASE("no-op")
+    {
+        spio::codeconv<char, char> conv;
+
+        CHECK(conv("str") == "str");
+        CHECK(conv.reverse("str") == "str");
+    }
+
+    SUBCASE("char <-> wchar_t")
+    {
+        spio::codeconv<char, wchar_t> conv;
+
+        CHECK(conv("str") == L"str");
+        CHECK(conv("") == L"");
+        CHECK(conv("Special characters: åäöə") == L"Special characters: åäöə");
+
+        CHECK(conv.reverse(L"str") == "str");
+        CHECK(conv.reverse(L"") == "");
+        CHECK(conv.reverse(L"Special characters: åäöə") ==
+              "Special characters: åäöə");
+    }
+}

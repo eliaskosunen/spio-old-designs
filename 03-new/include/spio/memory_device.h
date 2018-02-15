@@ -36,8 +36,17 @@ namespace detail {
         struct category : Mode, direct_tag {
         };
 
-        basic_memory_device_adaptor() = default;
-        basic_memory_device_adaptor(span<char_type> s) : m_buf(s) {}
+        constexpr basic_memory_device_adaptor() = default;
+        constexpr basic_memory_device_adaptor(span<char_type> s) : m_buf(s) {}
+
+        char_type* buffer()
+        {
+            return m_buf.data();
+        }
+        const char_type* buffer() const
+        {
+            return m_buf.data();
+        }
 
         span<const char_type> input()
         {
@@ -45,7 +54,7 @@ namespace detail {
                 buffer(),
                 "basic_memory_device_adaptor::input: Sequence points to "
                 "invalid memory!");
-            return buffer().as_const_span();
+            return m_buf.as_const_span();
         }
         span<char_type> output()
         {
@@ -53,19 +62,10 @@ namespace detail {
                 buffer(),
                 "basic_memory_device_adaptor::output: Sequence points to "
                 "invalid memory!");
-            return buffer();
+            return m_buf;
         }
 
     private:
-        span<char_type>& buffer()
-        {
-            return m_buf;
-        }
-        const span<char_type>& buffer() const
-        {
-            return m_buf;
-        }
-
         span<char_type> m_buf{nullptr};
     };
 }  // namespace detail
@@ -81,6 +81,7 @@ public:
     using category = typename base::category;
 
     using base::base;
+    using base::buffer;
     using base::input;
     using base::output;
 };
@@ -99,6 +100,7 @@ public:
     using category = typename base::category;
 
     using base::base;
+    using base::buffer;
     using base::input;
 };
 
@@ -115,6 +117,7 @@ public:
     using category = typename base::category;
 
     using base::base;
+    using base::buffer;
     using base::output;
 };
 
@@ -133,7 +136,7 @@ public:
 
     basic_container_sink() = default;
     basic_container_sink(container_type& c)
-        : m_buf{std::addressof(c)}, m_it{c->begin()}
+        : m_buf{std::addressof(c)}, m_it{m_buf->begin()}
     {
     }
 
@@ -153,7 +156,7 @@ public:
                     "container!");
 
         m_it = m_buf->insert(m_it, s.begin(), s.end());
-        ++m_it;
+        m_it += s.size();
         return s.size();
     }
 
@@ -165,7 +168,7 @@ public:
             "basic_container_sink::seek: Cannot seek a nullptr container!");
 
         if (way == seekdir::beg) {
-            auto size = m_buf->size();
+            auto size = static_cast<streamoff>(m_buf->size());
             if (size < off || off < 0) {
                 throw failure{
                     make_error_code(std::errc::invalid_argument),
@@ -198,12 +201,12 @@ public:
             return std::distance(m_buf->begin(), m_it);
         }
 
-        auto size = m_buf->size();
-        if (size > -off || off > 0) {
+        auto size = static_cast<streamoff>(m_buf->size());
+        if (size < -off || off > 0) {
             throw failure{make_error_code(std::errc::invalid_argument),
                           "basic_container_sink::seek: offset is out of range"};
         }
-        m_it += off;
+        m_it = m_buf->end() + off;
         return std::distance(m_buf->begin(), m_it);
     }
 

@@ -27,27 +27,8 @@
 #include "locale.h"
 
 namespace spio {
-// TODO: Use codecvt
 template <typename CharT>
-class basic_fmt_formatter {
-public:
-    using result = std::basic_string<CharT>;
-
-    template <typename T>
-    result operator(const T& a) const
-    {
-        return codeconv<char, CharT>{}(fmt::format("{}", a));
-    }
-
-    template <typename... Args>
-    result format(CharT* f, const Args&... a) const
-    {
-        auto conv = codeconv<char, CharT>;
-        return conv(fmt::format(conv.reverse(f), a...));
-    }
-
-private:
-};
+class basic_fmt_formatter;
 
 template <>
 class basic_fmt_formatter<char> {
@@ -55,17 +36,45 @@ public:
     using result = std::string;
 
     template <typename T>
-    result operator(const T& a)
+    result operator()(const T& a) const
     {
         return fmt::format("{}", a);
     }
 
     template <typename... Args>
-    result format(CharT* f, const Args&... a)
+    result format(const char* f, const Args&... a) const
     {
         return fmt::format(f, a...);
     }
 };
+
+template <typename CharT>
+class basic_fmt_formatter {
+public:
+    using result = std::basic_string<CharT>;
+
+    template <typename T>
+    result operator()(const T& a)
+    {
+        return m_conv(m_fmt(a));
+    }
+    result operator()(const CharT* s)
+    {
+        return m_conv(m_fmt(m_conv.reverse(s)));
+    }
+
+    template <typename... Args>
+    result format(const CharT* f, const Args&... a)
+    {
+        auto fmt = m_conv.reverse(f);
+        return m_conv(m_fmt.format(fmt.c_str(), a...));
+    }
+
+private:
+    codeconv<char, CharT> m_conv;
+    basic_fmt_formatter<char> m_fmt;
+};
+
 }  // namespace spio
 
 #endif
