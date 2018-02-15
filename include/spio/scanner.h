@@ -18,21 +18,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_SPIO_H
-#define SPIO_SPIO_H
-
-#include "config.h"
-#include "fwd.h"
-#include "traits.h"
+#ifndef SPIO_SCANNER_H
+#define SPIO_SCANNER_H
 
 #include "codeconv.h"
-#include "error.h"
-#include "locale.h"
-#include "util.h"
+#include "fwd.h"
+#include "span.h"
 
-#include "file_device.h"
-#include "formatter.h"
-#include "memory_device.h"
-#include "scanner.h"
+namespace spio {
+template <typename CharT>
+class basic_scanf_scanner;
+}
 
 #endif

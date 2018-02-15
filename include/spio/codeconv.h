@@ -18,21 +18,31 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_SPIO_H
-#define SPIO_SPIO_H
+#ifndef SPIO_CODECONV_H
+#define SPIO_CODECONV_H
 
-#include "config.h"
+#include <codecvt>
 #include "fwd.h"
-#include "traits.h"
-
-#include "codeconv.h"
-#include "error.h"
 #include "locale.h"
-#include "util.h"
+#include "span.h"
 
-#include "file_device.h"
-#include "formatter.h"
-#include "memory_device.h"
-#include "scanner.h"
+namespace spio {
+template <typename Source, typename Dest>
+class codeconv;
+
+template <typename Char>
+class codeconv<Char, Char> {
+public:
+    std::basic_string<Char> operator(span<Char> s)
+    {
+        return {s.begin(), s.end()};
+    }
+
+    auto reverse(span<Char> s)
+    {
+        return operator()(s);
+    }
+};
+}  // namespace spio
 
 #endif
