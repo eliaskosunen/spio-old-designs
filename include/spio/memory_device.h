@@ -23,6 +23,7 @@
 
 #include "error.h"
 #include "fwd.h"
+#include "indirect_device.h"
 #include "span.h"
 #include "traits.h"
 
@@ -124,104 +125,24 @@ public:
 using memory_sink = basic_memory_sink<char>;
 using wmemory_sink = basic_memory_sink<wchar_t>;
 
-template <typename Container>
-class basic_container_sink {
-public:
-    using container_type = Container;
-    using char_type = typename Container::value_type;
-    using iterator = typename Container::iterator;
-
-    struct category : seekable_sink_tag {
-    };
-
-    basic_container_sink() = default;
-    basic_container_sink(container_type& c)
-        : m_buf{std::addressof(c)}, m_it{m_buf->begin()}
-    {
-    }
-
-    container_type* container()
-    {
-        return m_buf;
-    }
-    const container_type* container() const
-    {
-        return m_buf;
-    }
-
-    streamsize write(span<const char_type> s)
-    {
-        SPIO_ASSERT(m_buf,
-                    "basic_container_sink::write: Cannot write to a nullptr "
-                    "container!");
-
-        m_it = m_buf->insert(m_it, s.begin(), s.end());
-        m_it += s.size();
-        return s.size();
-    }
-
-    streampos seek(streamoff off, seekdir way, uint64_t which = openmode::out)
-    {
-        SPIO_UNUSED(which);
-        SPIO_ASSERT(
-            m_buf,
-            "basic_container_sink::seek: Cannot seek a nullptr container!");
-
-        if (way == seekdir::beg) {
-            auto size = static_cast<streamoff>(m_buf->size());
-            if (size < off || off < 0) {
-                throw failure{
-                    make_error_code(std::errc::invalid_argument),
-                    "basic_container_sink::seek: offset is out of range"};
-            }
-            m_it = m_buf->begin() + off;
-            return off;
-        }
-        if (way == seekdir::cur) {
-            if (off == 0) {
-                return std::distance(m_buf->begin(), m_it);
-            }
-            if (off < 0) {
-                auto dist = std::distance(m_buf->begin(), m_it);
-                if (dist < -off) {
-                    throw failure{
-                        make_error_code(std::errc::invalid_argument),
-                        "basic_container_sink::seek: offset is out of range"};
-                }
-                m_it -= off;
-                return std::distance(m_buf->begin(), m_it);
-            }
-            auto dist = std::distance(m_it, m_buf->end());
-            if (dist < off) {
-                throw failure{
-                    make_error_code(std::errc::invalid_argument),
-                    "basic_container_sink::seek: offset is out of range"};
-            }
-            m_it += off;
-            return std::distance(m_buf->begin(), m_it);
-        }
-
-        auto size = static_cast<streamoff>(m_buf->size());
-        if (size < -off || off > 0) {
-            throw failure{make_error_code(std::errc::invalid_argument),
-                          "basic_container_sink::seek: offset is out of range"};
-        }
-        m_it = m_buf->end() + off;
-        return std::distance(m_buf->begin(), m_it);
-    }
-
-private:
-    container_type* m_buf{nullptr};
-    iterator m_it{};
-};
-
 template <typename CharT>
-using basic_vector_sink = basic_container_sink<std::vector<CharT>>;
+using basic_indirect_memory_device =
+    basic_indirect_device<seekable_device_tag, CharT>;
 template <typename CharT>
-using basic_string_sink = basic_container_sink<std::basic_string<CharT>>;
+using basic_indirect_memory_source =
+    basic_indirect_source<seekable_source_tag, CharT>;
+template <typename CharT>
+using basic_indirect_memory_sink =
+    basic_indirect_sink<seekable_sink_tag, CharT>;
 
-using string_sink = basic_string_sink<char>;
-using wstring_sink = basic_string_sink<wchar_t>;
+using indirect_memory_device = basic_indirect_memory_device<char>;
+using windirect_memory_device = basic_indirect_memory_device<wchar_t>;
+
+using indirect_memory_source = basic_indirect_memory_source<char>;
+using windirect_memory_source = basic_indirect_memory_source<wchar_t>;
+
+using indirect_memory_sink = basic_indirect_memory_sink<char>;
+using windirect_memory_sink = basic_indirect_memory_sink<wchar_t>;
 }  // namespace spio
 
 #endif

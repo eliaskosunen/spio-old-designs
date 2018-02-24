@@ -56,6 +56,9 @@ namespace detail {
         }
 #endif
 
+        constexpr os_file_descriptor() = default;
+        constexpr os_file_descriptor(handle_type fd) : h(fd) {}
+
         handle_type h{invalid()};
         bool eof{false};
 
@@ -71,17 +74,72 @@ namespace detail {
 }  // namespace detail
 
 template <typename CharT>
-class basic_native_file_device {
+class basic_native_filehandle_device {
 public:
     using char_type = CharT;
 
-    struct category : seekable_device_tag, closable_tag, flushable_tag {
+    struct category : seekable_device_tag, flushable_tag {
     };
 
-    constexpr basic_native_file_device() = default;
+    constexpr basic_native_filehandle_device() = default;
+    constexpr basic_native_filehandle_device(detail::os_file_descriptor h)
+        : m_handle(h)
+    {
+    }
+
+    void open(detail::os_file_descriptor h)
+    {
+        SPIO_ASSERT(
+            !is_open(),
+            "basic_native_filehandle_device::open: Cannot reopen an already "
+            "open file");
+        m_handle = h;
+    }
+    bool is_open() const
+    {
+        return m_handle.get() != detail::os_file_descriptor::invalid();
+    }
+
+    constexpr auto handle() const
+    {
+        return m_handle.get();
+    }
+
+    void flush();
+
+    streamsize read(span<char_type> s);
+    streamsize write(span<const char_type> s);
+
+    streampos seek(streamoff off,
+                   seekdir way,
+                   int which = openmode::in | openmode::out);
+
+protected:
+    detail::os_file_descriptor m_handle{};
+
+private:
+#if SPIO_WIN32
+    bool m_append{false};
+    bool m_binary{false};
+#endif
+};
+
+using native_filehandle_device = basic_native_filehandle_device<char>;
+using wnative_filehandle_device = basic_native_filehandle_device<wchar_t>;
+
+template <typename CharT>
+class basic_native_file_device : public basic_native_filehandle_device<CharT> {
+    using base = basic_native_filehandle_device<CharT>;
+
+public:
+    using char_type = CharT;
+
+    struct category : base::category, closable_tag {
+    };
+
     basic_native_file_device(const std::string& path,
-                             uint64_t mode = openmode::in | openmode::out,
-                             uint64_t base_mode = openmode::in | openmode::out);
+                             int mode = openmode::in | openmode::out,
+                             int base_mode = openmode::in | openmode::out);
 
     constexpr basic_native_file_device(const basic_native_file_device&) =
         delete;
@@ -93,44 +151,16 @@ public:
 
     ~basic_native_file_device()
     {
-        if (is_open()) {
+        if (base::is_open()) {
             close();
         }
     }
 
     void open(const std::string& path,
-              uint64_t mode = openmode::in | openmode::out,
-              uint64_t base_mode = openmode::in | openmode::out);
-    bool is_open() const
-    {
-        return m_handle != detail::os_file_descriptor::invalid();
-    }
+              int mode = openmode::in | openmode::out,
+              int base_mode = openmode::in | openmode::out);
+
     void close();
-
-    constexpr auto& handle()
-    {
-        return m_handle;
-    }
-    constexpr const auto& handle() const
-    {
-        return m_handle;
-    }
-
-    void flush();
-
-    streamsize read(span<char_type> s);
-    streamsize write(span<const char_type> s);
-
-    streampos seek(streamoff off,
-                   seekdir way,
-                   uint64_t which = openmode::in | openmode::out);
-
-private:
-    detail::os_file_descriptor m_handle{};
-#if SPIO_WIN32
-    bool m_append{false};
-    bool m_binary{false};
-#endif
 };
 
 using native_file_device = basic_native_file_device<char>;
@@ -152,12 +182,11 @@ public:
     using base::read;
     using base::seek;
 
-    basic_native_file_source(const std::string& path,
-                             uint64_t mode = openmode::in)
+    basic_native_file_source(const std::string& path, int mode = openmode::in)
         : base(path, mode & ~openmode::out, openmode::in)
     {
     }
-    void open(const std::string& path, uint64_t mode = openmode::in)
+    void open(const std::string& path, int mode = openmode::in)
     {
         base::open(path, mode & ~openmode::out, openmode::in);
     }
@@ -182,12 +211,11 @@ public:
     using base::seek;
     using base::write;
 
-    basic_native_file_sink(const std::string& path,
-                           uint64_t mode = openmode::out)
+    basic_native_file_sink(const std::string& path, int mode = openmode::out)
         : base(path, mode & ~openmode::in, openmode::out)
     {
     }
-    void open(const std::string& path, uint64_t mode = openmode::out)
+    void open(const std::string& path, int mode = openmode::out)
     {
         base::open(path, mode & ~openmode::in, openmode::out);
     }

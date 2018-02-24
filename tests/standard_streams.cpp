@@ -18,26 +18,23 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_SPIO_H
-#define SPIO_SPIO_H
+#include <doctest.h>
+#include <spio/spio.h>
 
-#include "config.h"
-#include "fwd.h"
-#include "traits.h"
-
-#include "codeconv.h"
-#include "error.h"
-#include "locale.h"
-#include "util.h"
-
-#include "container_device.h"
-#include "file_device.h"
-#include "indirect_device.h"
-#include "memory_device.h"
-#include "native_file_device.h"
-#include "null_device.h"
-
-#include "formatter.h"
-#include "scanner.h"
-
-#endif
+TEST_CASE("standard streams")
+{
+    SUBCASE("stdout")
+    {
+        spio::filehandle_device dev{stdout};
+        auto s = std::string{"Hello world!\n"};
+        auto n = dev.write(s);
+        CHECK(n == s.size());
+    }
+    SUBCASE("native stdout")
+    {
+        spio::native_filehandle_device dev{1};
+        auto s = std::string{"Hello world!\n"};
+        auto n = dev.write(s);
+        CHECK(n == s.size());
+    }
+}
