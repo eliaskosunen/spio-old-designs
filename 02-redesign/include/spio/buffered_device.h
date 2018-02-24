@@ -18,26 +18,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_SPIO_H
-#define SPIO_SPIO_H
+#ifndef SPIO_BUFFERED_DEVICE_H
+#define SPIO_BUFFERED_DEVICE_H
 
-#include "config.h"
-#include "fwd.h"
-#include "traits.h"
+namespace spio {
 
-#include "codeconv.h"
-#include "error.h"
-#include "locale.h"
-#include "util.h"
-
-#include "container_device.h"
-#include "file_device.h"
-#include "indirect_device.h"
-#include "memory_device.h"
-#include "native_file_device.h"
-#include "null_device.h"
-
-#include "formatter.h"
-#include "scanner.h"
+}
 
 #endif

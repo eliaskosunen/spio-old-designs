@@ -27,21 +27,102 @@
 
 namespace spio {
 template <typename CharT>
+void basic_native_filehandle_device<CharT>::flush()
+{
+    SPIO_ASSERT(
+        is_open(),
+        "basic_native_filehandle_device::flush: Cannot flush a Device which "
+        "is not open!");
+
+    if (::fsync(m_handle.get()) != 0) {
+        throw failure{SPIO_MAKE_ERRNO};
+    }
+}
+
+template <typename CharT>
+streamsize basic_native_filehandle_device<CharT>::read(span<char_type> s)
+{
+    SPIO_ASSERT(is_open(),
+                "basic_native_filehandle_device::read: Cannot read from a "
+                "Device which is "
+                "not open!");
+    if (m_handle.eof) {
+        throw failure{make_error_condition(end_of_file)};
+    }
+    if (s.size() == 0) {
+        return 0;
+    }
+
+    auto b = ::read(m_handle.get(), s.data(), s.size_bytes_us());
+    if (b == 0) {
+        return -1;
+    }
+    if (b == -1) {
+        throw failure{SPIO_MAKE_ERRNO};
+    }
+    return b / static_cast<streamsize>(sizeof(CharT));
+}
+
+template <typename CharT>
+streamsize basic_native_filehandle_device<CharT>::write(span<const char_type> s)
+{
+    SPIO_ASSERT(is_open(),
+                "basic_native_filehandle_device::write: Cannot write to a "
+                "Device which is not open!");
+
+    if (s.size() == 0) {
+        return 0;
+    }
+
+    auto b = ::write(m_handle.get(), s.data(), s.size_bytes_us());
+    if (b == -1) {
+        throw failure{SPIO_MAKE_ERRNO};
+    }
+    return b / static_cast<streamsize>(sizeof(CharT));
+}
+
+template <typename CharT>
+streampos basic_native_filehandle_device<CharT>::seek(streamoff off,
+                                                      seekdir way,
+                                                      int which)
+{
+    SPIO_UNUSED(which);
+    SPIO_ASSERT(is_open(),
+                "basic_native_filehandle_device::seek: Cannot seek a Device "
+                "which is not open!");
+
+    const auto origin = [&]() {
+        if (way == seekdir::beg) {
+            return SEEK_SET;
+        }
+        if (way == seekdir::cur) {
+            return SEEK_CUR;
+        }
+        return SEEK_END;
+    }();
+    auto ret = ::lseek(m_handle, off, origin);
+    if (ret == -1) {
+        throw failure{SPIO_MAKE_ERRNO};
+    }
+    return static_cast<streampos>(ret);
+}
+
+template <typename CharT>
 basic_native_file_device<CharT>::basic_native_file_device(
     const std::string& path,
-    uint64_t mode,
-    uint64_t base_mode)
+    int mode,
+    int base_mode)
 {
     open(path, mode, base_mode);
 }
 
 template <typename CharT>
 void basic_native_file_device<CharT>::open(const std::string& path,
-                                           uint64_t mode,
-                                           uint64_t base_mode)
+                                           int mode,
+                                           int base_mode)
 {
     SPIO_ASSERT(
-        !is_open(),
+        !base::is_open(),
         "basic_native_file_device::open: Cannot open an already open Device!");
 
     auto m = mode | base_mode;
@@ -83,98 +164,18 @@ void basic_native_file_device<CharT>::open(const std::string& path,
     if (h == detail::os_file_descriptor::invalid()) {
         throw failure{SPIO_MAKE_ERRNO};
     }
-    m_handle = h;
+    base::m_handle = h;
 }
 
 template <typename CharT>
 void basic_native_file_device<CharT>::close()
 {
-    SPIO_ASSERT(is_open(),
+    SPIO_ASSERT(base::is_open(),
                 "basic_native_file_device::close: Cannot close a Device which "
                 "is not open!");
 
-    ::close(m_handle);
-    m_handle = nullptr;
-}
-
-template <typename CharT>
-void basic_native_file_device<CharT>::flush()
-{
-    SPIO_ASSERT(is_open(),
-                "basic_native_file_device::flush: Cannot flush a Device which "
-                "is not open!");
-
-    if (::fsync(m_handle) != 0) {
-        throw failure{SPIO_MAKE_ERRNO};
-    }
-}
-
-template <typename CharT>
-streamsize basic_native_file_device<CharT>::read(span<char_type> s)
-{
-    SPIO_ASSERT(
-        is_open(),
-        "basic_native_file_device::read: Cannot read from a Device which is "
-        "not open!");
-    if (m_handle.eof) {
-        throw failure{make_error_condition(end_of_file)};
-    }
-    if (s.size() == 0) {
-        return 0;
-    }
-
-    auto b = ::read(m_handle, s.data(), s.size_us());
-    if (b == 0) {
-        return -1;
-    }
-    if (b == -1) {
-        throw failure{SPIO_MAKE_ERRNO};
-    }
-    return b;
-}
-
-template <typename CharT>
-streamsize basic_native_file_device<CharT>::write(span<const char_type> s)
-{
-    SPIO_ASSERT(is_open(),
-                "basic_file_device::write: Cannot write to a Device which is "
-                "not open!");
-
-    if (s.size() == 0) {
-        return 0;
-    }
-
-    auto b = ::write(m_handle, s.data(), s.size_us());
-    if (b == -1) {
-        throw failure{SPIO_MAKE_ERRNO};
-    }
-    return b;
-}
-
-template <typename CharT>
-streampos basic_native_file_device<CharT>::seek(streamoff off,
-                                                seekdir way,
-                                                uint64_t which)
-{
-    SPIO_UNUSED(which);
-    SPIO_ASSERT(
-        is_open(),
-        "basic_file_device::seek: Cannot seek a Device which is not open!");
-
-    const auto origin = [&]() {
-        if (way == seekdir::beg) {
-            return SEEK_SET;
-        }
-        if (way == seekdir::cur) {
-            return SEEK_CUR;
-        }
-        return SEEK_END;
-    }();
-    auto ret = ::lseek(m_handle, off, origin);
-    if (ret == -1) {
-        throw failure{SPIO_MAKE_ERRNO};
-    }
-    return static_cast<streampos>(ret);
+    ::close(base::m_handle);
+    base::m_handle = nullptr;
 }
 }  // namespace spio
 

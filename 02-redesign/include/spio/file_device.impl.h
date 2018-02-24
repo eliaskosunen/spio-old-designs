@@ -26,20 +26,119 @@
 #include "util.h"
 
 namespace spio {
-template <typename CharT, typename Traits>
-basic_file_device<CharT, Traits>::basic_file_device(const std::string& path,
-                                                    uint64_t mode,
-                                                    uint64_t base_mode)
+template <typename CharT>
+void basic_filehandle_device<CharT>::flush()
+{
+    SPIO_ASSERT(
+        is_open(),
+        "basic_filehandle_device::flush: Cannot flush a Device which is "
+        "not open!");
+
+    if (std::fflush(m_handle) != 0) {
+        throw failure{SPIO_MAKE_ERRNO};
+    }
+}
+
+template <typename CharT>
+streamsize basic_filehandle_device<CharT>::read(span<char_type> s)
+{
+    SPIO_ASSERT(
+        is_open(),
+        "basic_filehandle_device::read: Cannot read from a Device which is "
+        "not open!");
+    if (std::feof(m_handle) != 0) {
+        throw failure{make_error_condition(end_of_file)};
+    }
+
+    auto b = std::fread(s.data(), 1, s.size_bytes_us(), m_handle);
+    if (b < s.size_bytes_us()) {
+        if (std::ferror(m_handle) != 0) {
+            throw failure{SPIO_MAKE_ERRNO};
+        }
+        if (std::feof(m_handle) != 0) {
+            return -1;
+        }
+        SPIO_UNREACHABLE;
+    }
+    return static_cast<streamsize>(b / sizeof(CharT));
+}
+
+template <typename CharT>
+streamsize basic_filehandle_device<CharT>::write(span<const char_type> s)
+{
+    SPIO_ASSERT(
+        is_open(),
+        "basic_filehandle_device::write: Cannot write to a Device which is "
+        "not open!");
+
+    auto b = std::fwrite(s.data(), 1, s.size_bytes_us(), m_handle);
+    if (b < s.size_bytes_us()) {
+        if (std::ferror(m_handle) != 0) {
+            throw failure{SPIO_MAKE_ERRNO};
+        }
+        SPIO_UNREACHABLE;
+    }
+    return static_cast<streamsize>(b / sizeof(CharT));
+}
+
+template <typename CharT>
+bool basic_filehandle_device<CharT>::putback(char_type c)
+{
+    SPIO_ASSERT(
+        is_open(),
+        "basic_filehandle_device::putback: Cannot put back into a Device "
+        "which is not open!");
+
+    if (sizeof(char_type) == 1) {
+        return std::ungetc(m_handle, c) != EOF;
+    }
+    SPIO_UNREACHABLE;
+}
+
+template <typename CharT>
+streampos basic_filehandle_device<CharT>::seek(streamoff off,
+                                               seekdir way,
+                                               int which)
+{
+    SPIO_UNUSED(which);
+    SPIO_ASSERT(is_open(),
+                "basic_filehandle_device::seek: Cannot seek a Device which is "
+                "not open!");
+
+    const auto origin = [&]() {
+        if (way == seekdir::beg) {
+            return SEEK_SET;
+        }
+        if (way == seekdir::cur) {
+            return SEEK_CUR;
+        }
+        return SEEK_END;
+    }();
+    if (std::fseek(m_handle, off, origin) != 0) {
+        throw failure{SPIO_MAKE_ERRNO};
+    }
+
+    auto p = std::ftell(m_handle);
+    if (p != 0) {
+        throw failure{SPIO_MAKE_ERRNO};
+    }
+    return static_cast<streampos>(p);
+}
+
+template <typename CharT>
+basic_file_device<CharT>::basic_file_device(const std::string& path,
+                                            int mode,
+                                            int base_mode)
 {
     open(path, mode, base_mode);
 }
 
-template <typename CharT, typename Traits>
-void basic_file_device<CharT, Traits>::open(const std::string& path,
-                                            uint64_t mode,
-                                            uint64_t base_mode)
+template <typename CharT>
+void basic_file_device<CharT>::open(const std::string& path,
+                                    int mode,
+                                    int base_mode)
 {
-    SPIO_ASSERT(!is_open(),
+    SPIO_ASSERT(!base::is_open(),
                 "basic_file_device::open: Cannot open an already open Device!");
 
     auto m = mode | base_mode;
@@ -74,114 +173,18 @@ void basic_file_device<CharT, Traits>::open(const std::string& path,
     if (!h) {
         throw failure{SPIO_MAKE_ERRNO};
     }
-    m_handle = h;
+    base::m_handle = h;
 }
 
-template <typename CharT, typename Traits>
-void basic_file_device<CharT, Traits>::close()
+template <typename CharT>
+void basic_file_device<CharT>::close()
 {
     SPIO_ASSERT(
-        is_open(),
+        base::is_open(),
         "basic_file_device::close: Cannot close a Device which is not open!");
 
-    std::fclose(m_handle);
-    m_handle = nullptr;
-}
-
-template <typename CharT, typename Traits>
-void basic_file_device<CharT, Traits>::flush()
-{
-    SPIO_ASSERT(
-        is_open(),
-        "basic_file_device::flush: Cannot flush a Device which is not open!");
-
-    if (std::fflush(m_handle) != 0) {
-        throw failure{SPIO_MAKE_ERRNO};
-    }
-}
-
-template <typename CharT, typename Traits>
-streamsize basic_file_device<CharT, Traits>::read(span<char_type> s)
-{
-    SPIO_ASSERT(is_open(),
-                "basic_file_device::read: Cannot read from a Device which is "
-                "not open!");
-    if (std::feof(m_handle) != 0) {
-        throw failure{make_error_condition(end_of_file)};
-    }
-
-    auto b = std::fread(s.data(), 1, s.size_us(), m_handle);
-    if (b < s.size_us()) {
-        if (std::ferror(m_handle) != 0) {
-            throw failure{SPIO_MAKE_ERRNO};
-        }
-        if (std::feof(m_handle) != 0) {
-            return -1;
-        }
-        SPIO_UNREACHABLE;
-    }
-    return b;
-}
-
-template <typename CharT, typename Traits>
-streamsize basic_file_device<CharT, Traits>::write(span<const char_type> s)
-{
-    SPIO_ASSERT(is_open(),
-                "basic_file_device::write: Cannot write to a Device which is "
-                "not open!");
-
-    auto b = std::fwrite(s.data(), 1, s.size_us(), m_handle);
-    if (b < s.size_us()) {
-        if (std::ferror(m_handle) != 0) {
-            throw failure{SPIO_MAKE_ERRNO};
-        }
-        SPIO_UNREACHABLE;
-    }
-    return b;
-}
-
-template <typename CharT, typename Traits>
-bool basic_file_device<CharT, Traits>::putback(char_type c)
-{
-    SPIO_ASSERT(
-        is_open(),
-        "basic_file_device::putback: Cannot put back into a Device which is "
-        "not open!");
-
-    if (sizeof(char_type) == 1) {
-        return std::ungetc(m_handle, c) != Traits::eof();
-    }
-    SPIO_UNREACHABLE;
-}
-
-template <typename CharT, typename Traits>
-streampos basic_file_device<CharT, Traits>::seek(streamoff off,
-                                                 seekdir way,
-                                                 uint64_t which)
-{
-    SPIO_UNUSED(which);
-    SPIO_ASSERT(
-        is_open(),
-        "basic_file_device::seek: Cannot seek a Device which is not open!");
-
-    const auto origin = [&]() {
-        if (way == seekdir::beg) {
-            return SEEK_SET;
-        }
-        if (way == seekdir::cur) {
-            return SEEK_CUR;
-        }
-        return SEEK_END;
-    }();
-    if (std::fseek(m_handle, off, origin) != 0) {
-        throw failure{SPIO_MAKE_ERRNO};
-    }
-
-    auto p = std::ftell(m_handle);
-    if (p != 0) {
-        throw failure{SPIO_MAKE_ERRNO};
-    }
-    return static_cast<streampos>(p);
+    std::fclose(base::m_handle);
+    base::m_handle = nullptr;
 }
 }  // namespace spio
 

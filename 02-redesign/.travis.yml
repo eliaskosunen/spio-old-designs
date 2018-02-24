@@ -50,14 +50,14 @@ matrix:
           compiler: gcc
           addons: &gcc6
             apt:
-                packages: ["g++-6"]
+                packages: ["g++-6", "libstdc++-7-dev"]
                 sources: *apt_sources
         # GCC 5
         - env: CXX_COMPILER=g++-5 CXX_STANDARD=14
           compiler: gcc
           addons: &gcc5
             apt:
-                packages: ["g++-5"]
+                packages: ["g++-5", "libstdc++-7-dev"]
                 sources: *apt_sources
 
         # Clang 5
