@@ -32,7 +32,7 @@ using streamoff = std::ptrdiff_t;
 enum class seekdir { beg, cur, end };
 
 struct openmode {
-    enum { append, binary, in, out, truncate, ate };
+    enum { append = 1, binary = 2, in = 4, out = 8, truncate = 16, ate = 32 };
 };
 
 struct any_tag {
