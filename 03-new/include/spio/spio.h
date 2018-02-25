@@ -22,12 +22,13 @@
 #define SPIO_SPIO_H
 
 #include "config.h"
-#include "fwd.h"
 #include "traits.h"
 
 #include "codeconv.h"
 #include "error.h"
+#include "fmt.h"
 #include "locale.h"
+#include "span.h"
 #include "util.h"
 
 #include "container_device.h"
@@ -37,7 +38,11 @@
 #include "native_file_device.h"
 #include "null_device.h"
 
+#include "buffered_device.h"
 #include "formatter.h"
 #include "scanner.h"
+
+#include "outstream.h"
+#include "stream_base.h"
 
 #endif

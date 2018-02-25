@@ -22,8 +22,9 @@
 #define SPIO_SCANNER_H
 
 #include <cstdio>
+#include <cwchar>
 #include "codeconv.h"
-#include "fwd.h"
+#include "config.h"
 #include "span.h"
 
 namespace spio {

@@ -21,12 +21,11 @@
 #ifndef SPIO_LOCALE_H
 #define SPIO_LOCALE_H
 
-#include "fwd.h"
+#include "config.h"
 
 #if SPIO_USE_LOCALE
 #include <functional>
 #include <locale>
-#endif
 
 namespace spio {
 // Holy crap this is inefficient
@@ -47,5 +46,6 @@ inline const std::locale& global_locale()
     return loc;
 }
 }  // namespace spio
+#endif // SPIO_USE_LOCALE
 
 #endif

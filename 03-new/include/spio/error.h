@@ -21,8 +21,8 @@
 #ifndef SPIO_ERROR_H
 #define SPIO_ERROR_H
 
+#include "config.h"
 #include "fmt.h"
-#include "fwd.h"
 
 #include <cassert>
 #include <cerrno>
@@ -94,7 +94,7 @@ namespace detail {
 #endif
 }  // namespace detail
 
-inline std::error_code make_error_condition(error e)
+inline std::error_condition make_error_condition(error e)
 {
     return {static_cast<int>(e), detail::get_error_category()};
 }

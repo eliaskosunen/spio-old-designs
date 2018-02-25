@@ -24,7 +24,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
-#include "fwd.h"
+#include "config.h"
 #include "span.h"
 #include "traits.h"
 
