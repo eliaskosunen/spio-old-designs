@@ -21,12 +21,12 @@
 #ifndef SPIO_CONTAINER_DEVICE_H
 #define SPIO_CONTAINER_DEVICE_H
 
-#include "error.h"
-#include "fwd.h"
-#include "span.h"
-#include "traits.h"
 #include <string>
 #include <vector>
+#include "config.h"
+#include "error.h"
+#include "span.h"
+#include "traits.h"
 
 namespace spio {
 template <typename Container>

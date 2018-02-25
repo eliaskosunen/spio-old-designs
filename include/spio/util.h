@@ -22,7 +22,7 @@
 #define SPIO_UTIL_H
 
 #include <cstring>
-#include "fwd.h"
+#include "config.h"
 
 namespace spio {
 template <typename Dest, typename Source>

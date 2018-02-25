@@ -22,7 +22,7 @@
 #define SPIO_NATIVE_FILE_DEVICE_H
 
 #include <cstdio>
-#include "fwd.h"
+#include "config.h"
 #include "span.h"
 #include "traits.h"
 

@@ -22,8 +22,8 @@
 #define SPIO_FORMATTER_H
 
 #include "codeconv.h"
+#include "config.h"
 #include "fmt.h"
-#include "fwd.h"
 #include "locale.h"
 
 namespace spio {
@@ -38,11 +38,29 @@ public:
     template <typename T>
     result operator()(const T& a) const
     {
-        return fmt::format("{}", a);
+        return fmt::to_string(a);
     }
 
     template <typename... Args>
     result format(const char* f, const Args&... a) const
+    {
+        return fmt::format(f, a...);
+    }
+};
+
+template <>
+class basic_fmt_formatter<wchar_t> {
+public:
+    using result = std::wstring;
+
+    template <typename T>
+    result operator()(const T& a) const
+    {
+        return fmt::to_wstring(a);
+    }
+
+    template <typename... Args>
+    result format(const wchar_t* f, const Args&... a) const
     {
         return fmt::format(f, a...);
     }
@@ -75,6 +93,8 @@ private:
     basic_fmt_formatter<char> m_fmt;
 };
 
+template <typename CharT>
+using basic_default_formatter = basic_fmt_formatter<CharT>;
 }  // namespace spio
 
 #endif
