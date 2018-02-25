@@ -21,7 +21,7 @@
 #ifndef SPIO_FMT_H
 #define SPIO_FMT_H
 
-#include "fwd.h"
+#include "config.h"
 
 #if !defined(FMT_HEADER_ONLY)
 #define FMT_HEADER_ONLY

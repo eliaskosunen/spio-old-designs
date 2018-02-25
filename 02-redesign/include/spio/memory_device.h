@@ -22,7 +22,7 @@
 #define SPIO_MEMORY_DEVICE_H
 
 #include "error.h"
-#include "fwd.h"
+#include "config.h"
 #include "indirect_device.h"
 #include "span.h"
 #include "traits.h"

@@ -37,6 +37,7 @@ using ::span::dynamic_extent;
 using ::span::extent_t;
 using ::span::make_span;
 using ::span::span;
+using ::span::byte_type;
 using ::span::writable_byte_span;
 }  // namespace spio
 

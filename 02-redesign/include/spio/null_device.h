@@ -21,7 +21,7 @@
 #ifndef SPIO_NULL_DEVICE_H
 #define SPIO_NULL_DEVICE_H
 
-#include "fwd.h"
+#include "config.h"
 
 namespace spio {
 template <typename CharT>

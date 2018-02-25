@@ -22,7 +22,7 @@
 #define SPIO_CODECONV_H
 
 #include <codecvt>
-#include "fwd.h"
+#include "config.h"
 #include "locale.h"
 #include "span.h"
 

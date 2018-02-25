@@ -21,7 +21,7 @@
 #ifndef SPIO_INDIRECT_DEVICE
 #define SPIO_INDIRECT_DEVICE
 
-#include "fwd.h"
+#include "config.h"
 #include "span.h"
 #include "traits.h"
 
