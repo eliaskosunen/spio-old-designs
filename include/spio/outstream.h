@@ -28,37 +28,7 @@
 #include "stream_base.h"
 
 namespace spio {
-template <typename CharT,
-          typename Formatter = basic_default_formatter<CharT>,
-          typename Buffer = basic_default_device_buffer<CharT>,
-          typename Traits = std::char_traits<CharT>>
-class basic_outstream {
-public:
-    using char_type = CharT;
-    using formatter_type = Formatter;
-    using traits_type = Traits;
-    using buffer_type = Buffer;
 
-    virtual basic_outstream& print(
-        const char_type* f,
-        fmt::basic_format_args<fmt::buffer_context<char_type>> args) = 0;
-    virtual void write(span<const CharT> s) = 0;
-    virtual void flush() = 0;
-
-protected:
-    basic_outstream() = default;
-    basic_outstream(std::unique_ptr<buffer_type> b) : m_buffer(std::move(b)) {}
-
-    void vprint(const char_type* f,
-                fmt::basic_format_args<fmt::buffer_context<char_type>> args)
-    {
-        auto str = m_fmt.vformat(f, args);
-        write(make_span(str));
-    }
-
-    std::unique_ptr<buffer_type> m_buffer{nullptr};
-    formatter_type m_fmt{};
-};
 
 template <typename Sink,
           typename Derived,
