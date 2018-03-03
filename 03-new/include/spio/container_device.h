@@ -61,7 +61,7 @@ public:
                     "container!");
 
         auto dist = std::distance(m_it, m_buf->end());
-        auto n = std::max(dist, m_buf->size());
+        auto n = std::max(dist, static_cast<std::ptrdiff_t>(m_buf->size()));
         std::copy_n(m_it, n, s.begin());
         m_it += n;
         return n;
@@ -145,7 +145,14 @@ public:
     struct category : seekable_source_tag {
     };
 
+#if defined(__GNUC__) && __GNUC__ < 7
+    template <typename... Args>
+    basic_container_source(Args&&... a) : base(std::forward<Args>(a)...)
+    {
+    }
+#else
     using base::base;
+#endif
     using base::container;
     using base::read;
     using base::seek;
@@ -163,7 +170,14 @@ public:
     struct category : seekable_sink_tag {
     };
 
+#if defined(__GNUC__) && __GNUC__ < 7
+    template <typename... Args>
+    basic_container_sink(Args&&... a) : base(std::forward<Args>(a)...)
+    {
+    }
+#else
     using base::base;
+#endif
     using base::container;
     using base::seek;
     using base::write;

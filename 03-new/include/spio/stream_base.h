@@ -40,41 +40,41 @@ public:
 
     virtual ~stream_base() = default;
 
-    constexpr int rdstate() const
+    int rdstate() const
     {
         return m_state;
     }
-    constexpr void clear(int s = iostate::good)
+    void clear(int s = iostate::good)
     {
         m_state = s;
     }
-    constexpr void setstate(int s)
+    void setstate(int s)
     {
         clear(rdstate() | s);
     }
 
-    constexpr bool good() const
+    bool good() const
     {
         return rdstate() == iostate::good;
     }
-    constexpr bool bad() const
+    bool bad() const
     {
         return (rdstate() & iostate::bad) != 0;
     }
-    constexpr bool fail() const
+    bool fail() const
     {
         return (rdstate() & iostate::fail) != 0 || bad();
     }
-    constexpr bool eof() const
+    bool eof() const
     {
         return (rdstate() & iostate::eof) != 0;
     }
 
-    constexpr explicit operator bool() const
+    explicit operator bool() const
     {
         return !fail();
     }
-    constexpr bool operator!() const
+    bool operator!() const
     {
         return !(operator bool());
     }
@@ -84,11 +84,11 @@ public:
         return m_error;
     }
 
-    constexpr int exceptions() const
+    int exceptions() const
     {
         return m_exceptions;
     }
-    constexpr void exceptions(int e)
+    void exceptions(int e)
     {
         m_exceptions = e;
     }

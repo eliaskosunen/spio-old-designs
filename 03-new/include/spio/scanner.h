@@ -28,6 +28,7 @@
 #include "span.h"
 
 namespace spio {
+
 }  // namespace spio
 
 #endif
