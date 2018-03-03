@@ -32,24 +32,30 @@
 #pragma GCC diagnostic ignored "-Wswitch-enum"
 #pragma GCC diagnostic ignored "-Wsign-conversion"
 #pragma GCC diagnostic ignored "-Wconversion"
-#pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
 #pragma GCC diagnostic ignored "-Wmissing-noreturn"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wdeprecated"
+#pragma GCC diagnostic ignored "-Wshadow"
+
+#if (defined(__GNUC__) && !defined(__clang__)) || \
+    (defined(__clang__) && __clang_major__ >= 4)
+#pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
+#endif
+#if defined(__clang__) && __clang_major__ >= 4
+#pragma GCC diagnostic ignored "-Wdeprecated-dynamic-exception-spec"
+#endif
 
 #ifdef __clang__
 #pragma GCC diagnostic ignored "-Wshadow-field-in-constructor"
-#pragma GCC diagnostic ignored "-Wdeprecated-dynamic-exception-spec"
 #pragma GCC diagnostic ignored "-Wdocumentation-unknown-command"
 #pragma GCC diagnostic ignored "-Wunused-member-function"
 #pragma GCC diagnostic ignored "-Wshorten-64-to-32"
 #pragma GCC diagnostic ignored "-Wextra-semi"
 #else
 #pragma GCC diagnostic ignored "-Wctor-dtor-privacy"
-#pragma GCC diagnostic ignored "-Wshadow"
 #endif
-#endif // defined(__GNUC__) || defined(__clang__)
+#endif  // defined(__GNUC__) || defined(__clang__)
 
 #include "fmt/include/fmt/format.h"
 #include "fmt/include/fmt/time.h"

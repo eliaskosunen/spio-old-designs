@@ -37,6 +37,7 @@ enum error {
     invalid_operation,
     assertion_failure,
     end_of_file,
+    bad_variant_access,
     unimplemented,
     unreachable,
     undefined_error
@@ -67,6 +68,8 @@ struct error_category : public std::error_category {
                 return "Assertion failure";
             case end_of_file:
                 return "EOF";
+            case bad_variant_access:
+                return "Bad variant access";
             case unimplemented:
                 return "Unimplemented";
             case unreachable:
@@ -119,6 +122,15 @@ public:
     {
     }
 
+    failure(std::error_condition c)
+        : system_error(std::error_code(c.value(), c.category()))
+    {
+    }
+    failure(std::error_condition c, const std::string& desc)
+        : system_error(std::error_code(c.value(), c.category()), desc)
+    {
+    }
+
     failure(error c)
         : system_error(static_cast<int>(c), detail::get_error_category())
     {
@@ -140,8 +152,31 @@ public:
 #define SPIO_ASSERT(cond, msg) assert((cond) && msg)
 #endif
 
-#define SPIO_UNIMPLEMENTED throw failure(::spio::unimplemented, "Unimplemented")
-#define SPIO_UNREACHABLE throw failure(::spio::unreachable, "Unreachable")
+#define SPIO_DEBUG_UNREACHABLE                         \
+    throw failure(::spio::unreachable, "Unreachable"); \
+    std::terminate()
+#ifdef NDEBUG
+
+#ifdef __GNUC__
+#define SPIO_UNREACHABLE __builtin_unreachable()
+#elif defined(_MSC_VER)
+#define SPIO_UNREACHABLE __assume(false)
+#else
+#define SPIO_UNREACHABLE SPIO_DEBUG_UNREACHABLE
+#endif  // __GNUC__
+
+#else
+#define SPIO_UNREACHABLE SPIO_DEBUG_UNREACHABLE
+#endif  // NDEBUG
+
+#define SPIO_UNIMPLEMENTED_DEBUG                           \
+    throw failure(::spio::unimplemented, "Unimplemented"); \
+    std::terminate()
+#ifdef NDEBUG
+#define SPIO_UNIMPLEMENTED SPIO_UNREACHABLE
+#else
+#define SPIO_UNIMPLEMENTED SPIO_UNIMPLEMENTED_DEBUG
+#endif  // NDEBUG
 }  // namespace spio
 
 #endif  // SPIO_ERROR_H
