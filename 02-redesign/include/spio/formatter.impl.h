@@ -18,32 +18,22 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_SPIO_H
-#define SPIO_SPIO_H
+#ifndef SPIO_FORMATTER_IMPL_H
+#define SPIO_FORMATTER_IMPL_H
 
 #include "config.h"
-#include "traits.h"
-
-#include "codeconv.h"
-#include "error.h"
-#include "fmt.h"
-#include "locale.h"
-#include "span.h"
-#include "util.h"
-
-#include "container_device.h"
-#include "file_device.h"
-#include "indirect_device.h"
-#include "memory_device.h"
-#include "native_file_device.h"
-#include "null_device.h"
-
-#include "buffered_device.h"
 #include "formatter.h"
-#include "scanner.h"
-
-#include "stream.h"
-#include "stream_base.h"
 #include "stream_iterator.h"
+
+namespace spio {
+template <typename CharT>
+template <typename... Args>
+auto basic_fmt_formatter<CharT>::operator()(iterator s,
+                                            const char_type* f,
+                                            const Args&... a) const -> iterator
+{
+    return fmt::format_to(s, f, a...);
+}
+}  // namespace spio
 
 #endif
