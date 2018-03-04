@@ -21,59 +21,19 @@
 #ifndef SPIO_STREAM_H
 #define SPIO_STREAM_H
 
+#include "buffered_device.h"
 #include "config.h"
+#include "formatter.h"
 #include "locale.h"
 #include "stream_base.h"
+#include "stream_iterator.impl.h"
 #include "util.h"
 
 namespace spio {
-namespace detail {
-    template <typename CharT>
-    struct basic_input_stream {
-        virtual streamsize read(span<CharT>) = 0;
-        virtual ~basic_input_stream() = default;
-    };
-    template <typename CharT>
-    struct basic_output_stream {
-        virtual streamsize write(span<const CharT>) = 0;
-        virtual ~basic_output_stream() = default;
-    };
-    struct seekable_stream {
-        virtual streampos seek(streamoff, seekdir, int) = 0;
-        virtual ~seekable_stream() = default;
-    };
-    struct closable_stream {
-        virtual void close() = 0;
-        virtual ~closable_stream() = default;
-    };
-    struct flushable_stream {
-        virtual void flush() = 0;
-        virtual ~flushable_stream() = default;
-    };
-    struct localizable_stream {
-#if SPIO_USE_LOCALE
-        virtual void imbue(const std::locale&) = 0;
-        virtual const std::locale& get_locale() const = 0;
-#endif
-        virtual ~localizable_stream() = default;
-    };
-    struct isopen_stream {
-        virtual bool is_open() const = 0;
-        virtual ~isopen_stream() = default;
-    };
-}  // namespace detail
-
-template <typename CharT,
-          typename Formatter = basic_default_formatter<CharT>,
-          typename Buffer = basic_default_device_buffer<CharT>,
-          typename Traits = std::char_traits<CharT>>
-class basic_outstream : public virtual stream_base,
-                        public virtual detail::basic_output_stream<CharT>,
-                        public virtual detail::isopen_stream,
-                        public virtual detail::seekable_stream,
-                        public virtual detail::closable_stream,
-                        public virtual detail::flushable_stream,
-                        public virtual detail::localizable_stream {
+// default arguments defined in stream_iterator.h
+template <typename CharT, typename Formatter, typename Buffer, typename Traits>
+class basic_outstream : public virtual basic_ios_base<CharT>,
+                        public detail::basic_output_stream<CharT> {
 public:
     using char_type = CharT;
     using formatter_type = Formatter;
@@ -83,8 +43,8 @@ public:
     template <typename... Args>
     basic_outstream& print(const char_type* f, const Args&... a)
     {
-        auto str = m_fmt.format(f, a...);
-        auto n = this->write(make_span(str));
+        m_fmt.format_to(outstream_iterator<char_type, char_type>(*this), f,
+                        a...);
         return *this;
     }
 
@@ -99,13 +59,10 @@ protected:
 using outstream = basic_outstream<char>;
 using woutstream = basic_outstream<wchar_t>;
 
-template <typename CharT, typename Traits = std::char_traits<CharT>>
-class basic_instream : public virtual stream_base,
-                       public virtual detail::basic_input_stream<CharT>,
-                       public virtual detail::isopen_stream,
-                       public virtual detail::seekable_stream,
-                       public virtual detail::closable_stream,
-                       public virtual detail::localizable_stream {
+// default arguments defined in stream_iterator.h
+template <typename CharT, typename Traits>
+class basic_instream : public virtual basic_ios_base<CharT>,
+                       public detail::basic_input_stream<CharT> {
 public:
     using char_type = CharT;
     using traits_type = Traits;
@@ -122,8 +79,8 @@ template <typename CharT,
           typename Buffer = basic_default_device_buffer<CharT>,
           typename Traits = std::char_traits<CharT>>
 class basic_iostream
-    : public virtual basic_instream<CharT, Traits>,
-      public virtual basic_outstream<CharT, Formatter, Buffer, Traits> {
+    : public basic_instream<CharT, Traits>,
+      public basic_outstream<CharT, Formatter, Buffer, Traits> {
     using in_base = basic_instream<CharT, Traits>;
     using out_base = basic_outstream<CharT, Formatter, Buffer, Traits>;
 
@@ -135,6 +92,7 @@ public:
 
 protected:
     basic_iostream() = default;
+    basic_iostream(std::unique_ptr<buffer_type> b) : out_base(std::move(b)) {}
 };
 
 using iostream = basic_iostream<char>;
@@ -149,8 +107,7 @@ namespace detail {
         Device,
         std::enable_if_t<has_category<Device, input>::value &&
                          has_category<Device, output>::value>,
-        Args...>
-        : public virtual basic_iostream<typename Device::char_type, Args...> {
+        Args...> : public basic_iostream<typename Device::char_type, Args...> {
     };
 
     template <typename Device, typename... Args>
@@ -158,8 +115,7 @@ namespace detail {
         Device,
         std::enable_if_t<!has_category<Device, input>::value &&
                          has_category<Device, output>::value>,
-        Args...>
-        : public virtual basic_outstream<typename Device::char_type, Args...> {
+        Args...> : public basic_outstream<typename Device::char_type, Args...> {
         virtual streamsize read(span<typename Device::char_type>) = 0;
     };
 
@@ -168,8 +124,7 @@ namespace detail {
         Device,
         std::enable_if_t<has_category<Device, input>::value &&
                          !has_category<Device, output>::value>,
-        Args...>
-        : public virtual basic_instream<typename Device::char_type, Args...> {
+        Args...> : public basic_instream<typename Device::char_type, Args...> {
         virtual streamsize write(span<const typename Device::char_type>) = 0;
     };
 
@@ -335,7 +290,7 @@ template <
     typename Formatter = basic_default_formatter<typename Device::char_type>,
     typename Buffer = basic_default_device_buffer<typename Device::char_type>,
     typename Traits = std::char_traits<typename Device::char_type>>
-class stream : public virtual detail::
+class stream : public detail::
                    device_stream_base<Device, void, Formatter, Buffer, Traits> {
     using base =
         detail::device_stream_base<Device, void, Formatter, Buffer, Traits>;

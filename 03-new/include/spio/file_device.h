@@ -29,13 +29,18 @@
 #include "traits.h"
 
 namespace spio {
-template <typename CharT>
+namespace detail {
+    struct filehandle_device_default_category : seekable_device_tag,
+                                                flushable_tag {
+    };
+}  // namespace detail
+
+template <typename CharT,
+          typename Category = detail::filehandle_device_default_category>
 class basic_filehandle_device {
 public:
     using char_type = CharT;
-
-    struct category : seekable_device_tag, flushable_tag {
-    };
+    using category = Category;
 
     constexpr basic_filehandle_device() = default;
     constexpr basic_filehandle_device(std::FILE* h) : m_handle(h) {}
