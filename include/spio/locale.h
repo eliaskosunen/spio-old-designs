@@ -23,9 +23,9 @@
 
 #include "config.h"
 
+#include <locale>
 #if SPIO_USE_LOCALE
 #include <functional>
-#include <locale>
 
 namespace spio {
 // Holy crap this is inefficient
@@ -46,6 +46,6 @@ inline const std::locale& global_locale()
     return loc;
 }
 }  // namespace spio
-#endif // SPIO_USE_LOCALE
+#endif  // SPIO_USE_LOCALE
 
 #endif

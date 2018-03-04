@@ -26,8 +26,8 @@
 #include "util.h"
 
 namespace spio {
-template <typename CharT>
-void basic_filehandle_device<CharT>::flush()
+template <typename CharT, typename Category>
+void basic_filehandle_device<CharT, Category>::flush()
 {
     SPIO_ASSERT(
         is_open(),
@@ -39,8 +39,8 @@ void basic_filehandle_device<CharT>::flush()
     }
 }
 
-template <typename CharT>
-streamsize basic_filehandle_device<CharT>::read(span<char_type> s)
+template <typename CharT, typename Category>
+streamsize basic_filehandle_device<CharT, Category>::read(span<char_type> s)
 {
     SPIO_ASSERT(
         is_open(),
@@ -63,8 +63,9 @@ streamsize basic_filehandle_device<CharT>::read(span<char_type> s)
     return static_cast<streamsize>(b / sizeof(CharT));
 }
 
-template <typename CharT>
-streamsize basic_filehandle_device<CharT>::write(span<const char_type> s)
+template <typename CharT, typename Category>
+streamsize basic_filehandle_device<CharT, Category>::write(
+    span<const char_type> s)
 {
     SPIO_ASSERT(
         is_open(),
@@ -81,8 +82,8 @@ streamsize basic_filehandle_device<CharT>::write(span<const char_type> s)
     return static_cast<streamsize>(b / sizeof(CharT));
 }
 
-template <typename CharT>
-bool basic_filehandle_device<CharT>::putback(char_type c)
+template <typename CharT, typename Category>
+bool basic_filehandle_device<CharT, Category>::putback(char_type c)
 {
     SPIO_ASSERT(
         is_open(),
@@ -95,10 +96,10 @@ bool basic_filehandle_device<CharT>::putback(char_type c)
     SPIO_UNREACHABLE;
 }
 
-template <typename CharT>
-streampos basic_filehandle_device<CharT>::seek(streamoff off,
-                                               seekdir way,
-                                               int which)
+template <typename CharT, typename Category>
+streampos basic_filehandle_device<CharT, Category>::seek(streamoff off,
+                                                         seekdir way,
+                                                         int which)
 {
     SPIO_UNUSED(which);
     SPIO_ASSERT(is_open(),

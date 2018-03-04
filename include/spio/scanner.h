@@ -26,9 +26,92 @@
 #include "codeconv.h"
 #include "config.h"
 #include "span.h"
+#include "stream_iterator.h"
 
 namespace spio {
+template <typename CharT>
+class basic_builtin_scanner {
+public:
+    using char_type = CharT;
+    using iterator = instream_iterator<char_type, char_type>;
 
+#if SPIO_USE_LOCALE
+    basic_builtin_scanner(const std::locale& l) : m_locale(std::addressof(l)) {}
+
+    void imbue(const std::locale& l)
+    {
+        m_locale = std::addressof(l);
+    }
+    const std::locale& get_locale() const
+    {
+        return *m_locale;
+    }
+#endif
+
+private:
+#if SPIO_USE_LOCALE
+    const std::locale* m_locale;
+
+    bool is_space(char_type ch) const
+    {
+        return std::isspace(ch, get_locale());
+    }
+#else
+    bool is_space(char_type ch)
+    {
+        return ch == 32 || ch == 10 || ch == 9 || ch == 13 || ch == 11;
+    }
+#endif
+
+    template <typename T>
+    auto scan(iterator it, T& val, bool readall) -> std::enable_if_t<
+        std::is_same<std::remove_reference_t<std::remove_cv_t<T>>,
+                     char_type>::value,
+        iterator>
+    {
+        SPIO_UNUSED(readall);
+        it.read_into(make_span(&val, 1));
+        return it;
+    }
+
+    template <typename T>
+    auto scan(iterator it, span<T> val, bool readall) -> std::enable_if_t<
+        std::is_same<std::remove_reference_t<std::remove_cv_t<T>>,
+                     char_type>::value,
+        iterator>
+    {
+        if (readall) {
+            std::vector<char_type> str(val.size_us());
+            auto strspan = make_span(str);
+            it.read_into(strspan);
+            const auto len = std::strlen(str.data());
+            const auto end = [&]() {
+                for (std::ptrdiff_t i = 0; i < len; ++i) {
+                    if (is_space(strspan[i])) {
+                        return i;
+                    }
+                }
+                return strspan.size();
+            }();
+            std::copy(strspan.begin(), strspan.begin() + end, val.begin());
+            if (end + 1 < len) {
+                it.push(make_span(strspan.begin() + end + 1,
+                                  strspan.begin() + len));
+            }
+        }
+        else {
+            for (auto val_it = val.begin();
+                 val_it != val.end() && it != iterator{}; ++val_it, ++it) {
+                if (is_space(*it)) {
+                    it.push_back();
+                    break;
+                }
+                *val_it = *it;
+            }
+        }
+        return it;
+    }
+};
 }  // namespace spio
 
 #endif
