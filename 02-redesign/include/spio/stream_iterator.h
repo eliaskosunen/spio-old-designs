@@ -31,7 +31,7 @@ template <typename T, typename CharT>
 class outstream_iterator {
 public:
     using char_type = CharT;
-    using outstream_type = basic_outstream<CharT>;
+    using outstream_type = basic_stream_ref<CharT>;
 
     using value_type = void;
     using difference_type = void;
@@ -69,7 +69,7 @@ template <typename CharT>
 class outstream_iterator<CharT, CharT> {
 public:
     using char_type = CharT;
-    using outstream_type = basic_outstream<CharT>;
+    using outstream_type = basic_stream_ref<CharT>;
 
     using value_type = void;
     using difference_type = void;
@@ -111,7 +111,7 @@ template <typename T, typename CharT>
 class instream_iterator {
 public:
     using char_type = CharT;
-    using instream_type = basic_instream<CharT>;
+    using instream_type = basic_stream_ref<CharT>;
 
     using value_type = T;
     using difference_type = std::ptrdiff_t;
@@ -152,10 +152,12 @@ public:
         return *m_in;
     }
 
-    friend constexpr bool operator==(const instream_iterator&,
-                                     const instream_iterator&);
-    friend constexpr bool operator!=(const instream_iterator&,
-                                     const instream_iterator&);
+    template <typename T_, typename CharT_>
+    friend constexpr bool operator==(const instream_iterator<T_, CharT_>&,
+                                     const instream_iterator<T_, CharT_>&);
+    template <typename T_, typename CharT_>
+    friend constexpr bool operator!=(const instream_iterator<T_, CharT_>&,
+                                     const instream_iterator<T_, CharT_>&);
 
 private:
     void _read();
@@ -168,7 +170,7 @@ template <typename T>
 class instream_iterator<T, T> {
 public:
     using char_type = T;
-    using instream_type = basic_instream<T>;
+    using instream_type = basic_stream_ref<T>;
 
     friend class basic_builtin_scanner<T>;
 
@@ -213,10 +215,12 @@ public:
 
     void read_into(span<T> s);
 
-    friend constexpr bool operator==(const instream_iterator&,
-                                     const instream_iterator&);
-    friend constexpr bool operator!=(const instream_iterator&,
-                                     const instream_iterator&);
+    template <typename T_>
+    friend constexpr bool operator==(const instream_iterator<T_, T_>&,
+                                     const instream_iterator<T_, T_>&);
+    template <typename T_>
+    friend constexpr bool operator!=(const instream_iterator<T_, T_>&,
+                                     const instream_iterator<T_, T_>&);
 
 private:
     void _read();
