@@ -26,11 +26,11 @@ TEST_CASE("stream")
     SUBCASE("container out")
     {
         auto str = std::string{};
-        spio::stream<spio::string_sink> s(str);
+        spio::basic_device_stream<spio::string_sink> s(str);
         s.write("Hello world!");
         s.print("{}", str);
 
-        spio::stream<spio::filehandle_device> sout{stdout};
+        spio::basic_device_stream<spio::filehandle_device> sout{stdout};
         sout.print("{}{}", "Hello world!", "\n");
     }
 }

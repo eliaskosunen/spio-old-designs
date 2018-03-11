@@ -21,8 +21,7 @@
 #ifndef SPIO_ERROR_H
 #define SPIO_ERROR_H
 
-#include "config.h"
-#include "fmt.h"
+#include "fwd.h"
 
 #include <cassert>
 #include <cerrno>
@@ -30,6 +29,7 @@
 #include <stdexcept>
 #include <string>
 #include <system_error>
+#include "fmt.h"
 
 namespace spio {
 enum error {

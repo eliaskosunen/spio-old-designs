@@ -34,6 +34,21 @@ auto basic_fmt_formatter<CharT>::operator()(iterator s,
 {
     return fmt::format_to(s, f, a...);
 }
+
+template <typename CharT>
+template <typename T>
+auto basic_fmt_formatter<CharT>::to_string(const T& a) const -> string_type
+{
+    return detail::fmt_to_string<CharT>::str(a);
+}
+
+template <typename CharT>
+template <typename... Args>
+auto basic_fmt_formatter<CharT>::format(const char_type* f,
+                                        const Args&... a) const -> string_type
+{
+    return fmt::format(f, a...);
+}
 }  // namespace spio
 
 #endif

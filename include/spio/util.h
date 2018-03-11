@@ -21,6 +21,8 @@
 #ifndef SPIO_UTIL_H
 #define SPIO_UTIL_H
 
+#include "fwd.h"
+
 #include <algorithm>
 #include <cstring>
 #include <memory>
@@ -28,7 +30,6 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include "config.h"
 
 namespace spio {
 #if SPIO_HAS_LOGICAL_TRAITS

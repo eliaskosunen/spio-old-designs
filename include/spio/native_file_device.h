@@ -21,8 +21,9 @@
 #ifndef SPIO_NATIVE_FILE_DEVICE_H
 #define SPIO_NATIVE_FILE_DEVICE_H
 
+#include "fwd.h"
+
 #include <cstdio>
-#include "config.h"
 #include "span.h"
 #include "traits.h"
 
@@ -73,13 +74,11 @@ namespace detail {
     };
 }  // namespace detail
 
-template <typename CharT>
+template <typename CharT, typename Category>
 class basic_native_filehandle_device {
 public:
     using char_type = CharT;
-
-    struct category : seekable_device_tag, flushable_tag {
-    };
+    using category = Category;
 
     constexpr basic_native_filehandle_device() = default;
     constexpr basic_native_filehandle_device(detail::os_file_descriptor h)

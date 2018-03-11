@@ -21,10 +21,11 @@
 #ifndef SPIO_SCANNER_H
 #define SPIO_SCANNER_H
 
+#include "fwd.h"
+
 #include <cstdio>
 #include <cwchar>
 #include "codeconv.h"
-#include "config.h"
 #include "span.h"
 #include "stream_iterator.h"
 
@@ -35,6 +36,7 @@ public:
     using char_type = CharT;
     using iterator = instream_iterator<char_type, char_type>;
 
+    basic_builtin_scanner() = default;
 #if SPIO_USE_LOCALE
     basic_builtin_scanner(const std::locale& l) : m_locale(std::addressof(l)) {}
 
@@ -50,7 +52,7 @@ public:
 
 private:
 #if SPIO_USE_LOCALE
-    const std::locale* m_locale;
+    const std::locale* m_locale{std::addressof(global_locale())};
 
     bool is_space(char_type ch) const
     {
@@ -95,15 +97,15 @@ private:
             }();
             std::copy(strspan.begin(), strspan.begin() + end, val.begin());
             if (end + 1 < len) {
-                it.push(make_span(strspan.begin() + end + 1,
-                                  strspan.begin() + len));
+                it.get_stream().push(make_span(strspan.begin() + end + 1,
+                                               strspan.begin() + len));
             }
         }
         else {
             for (auto val_it = val.begin();
                  val_it != val.end() && it != iterator{}; ++val_it, ++it) {
                 if (is_space(*it)) {
-                    it.push_back();
+                    it.get_stream().push_back();
                     break;
                 }
                 *val_it = *it;

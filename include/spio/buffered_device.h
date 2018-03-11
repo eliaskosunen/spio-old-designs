@@ -21,16 +21,17 @@
 #ifndef SPIO_BUFFERED_DEVICE_H
 #define SPIO_BUFFERED_DEVICE_H
 
+#include "fwd.h"
+
 #include <cstdio>
 #include <vector>
-#include "config.h"
 #include "error.h"
 #include "span.h"
 #include "traits.h"
 
 namespace spio {
 template <typename Buffer>
-class basic_device_buffer {
+class basic_sink_buffer {
 public:
     using buffer_type = Buffer;
     using value_type = typename buffer_type::value_type;
@@ -46,14 +47,14 @@ public:
         4096;  // 4k is the memory page size on many architectures
 #endif
 
-    basic_device_buffer(buffer_type&& b)
+    basic_sink_buffer(buffer_type b)
         : m_buffer(std::move(b)),
           m_it(m_buffer.begin()),
           m_begin(m_it),
           m_mode(mode::full)
     {
     }
-    basic_device_buffer(mode m = mode::full, std::size_t len = default_size)
+    basic_sink_buffer(mode m = mode::full, std::size_t len = default_size)
         : m_buffer(_init_buffer(m, len)),
           m_it(m_buffer.begin()),
           m_begin(m_it),
@@ -242,11 +243,39 @@ private:
     enum mode m_mode;
 };
 
-template <typename T, typename Alloc = std::allocator<T>>
-using basic_default_device_buffer = basic_device_buffer<std::vector<T, Alloc>>;
+template <typename Buffer>
+class basic_source_buffer {
+public:
+    using buffer_type = Buffer;
+    using value_type = typename buffer_type::value_type;
+    using push_span_type = span<const value_type>;
+    using read_span_type = span<value_type>;
 
-using default_device_buffer = basic_default_device_buffer<char>;
-using wdefault_device_buffer = basic_default_device_buffer<wchar_t>;
+    basic_source_buffer() = default;
+    basic_source_buffer(buffer_type b) : m_buffer(std::move(b)) {}
+
+    std::size_t size() const
+    {
+        return m_buffer.size();
+    }
+
+    void read(read_span_type s)
+    {
+        SPIO_ASSERT(s.size() <= size(),
+                    "source_buffer::read: Cannot read more than size()");
+
+        std::copy_n(m_buffer.begin(), s.size(), s.begin());
+        m_buffer.erase(m_buffer.begin(), m_buffer.begin() + s.size());
+    }
+
+    void push(push_span_type s)
+    {
+        m_buffer.insert(m_buffer.end(), s.begin(), s.end());
+    }
+
+private:
+    buffer_type m_buffer{};
+};
 }  // namespace spio
 
 #endif

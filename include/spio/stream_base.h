@@ -21,7 +21,8 @@
 #ifndef SPIO_STREAM_BASE_H
 #define SPIO_STREAM_BASE_H
 
-#include "config.h"
+#include "fwd.h"
+
 #include "error.h"
 #include "locale.h"
 #include "span.h"
@@ -101,55 +102,6 @@ private:
     std::error_condition m_error{};
     int m_state{iostate::good};
     int m_exceptions{iostate::fail | iostate::bad};
-};
-
-namespace detail {
-    template <typename CharT>
-    struct basic_input_stream {
-        virtual streamsize read(span<CharT>) = 0;
-        virtual ~basic_input_stream() = default;
-    };
-    template <typename CharT>
-    struct basic_output_stream {
-        virtual streamsize write(span<const CharT>) = 0;
-        virtual ~basic_output_stream() = default;
-    };
-    struct seekable_stream {
-        virtual streampos seek(streamoff, seekdir, int) = 0;
-        virtual ~seekable_stream() = default;
-    };
-    struct closable_stream {
-        virtual void close() = 0;
-        virtual ~closable_stream() = default;
-    };
-    struct flushable_stream {
-        virtual void flush() = 0;
-        virtual ~flushable_stream() = default;
-    };
-    struct localizable_stream {
-#if SPIO_USE_LOCALE
-        virtual void imbue(const std::locale&) = 0;
-        virtual const std::locale& get_locale() const = 0;
-#endif
-        virtual ~localizable_stream() = default;
-    };
-    struct isopen_stream {
-        virtual bool is_open() const = 0;
-        virtual ~isopen_stream() = default;
-    };
-}  // namespace detail
-
-template <typename CharT>
-class basic_ios_base : public stream_base {
-public:
-    virtual streampos seek(streamoff, seekdir, int) = 0;
-    virtual void close() = 0;
-    virtual void flush() = 0;
-#if SPIO_USE_LOCALE
-    virtual void imbue(const std::locale&) = 0;
-    virtual const std::locale& get_locale() const = 0;
-#endif
-    virtual bool is_open() const = 0;
 };
 }  // namespace spio
 
