@@ -107,11 +107,11 @@ struct dual_seekable_device_tag : device_tag, dual_seekable {
 struct bidirectional_seekable_device_tag : device_tag, bidirectional_seekable {
 };
 
-struct formatter_tag : virtual any_tag {
-};
-
 template <typename T, typename Category>
 struct has_category : std::is_base_of<Category, typename T::category> {
+};
+template <typename T, typename Category>
+struct is_category : std::is_base_of<Category, T> {
 };
 }  // namespace spio
 

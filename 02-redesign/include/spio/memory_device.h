@@ -21,8 +21,9 @@
 #ifndef SPIO_MEMORY_DEVICE_H
 #define SPIO_MEMORY_DEVICE_H
 
+#include "fwd.h"
+
 #include "error.h"
-#include "config.h"
 #include "indirect_device.h"
 #include "span.h"
 #include "traits.h"

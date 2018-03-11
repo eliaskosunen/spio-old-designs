@@ -21,23 +21,50 @@
 #ifndef SPIO_FORMATTER_H
 #define SPIO_FORMATTER_H
 
+#include "fwd.h"
+
 #include "codeconv.h"
-#include "config.h"
 #include "fmt.h"
 #include "locale.h"
 #include "util.h"
 
 namespace spio {
-template <typename T, typename CharT>
-class outstream_iterator;
+namespace detail {
+    template <typename CharT>
+    struct fmt_to_string;
+
+    template <>
+    struct fmt_to_string<char> {
+        template <typename T>
+        static std::string str(const T& a)
+        {
+            return fmt::to_string(a);
+        }
+    };
+    template <>
+    struct fmt_to_string<wchar_t> {
+        template <typename T>
+        static std::wstring str(const T& a)
+        {
+            return fmt::to_wstring(a);
+        }
+    };
+}  // namespace detail
 
 template <typename CharT>
 class basic_fmt_formatter {
+public:
     using char_type = CharT;
+    using string_type = std::basic_string<char_type>;
     using iterator = outstream_iterator<char_type, char_type>;
 
     template <typename... Args>
     iterator operator()(iterator s, const char_type* f, const Args&... a) const;
+
+    template <typename T>
+    string_type to_string(const T& a) const;
+    template <typename... Args>
+    string_type format(const char_type* f, const Args&... a) const;
 };
 
 #if 0
@@ -68,9 +95,6 @@ private:
     basic_fmt_formatter<char> m_fmt;
 };
 #endif
-
-template <typename CharT>
-using basic_default_formatter = basic_fmt_formatter<CharT>;
 }  // namespace spio
 
 #include "formatter.impl.h"

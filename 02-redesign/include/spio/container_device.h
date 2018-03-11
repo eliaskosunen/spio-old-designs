@@ -21,9 +21,10 @@
 #ifndef SPIO_CONTAINER_DEVICE_H
 #define SPIO_CONTAINER_DEVICE_H
 
+#include "fwd.h"
+
 #include <string>
 #include <vector>
-#include "config.h"
 #include "error.h"
 #include "span.h"
 #include "traits.h"

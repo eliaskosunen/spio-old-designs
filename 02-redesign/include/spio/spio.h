@@ -22,6 +22,7 @@
 #define SPIO_SPIO_H
 
 #include "config.h"
+#include "fwd.h"
 #include "traits.h"
 
 #include "codeconv.h"

@@ -26,8 +26,8 @@
 #include "util.h"
 
 namespace spio {
-template <typename CharT>
-void basic_native_filehandle_device<CharT>::flush()
+template <typename CharT, typename Category>
+void basic_native_filehandle_device<CharT, Category>::flush()
 {
     SPIO_ASSERT(
         is_open(),
@@ -39,8 +39,9 @@ void basic_native_filehandle_device<CharT>::flush()
     }
 }
 
-template <typename CharT>
-streamsize basic_native_filehandle_device<CharT>::read(span<char_type> s)
+template <typename CharT, typename Category>
+streamsize basic_native_filehandle_device<CharT, Category>::read(
+    span<char_type> s)
 {
     SPIO_ASSERT(is_open(),
                 "basic_native_filehandle_device::read: Cannot read from a "
@@ -63,8 +64,9 @@ streamsize basic_native_filehandle_device<CharT>::read(span<char_type> s)
     return b / static_cast<streamsize>(sizeof(CharT));
 }
 
-template <typename CharT>
-streamsize basic_native_filehandle_device<CharT>::write(span<const char_type> s)
+template <typename CharT, typename Category>
+streamsize basic_native_filehandle_device<CharT, Category>::write(
+    span<const char_type> s)
 {
     SPIO_ASSERT(is_open(),
                 "basic_native_filehandle_device::write: Cannot write to a "
@@ -81,10 +83,10 @@ streamsize basic_native_filehandle_device<CharT>::write(span<const char_type> s)
     return b / static_cast<streamsize>(sizeof(CharT));
 }
 
-template <typename CharT>
-streampos basic_native_filehandle_device<CharT>::seek(streamoff off,
-                                                      seekdir way,
-                                                      int which)
+template <typename CharT, typename Category>
+streampos basic_native_filehandle_device<CharT, Category>::seek(streamoff off,
+                                                                seekdir way,
+                                                                int which)
 {
     SPIO_UNUSED(which);
     SPIO_ASSERT(is_open(),

@@ -21,7 +21,7 @@
 #ifndef SPIO_LOCALE_H
 #define SPIO_LOCALE_H
 
-#include "config.h"
+#include "fwd.h"
 
 #include <locale>
 #if SPIO_USE_LOCALE
