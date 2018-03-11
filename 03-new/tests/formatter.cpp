@@ -26,11 +26,11 @@ TEST_CASE("formatter")
     SUBCASE("char")
     {
         spio::basic_fmt_formatter<char> fmt;
-        CHECK(fmt("str") == fmt::format("str"));
-        CHECK(fmt(0) == fmt::format("{}", 0));
-        CHECK(fmt(0x8000) == fmt::format("{}", 0x8000));
-        CHECK(fmt(-1) == fmt::format("{}", -1));
-        CHECK(fmt(3.14) == fmt::format("{}", 3.14));
+        CHECK(fmt.to_string("str") == fmt::format("str"));
+        CHECK(fmt.to_string(0) == fmt::format("{}", 0));
+        CHECK(fmt.to_string(0x8000) == fmt::format("{}", 0x8000));
+        CHECK(fmt.to_string(-1) == fmt::format("{}", -1));
+        CHECK(fmt.to_string(3.14) == fmt::format("{}", 3.14));
 
         CHECK(fmt.format("{} {}", 1, 2) == fmt::format("{} {}", 1, 2));
     }
@@ -39,11 +39,11 @@ TEST_CASE("formatter")
         spio::basic_fmt_formatter<wchar_t> fmt;
         spio::codeconv<char, wchar_t> conv;
 
-        CHECK(fmt(L"str") == conv(fmt::format("str")));
-        CHECK(fmt(0) == conv(fmt::format("{}", 0)));
-        CHECK(fmt(0x8000) == conv(fmt::format("{}", 0x8000)));
-        CHECK(fmt(-1) == conv(fmt::format("{}", -1)));
-        CHECK(fmt(3.14) == conv(fmt::format("{}", 3.14)));
+        CHECK(fmt.to_string(L"str") == conv(fmt::format("str")));
+        CHECK(fmt.to_string(0) == conv(fmt::format("{}", 0)));
+        CHECK(fmt.to_string(0x8000) == conv(fmt::format("{}", 0x8000)));
+        CHECK(fmt.to_string(-1) == conv(fmt::format("{}", -1)));
+        CHECK(fmt.to_string(3.14) == conv(fmt::format("{}", 3.14)));
 
         CHECK(fmt.format(L"{} {}", 1, 2) == conv(fmt::format("{} {}", 1, 2)));
     }

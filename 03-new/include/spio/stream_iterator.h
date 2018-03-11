@@ -21,24 +21,12 @@
 #ifndef SPIO_STREAM_ITERATOR_H
 #define SPIO_STREAM_ITERATOR_H
 
+#include "fwd.h"
+
 #include "buffered_device.h"
-#include "config.h"
-#include "formatter.h"
 #include "span.h"
 
 namespace spio {
-template <typename CharT,
-          typename Formatter = basic_default_formatter<CharT>,
-          typename Buffer = basic_default_device_buffer<CharT>,
-          typename Traits = std::char_traits<CharT>>
-class basic_outstream;
-
-template <typename CharT, typename Traits = std::char_traits<CharT>>
-class basic_instream;
-
-template <typename CharT>
-class basic_builtin_scanner;
-
 template <typename T, typename CharT>
 class outstream_iterator {
 public:
@@ -155,6 +143,15 @@ public:
         return tmp;
     }
 
+    instream_type& get_stream()
+    {
+        return *m_in;
+    }
+    const instream_type& get_stream() const
+    {
+        return *m_in;
+    }
+
     friend constexpr bool operator==(const instream_iterator&,
                                      const instream_iterator&);
     friend constexpr bool operator!=(const instream_iterator&,
@@ -205,6 +202,17 @@ public:
         return tmp;
     }
 
+    instream_type& get_stream()
+    {
+        return *m_in;
+    }
+    const instream_type& get_stream() const
+    {
+        return *m_in;
+    }
+
+    void read_into(span<T> s);
+
     friend constexpr bool operator==(const instream_iterator&,
                                      const instream_iterator&);
     friend constexpr bool operator!=(const instream_iterator&,
@@ -212,10 +220,6 @@ public:
 
 private:
     void _read();
-
-    void read_into(span<T> s);
-    void push(span<T> s);
-    void push_back();
 
     instream_type* m_in{nullptr};
     T m_last{};

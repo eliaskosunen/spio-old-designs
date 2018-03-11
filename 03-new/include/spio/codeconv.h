@@ -21,8 +21,9 @@
 #ifndef SPIO_CODECONV_H
 #define SPIO_CODECONV_H
 
+#include "fwd.h"
+
 #include <codecvt>
-#include "config.h"
 #include "locale.h"
 #include "span.h"
 

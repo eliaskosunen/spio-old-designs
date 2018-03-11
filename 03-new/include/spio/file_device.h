@@ -21,22 +21,16 @@
 #ifndef SPIO_FILE_DEVICE_H
 #define SPIO_FILE_DEVICE_H
 
+#include "fwd.h"
+
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
-#include "config.h"
 #include "span.h"
 #include "traits.h"
 
 namespace spio {
-namespace detail {
-    struct filehandle_device_default_category : seekable_device_tag,
-                                                flushable_tag {
-    };
-}  // namespace detail
-
-template <typename CharT,
-          typename Category = detail::filehandle_device_default_category>
+template <typename CharT, typename Category>
 class basic_filehandle_device {
 public:
     using char_type = CharT;

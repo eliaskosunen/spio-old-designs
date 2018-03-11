@@ -21,7 +21,8 @@
 #ifndef SPIO_INDIRECT_DEVICE
 #define SPIO_INDIRECT_DEVICE
 
-#include "config.h"
+#include "fwd.h"
+
 #include "span.h"
 #include "traits.h"
 
@@ -78,7 +79,7 @@ private:
     }
 };
 
-template <typename Category, typename Device, typename = void>
+template <typename Category, typename Device, typename>
 class basic_indirect_device : public basic_indirect_device_base<Device> {
     using base = basic_indirect_device_base<Device>;
 

@@ -21,113 +21,346 @@
 #ifndef SPIO_STREAM_H
 #define SPIO_STREAM_H
 
+#include "fwd.h"
+
 #include "buffered_device.h"
-#include "config.h"
 #include "formatter.h"
 #include "locale.h"
+#include "scanner.h"
 #include "stream_base.h"
 #include "stream_iterator.impl.h"
 #include "util.h"
 
 namespace spio {
-// default arguments defined in stream_iterator.h
-template <typename CharT, typename Formatter, typename Buffer, typename Traits>
-class basic_outstream : public virtual basic_ios_base<CharT>,
-                        public detail::basic_output_stream<CharT> {
+namespace detail {
+    template <typename T, std::size_t N, typename... Args>
+    struct count_tags_impl;
+    template <typename T, std::size_t N, typename Tag, typename... Ts>
+    struct count_tags_impl<T, N, Tag, Ts...> {
+        template <typename U = T>
+        static constexpr auto value()
+            -> std::enable_if_t<std::is_base_of<Tag, U>::value, std::size_t>
+        {
+            return count_tags_impl<T, N + 1, Ts...>::value();
+        }
+        template <typename U = T>
+        static constexpr auto value()
+            -> std::enable_if_t<!std::is_base_of<Tag, U>::value, std::size_t>
+        {
+            return count_tags_impl<T, N, Ts...>::value();
+        }
+    };
+    template <typename T, std::size_t N>
+    struct count_tags_impl<T, N> {
+        static constexpr std::size_t value()
+        {
+            static_assert(N != 100, "foo");
+            return N;
+        }
+    };
+    template <typename T, typename... Tags>
+    struct count_tags
+        : std::integral_constant<std::size_t,
+                                 count_tags_impl<T, 0, Tags...>::value()> {
+    };
+
+    template <typename T>
+    struct count_type_tags
+        : std::integral_constant<std::size_t,
+                                 count_tags<T, input, output>::value> {
+    };
+    template <typename T>
+    struct count_mode_tags
+        : std::integral_constant<std::size_t,
+                                 count_tags<T,
+                                            detail::random_access,
+                                            asynchronized_tag,
+                                            closable_tag,
+                                            flushable_tag,
+                                            localizable_tag,
+                                            revertible_tag>::value> {
+    };
+
+    template <typename Source, typename Dest, typename = void>
+    struct is_allowed_category_conversion : std::false_type {
+    };
+    template <typename Source, typename Dest>
+    struct is_allowed_category_conversion<
+        Source,
+        Dest,
+        std::enable_if_t<
+            (count_type_tags<Source>::value >= count_type_tags<Dest>::value) &&
+            (count_mode_tags<Source>::value >= count_mode_tags<Dest>::value)>>
+        : std::true_type {
+    };
+
+    template <typename CharT, typename Category, typename = void>
+    struct basic_input_stream {
+    };
+    template <typename CharT, typename Category>
+    struct basic_input_stream<
+        CharT,
+        Category,
+        std::enable_if_t<is_category<Category, input>::value>> {
+        virtual streamsize read(span<CharT>) = 0;
+        virtual ~basic_input_stream() = default;
+    };
+
+    template <typename CharT, typename Category, typename = void>
+    struct basic_output_stream {
+    };
+    template <typename CharT, typename Category>
+    struct basic_output_stream<
+        CharT,
+        Category,
+        std::enable_if_t<is_category<Category, output>::value>> {
+        virtual streamsize write(span<const CharT>) = 0;
+        virtual ~basic_output_stream() = default;
+    };
+
+    template <typename Category, typename = void>
+    struct seekable_stream {
+    };
+    template <typename Category>
+    struct seekable_stream<
+        Category,
+        std::enable_if_t<is_category<Category, detail::random_access>::value>> {
+        virtual streampos seek(streamoff, seekdir, int) = 0;
+        virtual ~seekable_stream() = default;
+    };
+
+    template <typename Category, typename = void>
+    struct closable_stream {
+    };
+    template <typename Category>
+    struct closable_stream<
+        Category,
+        std::enable_if_t<is_category<Category, closable_tag>::value>> {
+        virtual void close() = 0;
+        virtual ~closable_stream() = default;
+    };
+
+    template <typename Category, typename = void>
+    struct flushable_stream {
+    };
+    template <typename Category>
+    struct flushable_stream<
+        Category,
+        std::enable_if_t<is_category<Category, flushable_tag>::value>> {
+        virtual void flush() = 0;
+        virtual ~flushable_stream() = default;
+    };
+
+    template <typename Category, typename = void>
+    struct localizable_stream {
+    };
+    template <typename Category>
+    struct localizable_stream<
+        Category,
+        std::enable_if_t<is_category<Category, localizable_tag>::value>> {
+#if SPIO_USE_LOCALE
+        virtual void imbue(const std::locale&) = 0;
+        virtual const std::locale& get_locale() const = 0;
+#endif
+        virtual ~localizable_stream() = default;
+    };
+
+    template <typename CharT,
+              typename Category,
+              typename Formatter,
+              typename Buffer,
+              typename = void>
+    struct sink_members {
+        Formatter get_fmt() = delete;
+        Buffer get_sink_buffer() = delete;
+        bool has_sink_buffer() const = delete;
+    };
+    template <typename CharT,
+              typename Category,
+              typename Formatter,
+              typename Buffer>
+    struct sink_members<
+        CharT,
+        Category,
+        Formatter,
+        Buffer,
+        std::enable_if_t<is_category<Category, output>::value>> {
+        Buffer& get_sink_buffer()
+        {
+            return *m_buf;
+        }
+        bool has_sink_buffer() const
+        {
+            return m_buf;
+        }
+
+        Formatter& get_fmt()
+        {
+            return m_fmt;
+        }
+
+    private:
+        Formatter m_fmt{};
+        std::unique_ptr<Buffer> m_buf;
+    };
+
+    template <typename CharT,
+              typename Category,
+              typename Scanner,
+              typename Buffer,
+              typename = void>
+    struct source_members {
+        Scanner get_scanner() = delete;
+        Buffer get_source_buffer() = delete;
+        bool has_source_buffer() = delete;
+    };
+    template <typename CharT,
+              typename Category,
+              typename Scanner,
+              typename Buffer>
+    struct source_members<
+        CharT,
+        Category,
+        Scanner,
+        Buffer,
+        std::enable_if_t<is_category<Category, input>::value>> {
+        Buffer& get_source_buffer()
+        {
+            return *m_buf;
+        }
+        bool has_source_buffer() const
+        {
+            return m_buf;
+        }
+
+        Scanner& get_scanner()
+        {
+            return m_scan;
+        }
+
+    private:
+        Scanner m_scan{};
+        std::unique_ptr<Buffer> m_buf;
+    };
+}  // namespace detail
+
+template <typename CharT,
+          typename Category,
+          typename Formatter,
+          typename Scanner,
+          typename SinkBuffer,
+          typename SourceBuffer,
+          typename Traits>
+class basic_stream : public stream_base,
+                     public detail::basic_input_stream<CharT, Category>,
+                     public detail::basic_output_stream<CharT, Category>,
+                     public detail::seekable_stream<Category>,
+                     public detail::closable_stream<Category>,
+                     public detail::flushable_stream<Category>,
+                     public detail::localizable_stream<Category> {
+    using sink_members =
+        detail::sink_members<CharT, Category, Formatter, SinkBuffer>;
+    using source_members =
+        detail::source_members<CharT, Category, Scanner, SourceBuffer>;
+
+    using sink_members_ptr = std::shared_ptr<sink_members>;
+    using source_members_ptr = std::shared_ptr<source_members>;
+
 public:
     using char_type = CharT;
     using formatter_type = Formatter;
-    using traits_type = Traits;
-    using buffer_type = Buffer;
+    using scanner_type = Scanner;
+    using sink_buffer_type = SinkBuffer;
+    using source_buffer_type = SourceBuffer;
+    using traits = Traits;
 
-    template <typename... Args>
-    basic_outstream& print(const char_type* f, const Args&... a)
+    template <typename C = Category, typename... Args>
+    auto print(const char_type* f, const Args&... a)
+        -> std::enable_if_t<is_category<C, output>::value, basic_stream&>
     {
-        m_fmt.format_to(outstream_iterator<char_type, char_type>(*this), f,
-                        a...);
+        auto out = with_category<output>();
+        m_sink->get_fmt()(outstream_iterator<char_type, char_type>(out), f,
+                          a...);
         return *this;
     }
 
-protected:
-    basic_outstream() = default;
-    basic_outstream(std::unique_ptr<buffer_type> b) : m_buffer(std::move(b)) {}
+    template <typename C = Category, typename... Args>
+    auto scan(const char_type* f, Args&... a)
+        -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
+    {
+        auto in = with_category<input>();
+        m_source->get_scanner()(instream_iterator<char_type, char_type>(in), f,
+                                a...);
+        return *this;
+    }
 
-    std::unique_ptr<buffer_type> m_buffer{nullptr};
-    formatter_type m_fmt{};
-};
-
-using outstream = basic_outstream<char>;
-using woutstream = basic_outstream<wchar_t>;
-
-// default arguments defined in stream_iterator.h
-template <typename CharT, typename Traits>
-class basic_instream : public virtual basic_ios_base<CharT>,
-                       public detail::basic_input_stream<CharT> {
-public:
-    using char_type = CharT;
-    using traits_type = Traits;
-
-protected:
-    basic_instream() = default;
-};
-
-using instream = basic_instream<char>;
-using winstream = basic_instream<wchar_t>;
-
-template <typename CharT,
-          typename Formatter = basic_default_formatter<CharT>,
-          typename Buffer = basic_default_device_buffer<CharT>,
-          typename Traits = std::char_traits<CharT>>
-class basic_iostream
-    : public basic_instream<CharT, Traits>,
-      public basic_outstream<CharT, Formatter, Buffer, Traits> {
-    using in_base = basic_instream<CharT, Traits>;
-    using out_base = basic_outstream<CharT, Formatter, Buffer, Traits>;
-
-public:
-    using char_type = CharT;
-    using traits_type = Traits;
-    using formatter_type = Formatter;
-    using buffer_type = Buffer;
+    /* template <typename DestCategory> */
+    /* auto with_category() -> std::enable_if_t< */
+    /*     detail::is_allowed_category_conversion<Category, DestCategory>::value, */
+    /*     basic_stream<CharT, */
+    /*                  DestCategory, */
+    /*                  Formatter, */
+    /*                  Scanner, */
+    /*                  SinkBuffer, */
+    /*                  SourceBuffer, */
+    /*                  Traits>> */
+    /* { */
+    /*     return basic_stream(static_cast<stream_base&>(*this), m_sink, m_source); */
+    /* } */
 
 protected:
-    basic_iostream() = default;
-    basic_iostream(std::unique_ptr<buffer_type> b) : out_base(std::move(b)) {}
-};
+    basic_stream() = default;
 
-using iostream = basic_iostream<char>;
-using wiostream = basic_iostream<wchar_t>;
+    struct base_construct_tag {
+    };
+
+    template <typename... Args>
+    basic_stream(base_construct_tag, Args&&... args)
+        : stream_base(std::forward<Args>(args)...)
+    {
+    }
+
+private:
+    template <typename C = Category>
+    static auto _init_sink_members()
+        -> std::enable_if_t<is_category<C, output>::value, sink_members_ptr>
+    {
+        return std::make_shared<sink_members>();
+    }
+    template <typename C = Category>
+    static auto _init_sink_members()
+        -> std::enable_if_t<!is_category<C, output>::value, sink_members_ptr>
+    {
+        return nullptr;
+    }
+
+    template <typename C = Category>
+    static auto _init_source_members()
+        -> std::enable_if_t<is_category<C, input>::value, source_members_ptr>
+    {
+        return std::make_shared<source_members>();
+    }
+    template <typename C = Category>
+    static auto _init_source_members()
+        -> std::enable_if_t<!is_category<C, input>::value, source_members_ptr>
+    {
+        return nullptr;
+    }
+
+    basic_stream(stream_base base,
+                 sink_members_ptr sink,
+                 source_members_ptr source)
+        : stream_base(std::move(base)),
+          m_sink(std::move(sink)),
+          m_source(std::move(source))
+    {
+    }
+
+    sink_members_ptr m_sink{_init_sink_members()};
+    source_members_ptr m_source{_init_source_members()};
+};
 
 namespace detail {
-    template <typename Device, typename = void, typename... Args>
-    struct device_stream_base;
-
-    template <typename Device, typename... Args>
-    struct device_stream_base<
-        Device,
-        std::enable_if_t<has_category<Device, input>::value &&
-                         has_category<Device, output>::value>,
-        Args...> : public basic_iostream<typename Device::char_type, Args...> {
-    };
-
-    template <typename Device, typename... Args>
-    struct device_stream_base<
-        Device,
-        std::enable_if_t<!has_category<Device, input>::value &&
-                         has_category<Device, output>::value>,
-        Args...> : public basic_outstream<typename Device::char_type, Args...> {
-        virtual streamsize read(span<typename Device::char_type>) = 0;
-    };
-
-    template <typename Device, typename... Args>
-    struct device_stream_base<
-        Device,
-        std::enable_if_t<has_category<Device, input>::value &&
-                         !has_category<Device, output>::value>,
-        Args...> : public basic_instream<typename Device::char_type, Args...> {
-        virtual streamsize write(span<const typename Device::char_type>) = 0;
-    };
-
     template <typename Device, typename = void, typename... Args>
     struct is_openable_device : std::false_type {
     };
@@ -139,235 +372,207 @@ namespace detail {
         Args...> : std::true_type {
     };
 
-    template <typename Device>
-    using is_closable_device = has_category<Device, closable_tag>;
-    template <typename Device>
-    using is_seekable_device = has_category<Device, detail::random_access>;
-    template <typename Device>
-    using is_sink = has_category<Device, output>;
-    template <typename Device>
-    using is_source = has_category<Device, input>;
-    template <typename Device>
-    using is_flushable_device = has_category<Device, flushable_tag>;
-    template <typename Device>
-    using is_localizable_device = has_category<Device, localizable_tag>;
-
-    template <typename Device, typename = void>
-    struct isopen_stream_impl {
-        static bool is_open(const Device&)
-        {
-            throw failure(invalid_operation,
-                          "Device doesn't have member function `is_open`");
-        }
+    template <typename CharT, typename Category, typename = void>
+    struct basic_device_input_stream {
+        virtual streamsize read(span<CharT>) = 0;
+        virtual ~basic_device_input_stream() = default;
     };
-    template <typename Device>
-    struct isopen_stream_impl<
-        Device,
-        std::enable_if_t<is_openable_device<Device>::value>> {
-        static bool is_open(const Device& d)
-        {
-            return d.is_open();
-        }
+    template <typename CharT, typename Category>
+    struct basic_device_input_stream<
+        CharT,
+        Category,
+        std::enable_if_t<is_category<Category, input>::value>> {
     };
 
-    template <typename Device, typename = void>
-    struct closable_stream_impl {
-        static void close(Device&)
-        {
-            throw failure(invalid_operation, "Device doesn't model Closable");
-        }
+    template <typename CharT, typename Category, typename = void>
+    struct basic_device_output_stream {
+        virtual streamsize write(span<const CharT>) = 0;
+        virtual ~basic_device_output_stream() = default;
     };
-    template <typename Device>
-    struct closable_stream_impl<
-        Device,
-        std::enable_if_t<is_closable_device<Device>::value>> {
-        static void close(Device& d)
-        {
-            d.close();
-        }
+    template <typename CharT, typename Category>
+    struct basic_device_output_stream<
+        CharT,
+        Category,
+        std::enable_if_t<is_category<Category, output>::value>> {
     };
 
-    template <typename Device, typename = void>
-    struct seekable_stream_impl {
-        static streamsize seek(Device&, streamoff, seekdir, int)
-        {
-            throw failure(invalid_operation, "Device doesn't model Seekable");
-        }
+    template <typename Category, typename = void>
+    struct device_seekable_stream {
+        virtual streampos seek(streamoff, seekdir, int) = 0;
+        virtual ~device_seekable_stream() = default;
     };
-    template <typename Device>
-    struct seekable_stream_impl<
-        Device,
-        std::enable_if_t<is_seekable_device<Device>::value>> {
-        static streamsize seek(Device& d, streamoff off, seekdir dir, int which)
-        {
-            return d.seek(off, dir, which);
-        }
+    template <typename Category>
+    struct device_seekable_stream<
+        Category,
+        std::enable_if_t<is_category<Category, detail::random_access>::value>> {
     };
 
-    template <typename Device, typename = void>
-    struct sink_stream_impl {
-        static streamsize write(Device&, span<const typename Device::char_type>)
-        {
-            throw failure(invalid_operation, "Device doesn't model Sink");
-        }
+    template <typename Category, typename = void>
+    struct device_closable_stream {
+        virtual void close() = 0;
+        virtual ~device_closable_stream() = default;
     };
-    template <typename Device>
-    struct sink_stream_impl<Device, std::enable_if_t<is_sink<Device>::value>> {
-        static streamsize write(Device& d,
-                                span<const typename Device::char_type> s)
-        {
-            return d.write(s);
-        }
+    template <typename Category>
+    struct device_closable_stream<
+        Category,
+        std::enable_if_t<is_category<Category, closable_tag>::value>> {
     };
 
-    template <typename Device, typename = void>
-    struct source_stream_impl {
-        static streamsize read(Device&, span<typename Device::char_type>)
-        {
-            throw failure(invalid_operation, "Device doesn't model Source");
-        }
+    template <typename Category, typename = void>
+    struct device_flushable_stream {
+        virtual void flush() = 0;
+        virtual ~device_flushable_stream() = default;
     };
-    template <typename Device>
-    struct source_stream_impl<Device,
-                              std::enable_if_t<is_source<Device>::value>> {
-        static streamsize read(Device& d, span<typename Device::char_type> s)
-        {
-            return d.read(s);
-        }
+    template <typename Category>
+    struct device_flushable_stream<
+        Category,
+        std::enable_if_t<is_category<Category, flushable_tag>::value>> {
     };
 
-    template <typename Device, typename = void>
-    struct flushable_stream_impl {
-        static void flush(Device&)
-        {
-            throw failure(invalid_operation, "Device doesn't model Flushable");
-        }
-    };
-    template <typename Device>
-    struct flushable_stream_impl<
-        Device,
-        std::enable_if_t<is_flushable_device<Device>::value>> {
-        static void flush(Device& d)
-        {
-            d.flush();
-        }
-    };
-
-    template <typename Device, typename = void>
-    struct localizable_stream_impl {
+    template <typename Category, typename = void>
+    struct device_localizable_stream {
 #if SPIO_USE_LOCALE
-        static void imbue(Device&, const std::locale&)
-        {
-            throw failure(invalid_operation,
-                          "Device doesn't model Localizable");
-        }
-        static const std::locale& get_locale(const Device&)
-        {
-            throw failure(invalid_operation,
-                          "Device doesn't model Localizable");
-        }
+        virtual void imbue(const std::locale&) = 0;
+        virtual const std::locale& get_locale() const = 0;
 #endif
+        virtual ~device_localizable_stream() = default;
     };
-    template <typename Device>
-    struct localizable_stream_impl<
-        Device,
-        std::enable_if_t<is_localizable_device<Device>::value>> {
-#if SPIO_USE_LOCALE
-        static void imbue(Device& d, const std::locale& l)
-        {
-            d.imbue(l);
-        }
-        static const std::locale& get_locale(const Device& d)
-        {
-            return d.get_locale();
-        }
-#endif
+    template <typename Category>
+    struct device_localizable_stream<
+        Category,
+        std::enable_if_t<is_category<Category, localizable_tag>::value>> {
+    };
+
+    template <typename CharT, typename Category>
+    struct basic_device_stream_base
+        : basic_device_input_stream<CharT, Category>,
+          basic_device_output_stream<CharT, Category>,
+          device_seekable_stream<Category>,
+          device_closable_stream<Category>,
+          device_flushable_stream<Category>,
+          device_localizable_stream<Category> {
     };
 }  // namespace detail
 
-template <
-    typename Device,
-    typename Formatter = basic_default_formatter<typename Device::char_type>,
-    typename Buffer = basic_default_device_buffer<typename Device::char_type>,
-    typename Traits = std::char_traits<typename Device::char_type>>
-class stream : public detail::
-                   device_stream_base<Device, void, Formatter, Buffer, Traits> {
-    using base =
-        detail::device_stream_base<Device, void, Formatter, Buffer, Traits>;
-
-    static_assert(has_category<Device, device_tag>::value,
-                  "stream requires Device to model the concept Device");
+template <typename Device,
+          typename Formatter,
+          typename Scanner,
+          typename SinkBuffer,
+          typename SourceBuffer,
+          typename Traits>
+class basic_device_stream
+    : public basic_stream<typename Device::char_type,
+                          typename Device::category,
+                          Formatter,
+                          Scanner,
+                          SinkBuffer,
+                          SourceBuffer,
+                          Traits>,
+      public detail::basic_device_stream_base<typename Device::char_type,
+                                              typename Device::category> {
+    using category = typename Device::category;
 
 public:
     using device_type = Device;
-    using char_type = typename device_type::char_type;
-    using category = typename device_type::category;
+    using char_type = typename Device::char_type;
 
-    template <bool Dependent = true,
-              typename = std::enable_if_t<
-                  std::is_default_constructible<device_type>::value>>
-    stream() : base{}, m_dev{}
+    basic_device_stream() = default;
+    template <typename... Args>
+    basic_device_stream(Args&&... a) : m_dev(std::forward<Args>(a)...)
     {
     }
-    stream(device_type d) : base{}, m_dev(std::move(d)) {}
-    template <typename... Args>
-    stream(device_type d, Args&&... a)
-        : base(std::forward<Args>(a)...), m_dev(std::move(d))
-    {
-    }
+    basic_device_stream(device_type d) : m_dev(std::move(d)) {}
 
     template <typename... Args>
-    auto open(Args&&... args) -> std::enable_if_t<
-        detail::is_openable_device<device_type, void, Args...>::value,
-        void>
+    auto open(Args&&... args)
+        -> std::enable_if_t<detail::is_openable_device<Device, Args...>::value>
     {
         m_dev.open(std::forward<Args>(args)...);
     }
 
-    bool is_open() const override
+    streamsize write(span<const char_type> s) override
     {
-        return detail::isopen_stream_impl<device_type>::is_open(m_dev);
+        return do_write(s);
     }
+    streamsize read(span<char_type> s) override
+    {
+        return do_read(s);
+    }
+
+    streampos seek(streamoff off,
+                   seekdir dir,
+                   int which = openmode::in | openmode::out) override
+    {
+        return do_seek(off, dir, which);
+    }
+
     void close() override
     {
-        detail::closable_stream_impl<device_type>::close(m_dev);
+        return do_close();
     }
-
-    streamsize seek(streamoff off,
-                    seekdir dir,
-                    int which = openmode::in | openmode::out) override
-    {
-        return detail::seekable_stream_impl<device_type>::seek(m_dev, off, dir,
-                                                               which);
-    }
-
     void flush() override
     {
-        detail::flushable_stream_impl<device_type>::flush(m_dev);
+        return do_flush();
     }
 
 #if SPIO_USE_LOCALE
     void imbue(const std::locale& l) override
     {
-        detail::localizable_stream_impl<device_type>::imbue(m_dev, l);
+        return do_imbue(l);
     }
     const std::locale& get_locale() const override
     {
-        return detail::localizable_stream_impl<device_type>::get_locale(m_dev);
+        return do_get_locale();
     }
 #endif
 
-    streamsize read(span<char_type> s) override
+private:
+    template <typename C = category>
+    auto do_write(span<const char_type> s)
+        -> std::enable_if_t<is_category<C, output>::value, streamsize>
     {
-        return detail::source_stream_impl<device_type>::read(m_dev, s);
+        return m_dev.write(s);
     }
-    streamsize write(span<const char_type> s) override
+    template <typename C = category>
+    auto do_read(span<char_type> s)
+        -> std::enable_if_t<is_category<C, input>::value, streamsize>
     {
-        return detail::sink_stream_impl<device_type>::write(m_dev, s);
+        return m_dev.read(s);
     }
+    template <typename C = category>
+    auto do_seek(streamoff off, seekdir dir, int which)
+        -> std::enable_if_t<is_category<C, detail::random_access>::value,
+                            streampos>
+    {
+        return m_dev.seek(off, dir, which);
+    }
+    template <typename C = category>
+    auto do_close() -> std::enable_if_t<is_category<C, closable_tag>::value>
+    {
+        m_dev.close();
+    }
+    template <typename C = category>
+    auto do_flush() -> std::enable_if_t<is_category<C, flushable_tag>::value>
+    {
+        m_dev.flush();
+    }
+#if SPIO_USE_LOCALE
+    template <typename C = category>
+    auto do_imbue(const std::locale& l)
+        -> std::enable_if_t<is_category<C, localizable_tag>::value>
+    {
+        m_dev.imbue(l);
+    }
+    template <typename C = category>
+    auto do_get_locale()
+        -> std::enable_if_t<is_category<C, localizable_tag>::value,
+                            const std::locale&> const
+    {
+        return m_dev.get_locale();
+    }
+#endif
 
-protected:
-    device_type m_dev;
+    device_type m_dev{};
 };
 }  // namespace spio
 

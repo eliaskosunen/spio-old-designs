@@ -18,63 +18,20 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SPIO_NULL_DEVICE_H
-#define SPIO_NULL_DEVICE_H
+#ifndef SPIO_STREAM_REF_H
+#define SPIO_STREAM_REF_H
 
 #include "fwd.h"
 
 namespace spio {
-template <typename CharT>
-class basic_null_device {
-public:
-    using char_type = CharT;
-
-    struct category : bidirectional_device_tag {
-    };
-
-    basic_null_device() = default;
-
-    streamsize read(span<char_type> s)
-    {
-        SPIO_UNUSED(s);
-        return -1;
-    }
-    streamsize write(span<const char_type> s)
-    {
-        return s.size();
-    }
+template <typename CharT,
+          typename Formatter,
+          typename Scanner,
+          typename SinkBuffer,
+          typename SourceBuffer,
+          typename Traits>
+class stream_ref {
 };
-
-using null_device = basic_null_device<char>;
-using wnull_device = basic_null_device<wchar_t>;
-
-template <typename CharT>
-class basic_null_source : private basic_null_device<CharT> {
-    using base = basic_null_device<CharT>;
-
-public:
-    using char_type = typename base::char_type;
-
-    using base::base;
-    using base::read;
-};
-
-using null_source = basic_null_source<char>;
-using wnull_source = basic_null_source<wchar_t>;
-
-template <typename CharT>
-class basic_null_sink : private basic_null_device<CharT> {
-    using base = basic_null_device<CharT>;
-
-public:
-    using char_type = typename base::char_type;
-
-    using base::base;
-    using base::write;
-};
-
-using null_sink = basic_null_sink<char>;
-using wnull_sink = basic_null_sink<wchar_t>;
 }  // namespace spio
 
 #endif
