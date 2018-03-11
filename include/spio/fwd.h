@@ -131,7 +131,7 @@ template <typename CharT,
           typename SinkBuffer = basic_default_sink_buffer<CharT>,
           typename SourceBuffer = basic_default_source_buffer<CharT>,
           typename Traits = std::char_traits<CharT>>
-class stream_ref;
+class basic_stream_ref;
 
 namespace detail {
     struct outstream_default_category : output {
