@@ -41,7 +41,7 @@ auto basic_stream<Device,
                   Traits>::print(const char_type* f, const Args&... a)
     -> std::enable_if_t<is_category<C, output>::value, basic_stream&>
 {
-    auto out = basic_stream_ref<char_type>(*this);
+    auto out = basic_stream_ref<char_type, output>(*this);
     m_sink->get_fmt()(outstream_iterator<char_type, char_type>(out), f, a...);
     return *this;
 }
@@ -61,7 +61,7 @@ auto basic_stream<Device,
                   Traits>::scan(const char_type* f, Args&... a)
     -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
 {
-    auto in = basic_stream_ref<char_type>(*this);
+    auto in = basic_stream_ref<char_type, input>(*this);
     m_source->get_scanner()(instream_iterator<char_type, char_type>(in), f,
                             a...);
     return *this;

@@ -31,7 +31,7 @@ template <typename T, typename CharT>
 class outstream_iterator {
 public:
     using char_type = CharT;
-    using outstream_type = basic_stream_ref<CharT>;
+    using outstream_type = basic_stream_ref<CharT, output>;
 
     using value_type = void;
     using difference_type = void;
@@ -69,7 +69,7 @@ template <typename CharT>
 class outstream_iterator<CharT, CharT> {
 public:
     using char_type = CharT;
-    using outstream_type = basic_stream_ref<CharT>;
+    using outstream_type = basic_stream_ref<CharT, output>;
 
     using value_type = void;
     using difference_type = void;
@@ -111,7 +111,7 @@ template <typename T, typename CharT>
 class instream_iterator {
 public:
     using char_type = CharT;
-    using instream_type = basic_stream_ref<CharT>;
+    using instream_type = basic_stream_ref<CharT, input>;
 
     using value_type = T;
     using difference_type = std::ptrdiff_t;
@@ -170,7 +170,7 @@ template <typename T>
 class instream_iterator<T, T> {
 public:
     using char_type = T;
-    using instream_type = basic_stream_ref<T>;
+    using instream_type = basic_stream_ref<T, input>;
 
     friend class basic_builtin_scanner<T>;
 
