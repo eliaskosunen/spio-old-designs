@@ -54,26 +54,8 @@ namespace detail {
         : std::true_type {
     };
 
-    template <typename CharT,
-              typename Category,
-              typename Formatter,
-              typename Buffer,
-              typename = void>
-    struct sink_members {
-        Formatter get_fmt() = delete;
-        Buffer get_sink_buffer() = delete;
-        bool has_sink_buffer() const = delete;
-    };
-    template <typename CharT,
-              typename Category,
-              typename Formatter,
-              typename Buffer>
-    struct sink_members<
-        CharT,
-        Category,
-        Formatter,
-        Buffer,
-        std::enable_if_t<is_category<Category, output>::value>> {
+    template <typename CharT, typename Formatter, typename Buffer>
+    struct sink_members_base {
         Buffer& get_sink_buffer()
         {
             return *m_buf;
@@ -92,27 +74,30 @@ namespace detail {
         Formatter m_fmt{};
         std::unique_ptr<Buffer> m_buf;
     };
-
     template <typename CharT,
               typename Category,
-              typename Scanner,
+              typename Formatter,
               typename Buffer,
               typename = void>
-    struct source_members {
-        Scanner get_scanner() = delete;
-        Buffer get_source_buffer() = delete;
-        bool has_source_buffer() = delete;
+    struct sink_members {
+        Formatter& get_fmt() = delete;
+        Buffer& get_sink_buffer() = delete;
+        bool has_sink_buffer() const = delete;
     };
     template <typename CharT,
               typename Category,
-              typename Scanner,
+              typename Formatter,
               typename Buffer>
-    struct source_members<
-        CharT,
-        Category,
-        Scanner,
-        Buffer,
-        std::enable_if_t<is_category<Category, input>::value>> {
+    struct sink_members<CharT,
+                        Category,
+                        Formatter,
+                        Buffer,
+                        std::enable_if_t<is_category<Category, output>::value>>
+        : sink_members_base<CharT, Formatter, Buffer> {
+    };
+
+    template <typename CharT, typename Scanner, typename Buffer>
+    struct source_members_base {
         Buffer& get_source_buffer()
         {
             return *m_buf;
@@ -130,6 +115,27 @@ namespace detail {
     private:
         Scanner m_scan{};
         std::unique_ptr<Buffer> m_buf;
+    };
+    template <typename CharT,
+              typename Category,
+              typename Scanner,
+              typename Buffer,
+              typename = void>
+    struct source_members {
+        Scanner& get_scanner() = delete;
+        Buffer& get_source_buffer() = delete;
+        bool has_source_buffer() = delete;
+    };
+    template <typename CharT,
+              typename Category,
+              typename Scanner,
+              typename Buffer>
+    struct source_members<CharT,
+                          Category,
+                          Scanner,
+                          Buffer,
+                          std::enable_if_t<is_category<Category, input>::value>>
+        : source_members_base<CharT, Scanner, Buffer> {
     };
 }  // namespace detail
 
@@ -156,6 +162,11 @@ public:
     using device_type = Device;
     using char_type = typename device_type::char_type;
     using category = typename device_type::category;
+    using formatter_type = Formatter;
+    using scanner_type = Scanner;
+    using sink_buffer_type = SinkBuffer;
+    using source_buffer_type = SourceBuffer;
+    using traits = Traits;
 
     basic_stream() = default;
     basic_stream(device_type d) : m_dev(std::move(d)) {}
@@ -189,15 +200,17 @@ public:
 
     template <typename C = category>
     auto read(span<char_type> s)
-        -> std::enable_if_t<is_category<C, input>::value, streamsize>
+        -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
     {
-        return m_dev.read(s);
+        m_dev.read(s);
+        return *this;
     }
     template <typename C = category>
     auto write(span<const char_type> s)
-        -> std::enable_if_t<is_category<C, output>::value, streamsize>
+        -> std::enable_if_t<is_category<C, output>::value, basic_stream&>
     {
-        return m_dev.write(s);
+        m_dev.write(s);
+        return *this;
     }
 
     template <typename C = category>
@@ -211,22 +224,28 @@ public:
     }
 
     template <typename C = category>
-    auto close() -> std::enable_if_t<is_category<C, closable_tag>::value, void>
+    auto close()
+        -> std::enable_if_t<is_category<C, closable_tag>::value, basic_stream&>
     {
-        return m_dev.close();
+        m_dev.close();
+        return *this;
     }
     template <typename C = category>
-    auto flush() -> std::enable_if_t<is_category<C, flushable_tag>::value, void>
+    auto flush()
+        -> std::enable_if_t<is_category<C, flushable_tag>::value, basic_stream&>
     {
-        return m_dev.flush();
+        m_dev.flush();
+        return *this;
     }
 
 #if SPIO_USE_LOCALE
     template <typename C = category>
     auto imbue(const std::locale& l)
-        -> std::enable_if_t<is_category<C, localizable_tag>::value, void>
+        -> std::enable_if_t<is_category<C, localizable_tag>::value,
+                            basic_stream&>
     {
-        return m_dev.imbue(l);
+        m_dev.imbue(l);
+        return *this;
     }
     template <typename C = category>
     auto get_locale()
@@ -236,6 +255,17 @@ public:
         return m_dev.get_locale();
     }
 #endif
+
+    template <typename C = category>
+    auto get_formatter()
+        -> std::enable_if_t<is_category<C, output>::value, formatter_type&> {
+            return m_sink->get_fmt();
+        }
+    template <typename C = category>
+    auto get_scanner()
+        -> std::enable_if_t<is_category<C, input>::value, scanner_type&> {
+            return m_source->get_scanner();
+        }
 
     template <typename C = category, typename... Args>
     auto print(const char_type* f, const Args&... a)
