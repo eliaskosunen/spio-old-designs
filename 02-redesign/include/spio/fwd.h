@@ -116,69 +116,6 @@ class outstream_iterator;
 
 class stream_base;
 
-/* template <typename CharT, */
-/*           typename Category, */
-/*           typename Formatter = basic_default_formatter<CharT>, */
-/*           typename Scanner = basic_default_scanner<CharT>, */
-/*           typename SinkBuffer = basic_default_sink_buffer<CharT>, */
-/*           typename SourceBuffer = basic_default_source_buffer<CharT>, */
-/*           typename Traits = std::char_traits<CharT>> */
-/* class basic_stream; */
-
-template <typename CharT,
-          typename Category,
-          typename Formatter = basic_default_formatter<CharT>,
-          typename Scanner = basic_default_scanner<CharT>,
-          typename SinkBuffer = basic_default_sink_buffer<CharT>,
-          typename SourceBuffer = basic_default_source_buffer<CharT>,
-          typename Traits = std::char_traits<CharT>>
-class basic_stream_ref;
-
-namespace detail {
-    struct outstream_default_category : output {
-    };
-    struct instream_default_category : input {
-    };
-    struct iostream_default_category : input, output {
-    };
-}  // namespace detail
-
-/* template <typename CharT, */
-/*           typename Formatter = basic_default_formatter<CharT>, */
-/*           typename Buffer = basic_default_sink_buffer<CharT>, */
-/*           typename Traits = std::char_traits<CharT>> */
-/* using basic_outstream = basic_stream<CharT, */
-/*                                      detail::outstream_default_category, */
-/*                                      Formatter, */
-/*                                      void, */
-/*                                      Buffer, */
-/*                                      void, */
-/*                                      Traits>; */
-/* template <typename CharT, */
-/*           typename Scanner = basic_default_scanner<CharT>, */
-/*           typename Buffer = basic_default_source_buffer<CharT>, */
-/*           typename Traits = std::char_traits<CharT>> */
-/* using basic_instream = basic_stream<CharT, */
-/*                                     detail::instream_default_category, */
-/*                                     void, */
-/*                                     Scanner, */
-/*                                     void, */
-/*                                     Buffer, */
-/*                                     Traits>; */
-/* template <typename CharT, */
-/*           typename Formatter = basic_default_formatter<CharT>, */
-/*           typename Scanner = basic_default_scanner<CharT>, */
-/*           typename SinkBuffer = basic_default_sink_buffer<CharT>, */
-/*           typename SourceBuffer = basic_default_source_buffer<CharT>, */
-/*           typename Traits = std::char_traits<CharT>> */
-/* using basic_iostream = basic_stream<CharT, */
-/*                                     detail::iostream_default_category, */
-/*                                     Formatter, */
-/*                                     Scanner, */
-/*                                     SinkBuffer, */
-/*                                     SourceBuffer, */
-/*                                     Traits>; */
-
 template <
     typename Device,
     typename Formatter = basic_default_formatter<typename Device::char_type>,
@@ -188,6 +125,15 @@ template <
         basic_default_source_buffer<typename Device::char_type>,
     typename Traits = std::char_traits<typename Device::char_type>>
 class basic_stream;
+
+template <typename CharT,
+          typename Category,
+          typename Formatter = basic_default_formatter<CharT>,
+          typename Scanner = basic_default_scanner<CharT>,
+          typename SinkBuffer = basic_default_sink_buffer<CharT>,
+          typename SourceBuffer = basic_default_source_buffer<CharT>,
+          typename Traits = std::char_traits<CharT>>
+class basic_stream_ref;
 }  // namespace spio
 
 #endif

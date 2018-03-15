@@ -32,7 +32,10 @@ auto basic_fmt_formatter<CharT>::operator()(iterator s,
                                             const char_type* f,
                                             const Args&... a) const -> iterator
 {
-    return fmt::format_to(s, f, a...);
+    using fmt_context = fmt::basic_context<iterator, CharT>;
+    return fmt::vformat_to(
+        s, f,
+        fmt::basic_format_args<fmt_context>(fmt::make_args<fmt_context>(a...)));
 }
 
 template <typename CharT>
@@ -47,7 +50,9 @@ template <typename... Args>
 auto basic_fmt_formatter<CharT>::format(const char_type* f,
                                         const Args&... a) const -> string_type
 {
-    return fmt::format(f, a...);
+    using fmt_context = typename fmt::buffer_context<CharT>::type;
+    return fmt::vformat(f, fmt::basic_format_args<fmt_context>(
+                               fmt::make_args<fmt_context>(a...)));
 }
 }  // namespace spio
 

@@ -30,9 +30,9 @@ template <typename T, typename CharT>
 auto outstream_iterator<T, CharT>::operator=(const T& value)
     -> outstream_iterator&
 {
-    m_out->get().sink->print("{}", value);
+    m_out->get_formatter()(*this, "{}", value);
     if (m_delim.data()) {
-        m_out->get().write(m_delim);
+        m_out->write(m_delim);
     }
     return *this;
 }
@@ -41,9 +41,9 @@ template <typename T>
 auto outstream_iterator<T, T>::operator=(span<const char_type> value)
     -> outstream_iterator&
 {
-    m_out->get().sink->write(value);
+    m_out->write(value);
     if (m_delim.data()) {
-        m_out->get().sink->write(m_delim);
+        m_out->write(m_delim);
     }
     return *this;
 }
@@ -53,7 +53,7 @@ void instream_iterator<T, CharT>::_read()
 {
     SPIO_ASSERT(m_in,
                 "instream_iterator::_read: Cannot read from nullptr stream");
-    m_in->get().source->scan("{}", m_last);
+    m_in->scan("{}", m_last);
 }
 
 template <typename T>
@@ -61,7 +61,7 @@ void instream_iterator<T, T>::_read()
 {
     SPIO_ASSERT(m_in,
                 "instream_iterator::_read: Cannot read from nullptr stream");
-    m_in->get().source->read(make_span(&m_last, 1));
+    m_in->read(make_span(&m_last, 1));
 }
 
 template <typename T>
@@ -69,7 +69,7 @@ void instream_iterator<T, T>::read_into(span<T> s)
 {
     SPIO_ASSERT(m_in,
                 "instream_iterator::_read: Cannot read from nullptr stream");
-    m_in->get().source->read(s);
+    m_in->read(s);
     m_last = s.back();
 }
 
