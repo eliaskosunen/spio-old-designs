@@ -54,7 +54,7 @@ public:
           m_mode(mode::full)
     {
     }
-    basic_sink_buffer(mode m = mode::full, std::size_t len = default_size)
+    basic_sink_buffer(mode m = mode::line, std::size_t len = default_size)
         : m_buffer(_init_buffer(m, len)),
           m_it(m_buffer.begin()),
           m_begin(m_it),
@@ -119,9 +119,9 @@ public:
         m_it = m_buffer.begin();
 
         // Flush the buffer
-        auto s = as_bytes(make_span(m_begin, m_buffer.end()));
+        auto s = span_type(m_begin, m_buffer.end());
         auto flushed = flush(s);
-        if (flushed != s.size_us()) {
+        if (flushed != s.size()) {
             // Not everything was flushed, move the begin pointer accordingly
             m_begin += flushed;
             // Copy everything that was not flushed to the beginning of the
@@ -151,7 +151,7 @@ public:
         // Take what was not yet written and write it recursively
         s = data.subspan(dist_till_end);
         auto written = write(s, flush);
-        if (written != s.size_us()) {
+        if (written != s.size()) {
             // Not everything was written successfully, copy unwritten data to
             // the beginning
             m_it = std::copy(m_it + static_cast<std::ptrdiff_t>(written),
@@ -261,7 +261,7 @@ public:
 
     void read(read_span_type s)
     {
-        SPIO_ASSERT(s.size() <= size(),
+        SPIO_ASSERT(s.size_us() <= size(),
                     "source_buffer::read: Cannot read more than size()");
 
         std::copy_n(m_buffer.begin(), s.size(), s.begin());

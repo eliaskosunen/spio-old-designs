@@ -18,14 +18,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include <benchmark/benchmark.h>
-#include <spio/spio.h>
 #include <functional>
 #include <iostream>
 #include <limits>
 #include <random>
 #include <sstream>
 #include <string>
+#include "benchmark/benchmark.h"
+#include "spio/spio.h"
 
 static std::vector<std::string> generate_data(size_t len)
 {
@@ -43,7 +43,7 @@ static std::vector<std::string> generate_data(size_t len)
     data.emplace_back();
     for (std::size_t i = 0; i < len; ++i) {
         auto c = chars[static_cast<size_t>(dist(rng))];
-        if (std::isspace(c)) {
+        if (io::is_space(c)) {
             data.emplace_back();
         }
         else {
@@ -60,67 +60,45 @@ static void writestring_spio(benchmark::State& state)
         for (auto _ : state) {
             state.PauseTiming();
             auto data = generate_data(static_cast<size_t>(state.range(0)));
-            std::string str;
             state.ResumeTiming();
 
-            spio::string_sink p{str};
+            io::writable_buffer p{};
+            /* io::writable_buffer w{}; */
+            /* io::writer<decltype(w)> p{w}; */
             for (auto& n : data) {
-                p.write(spio::make_span(n));
+                p.write(io::make_span(n));
                 bytes += n.length();
             }
         }
         state.SetBytesProcessed(bytes);
     }
-    catch (const spio::failure& f) {
+    catch (const io::failure& f) {
         state.SkipWithError(f.what());
     }
 }
 
-/* static void writestring_spio_static(benchmark::State& state) */
-/* { */
-/*     try { */
-/*         size_t bytes = 0; */
-/*         for (auto _ : state) { */
-/*             state.PauseTiming(); */
-/*             auto data = generate_data(static_cast<size_t>(state.range(0))); */
-/*             std::vector<char> vec(state.range(0), '\0'); */
-/*             state.ResumeTiming(); */
-
-/*             auto sink = spio::memory_sink(spio::make_span(vec)); */
-/*             spio::basic_indirect_device<spio::memory_sink::category, */
-/*                                         spio::memory_sink> */
-/*                 p(sink); */
-/*             for (auto& n : data) { */
-/*                 p.write(spio::make_span(n)); */
-/*                 bytes += n.length(); */
-/*             } */
-/*         } */
-/*         state.SetBytesProcessed(bytes); */
-/*     } */
-/*     catch (const spio::failure& f) { */
-/*         state.SkipWithError(f.what()); */
-/*     } */
-/* } */
-
-static void writestring_spio_stream(benchmark::State& state)
+static void writestring_spio_static(benchmark::State& state)
 {
     try {
         size_t bytes = 0;
         for (auto _ : state) {
             state.PauseTiming();
             auto data = generate_data(static_cast<size_t>(state.range(0)));
-            std::string str;
+            io::dynamic_writable_buffer<char> buffer;
+            buffer.reserve(static_cast<size_t>(state.range(0)));
             state.ResumeTiming();
 
-            spio::basic_stream<spio::string_sink> p{str};
+            io::writable_buffer p{std::move(buffer)};
+            /* io::writable_buffer w{std::move(buffer)}; */
+            /* io::writer<decltype(w)> p{w}; */
             for (auto& n : data) {
-                p.write(spio::make_span(n));
+                p.write(io::make_span(n));
                 bytes += n.length();
             }
         }
         state.SetBytesProcessed(bytes);
     }
-    catch (const spio::failure& f) {
+    catch (const io::failure& f) {
         state.SkipWithError(f.what());
     }
 }
@@ -142,25 +120,6 @@ static void writestring_ios(benchmark::State& state)
     state.SetBytesProcessed(bytes);
 }
 
-static void writestring_std(benchmark::State& state)
-{
-    size_t bytes = 0;
-    for (auto _ : state) {
-        state.PauseTiming();
-        auto data = generate_data(static_cast<size_t>(state.range(0)));
-        std::string str{};
-        state.ResumeTiming();
-
-        for (auto& n : data) {
-            str.append(n);
-            bytes += n.length();
-        }
-    }
-    state.SetBytesProcessed(bytes);
-}
-
 BENCHMARK(writestring_spio)->Range(8, 8 << 8);
-/* BENCHMARK(writestring_spio_static)->Range(8, 8 << 8); */
-BENCHMARK(writestring_spio_stream)->Range(8, 8 << 8);
+BENCHMARK(writestring_spio_static)->Range(8, 8 << 8);
 BENCHMARK(writestring_ios)->Range(8, 8 << 8);
-BENCHMARK(writestring_std)->Range(8, 8 << 8);

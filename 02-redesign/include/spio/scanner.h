@@ -50,6 +50,15 @@ public:
     }
 #endif
 
+    template <typename... Args>
+    iterator operator()(iterator it,
+                        const char_type* format,
+                        bool readall,
+                        Args&... args)
+    {
+        return do_scan(it, format, readall, args...);
+    }
+
 private:
 #if SPIO_USE_LOCALE
     const std::locale* m_locale{std::addressof(global_locale())};
@@ -65,22 +74,38 @@ private:
     }
 #endif
 
+    template <typename T, typename... Args>
+    iterator do_scan(iterator it,
+                     const char_type* format,
+                     bool readall,
+                     T& arg,
+                     Args&... args);
+    iterator do_scan(iterator it, const char_type* format, bool readall);
+
     template <typename T>
-    auto scan(iterator it, T& val, bool readall) -> std::enable_if_t<
-        std::is_same<std::remove_reference_t<std::remove_cv_t<T>>,
-                     char_type>::value,
-        iterator>
+    auto scan(iterator it, const char_type*& format, T& val, bool readall)
+        -> std::enable_if_t<
+            std::is_same<std::remove_reference_t<std::remove_cv_t<T>>,
+                         char_type>::value,
+            iterator>
     {
         SPIO_UNUSED(readall);
         it.read_into(make_span(&val, 1));
+        if (*format != char_type('}')) {
+            throw failure(std::make_error_code(std::errc::invalid_argument),
+                          "Invalid format string: `char_type` doesn't support "
+                          "format specifiers, expected '}'");
+        }
+        ++format;
         return it;
     }
 
     template <typename T>
-    auto scan(iterator it, span<T> val, bool readall) -> std::enable_if_t<
-        std::is_same<std::remove_reference_t<std::remove_cv_t<T>>,
-                     char_type>::value,
-        iterator>
+    auto scan(iterator it, const char_type*& format, span<T> val, bool readall)
+        -> std::enable_if_t<
+            std::is_same<std::remove_reference_t<std::remove_cv_t<T>>,
+                         char_type>::value,
+            iterator>
     {
         if (readall) {
             std::vector<char_type> str(val.size_us());
@@ -111,6 +136,14 @@ private:
                 *val_it = *it;
             }
         }
+
+        if (*format != char_type('}')) {
+            throw failure(
+                std::make_error_code(std::errc::invalid_argument),
+                "Invalid format string: `span<char_type>` doesn't support "
+                "format specifiers, expected '}'");
+        }
+        ++format;
         return it;
     }
 };

@@ -109,6 +109,32 @@ using detected_t = typename detail::detector<nonesuch, void, Op, Args...>::type;
 
 template <class Default, template <class...> class Op, class... Args>
 using detected_or = detail::detector<Default, void, Op, Args...>;
+
+namespace detail {
+    template <typename Device, typename = void>
+    struct can_overread {
+        static bool value(Device&)
+        {
+            return true;
+        }
+    };
+
+    template <typename Device>
+    struct can_overread<
+        Device,
+        void_t<decltype(std::declval<Device>().can_overread())>> {
+        static bool value(Device& d)
+        {
+            return d.can_overread();
+        }
+    };
+}  // namespace detail
+
+template <typename Device>
+bool can_overread(Device& d)
+{
+    return detail::can_overread<Device>::value(d);
+}
 }  // namespace spio
 
 #endif

@@ -48,7 +48,7 @@ streamsize basic_native_filehandle_device<CharT>::read(span<char_type> s)
                 "Device which is "
                 "not open!");
     if (m_handle.eof) {
-        throw failure{make_error_condition(end_of_file)};
+        throw failure{make_error_code(end_of_file)};
     }
     if (s.size() == 0) {
         return 0;
