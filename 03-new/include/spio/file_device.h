@@ -71,6 +71,11 @@ public:
                    seekdir way,
                    int which = openmode::in | openmode::out);
 
+    bool can_overread() const
+    {
+        return m_handle != stdin;
+    }
+
 protected:
     std::FILE* m_handle{nullptr};
 };
@@ -123,6 +128,7 @@ public:
     struct category : seekable_source_tag, closable_tag {
     };
 
+    using base::can_overread;
     using base::close;
     using base::is_open;
     using base::putback;

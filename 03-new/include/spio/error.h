@@ -37,7 +37,7 @@ enum error {
     invalid_operation,
     assertion_failure,
     end_of_file,
-    bad_variant_access,
+    unknown_io_error,
     unimplemented,
     unreachable,
     undefined_error
@@ -46,7 +46,7 @@ enum error {
 
 namespace std {
 template <>
-struct is_error_condition_enum<spio::error> : true_type {
+struct is_error_code_enum<spio::error> : true_type {
 };
 }  // namespace std
 
@@ -68,8 +68,8 @@ struct error_category : public std::error_category {
                 return "Assertion failure";
             case end_of_file:
                 return "EOF";
-            case bad_variant_access:
-                return "Bad variant access";
+            case unknown_io_error:
+                return "Unknown IO error";
             case unimplemented:
                 return "Unimplemented";
             case unreachable:
@@ -97,14 +97,14 @@ namespace detail {
 #endif
 }  // namespace detail
 
-inline std::error_condition make_error_condition(error e)
+inline std::error_code make_error_code(error e)
 {
     return {static_cast<int>(e), detail::get_error_category()};
 }
 
 inline bool is_eof(const std::error_code& e)
 {
-    return e == make_error_condition(end_of_file);
+    return e == make_error_code(end_of_file);
 }
 
 #if SPIO_WIN32
@@ -119,15 +119,6 @@ class failure : public std::system_error {
 public:
     failure(std::error_code c) : system_error(c) {}
     failure(std::error_code c, const std::string& desc) : system_error(c, desc)
-    {
-    }
-
-    failure(std::error_condition c)
-        : system_error(std::error_code(c.value(), c.category()))
-    {
-    }
-    failure(std::error_condition c, const std::string& desc)
-        : system_error(std::error_code(c.value(), c.category()), desc)
     {
     }
 

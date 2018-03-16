@@ -49,11 +49,19 @@ namespace detail {
         {
             return -1;
         }
+        static constexpr handle_type stdin_handle()
+        {
+            return 1;
+        }
 #elif SPIO_WIN32
         using handle_type = void*;
         static handle_type invalid()
         {
             return INVALID_HANDLE_VALUE;
+        }
+        static constexpr handle_type stdin_handle()
+        {
+            return STD_INPUT_HANDLE;
         }
 #endif
 
@@ -112,6 +120,11 @@ public:
     streampos seek(streamoff off,
                    seekdir way,
                    int which = openmode::in | openmode::out);
+
+    bool can_overread() const
+    {
+        return m_handle.get() == detail::os_file_descriptor::stdin_handle();
+    }
 
 protected:
     detail::os_file_descriptor m_handle{};
@@ -175,6 +188,7 @@ public:
     struct category : seekable_source_tag, closable_tag {
     };
 
+    using base::can_overread;
     using base::close;
     using base::is_open;
     using base::putback;

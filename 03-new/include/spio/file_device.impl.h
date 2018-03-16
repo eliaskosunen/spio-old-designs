@@ -47,7 +47,7 @@ streamsize basic_filehandle_device<CharT, Category>::read(span<char_type> s)
         "basic_filehandle_device::read: Cannot read from a Device which is "
         "not open!");
     if (std::feof(m_handle) != 0) {
-        throw failure{make_error_condition(end_of_file)};
+        throw failure{make_error_code(end_of_file)};
     }
 
     auto b = std::fread(s.data(), 1, s.size_bytes_us(), m_handle);

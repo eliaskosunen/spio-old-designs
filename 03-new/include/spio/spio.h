@@ -39,12 +39,13 @@
 #include "native_file_device.h"
 #include "null_device.h"
 
-#include "buffered_device.h"
 #include "formatter.h"
 #include "scanner.h"
 
 #include "stream.h"
 #include "stream_base.h"
+#include "stream_buffer.h"
 #include "stream_iterator.h"
+#include "stream_ref.h"
 
 #endif
