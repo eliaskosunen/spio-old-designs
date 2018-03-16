@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include <benchmark/benchmark.h>
-#include <spio/spio.h>
+#include "benchmark/benchmark.h"
+#include "spio/spio.h"
 
-BENCHMARK_MAIN();
+BENCHMARK_MAIN()

@@ -37,7 +37,7 @@ public:
     using char_type = typename Container::value_type;
     using iterator = typename Container::iterator;
 
-    struct category : seekable_device_tag {
+    struct category : seekable_device_tag, nobuffer_tag {
     };
 
     basic_container_device() = default;
@@ -73,9 +73,24 @@ public:
                     "basic_container_device::write: Cannot write to a nullptr "
                     "container!");
 
-        auto dist = std::distance(m_buf->begin(), m_it);
-        m_buf->insert(m_it, s.begin(), s.end());
-        m_it = m_buf->begin() + dist + s.size();
+        if (m_it == m_buf->end()) {
+            if (s.size_us() > m_buf->size()) {
+                m_buf->reserve(m_buf->size() + s.size_us());
+            }
+            m_buf->insert(m_buf->end(), s.begin(), s.end());
+            m_it = m_buf->end();
+        }
+        else {
+            auto dist = std::distance(m_buf->begin(), m_it);
+            if (s.size_us() > m_buf->size()) {
+                m_buf->reserve(m_buf->size() + s.size_us());
+                m_buf->insert(m_buf->begin() + dist, s.begin(), s.end());
+            }
+            else {
+                m_buf->insert(m_it, s.begin(), s.end());
+            }
+            m_it = m_buf->begin() + dist + s.size();
+        }
         return s.size();
     }
 
@@ -143,7 +158,7 @@ public:
     using char_type = typename base::char_type;
     using iterator = typename base::iterator;
 
-    struct category : seekable_source_tag {
+    struct category : seekable_source_tag, nobuffer_tag {
     };
 
 #if defined(__GNUC__) && __GNUC__ < 7
@@ -168,7 +183,7 @@ public:
     using char_type = typename base::char_type;
     using iterator = typename base::iterator;
 
-    struct category : seekable_sink_tag {
+    struct category : seekable_sink_tag, nobuffer_tag {
     };
 
 #if defined(__GNUC__) && __GNUC__ < 7

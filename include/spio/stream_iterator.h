@@ -23,7 +23,6 @@
 
 #include "fwd.h"
 
-#include "buffered_device.h"
 #include "span.h"
 
 namespace spio {

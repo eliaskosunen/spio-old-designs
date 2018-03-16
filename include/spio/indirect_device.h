@@ -39,8 +39,8 @@ public:
     constexpr basic_indirect_device_base() = default;
     constexpr basic_indirect_device_base(Device& dev)
         : m_dev(std::addressof(dev)),
-          m_input(_init_input_iterator(dev)),
-          m_output(_init_output_iterator(dev))
+          m_input(_init_input_iterator(*m_dev)),
+          m_output(_init_output_iterator(*m_dev))
     {
     }
 
@@ -50,28 +50,28 @@ protected:
     iterator m_output{};
 
 private:
-    template <bool Dependent = true>
-    static std::enable_if_t<has_category<Device, input>::value, iterator>
+    template <typename D = Device>
+    static std::enable_if_t<has_category<D, input>::value, iterator>
     _init_input_iterator(Device& d)
     {
         return d.input().begin();
     }
-    template <bool Dependent = true>
-    static std::enable_if_t<!has_category<Device, input>::value, iterator>
+    template <typename D = Device>
+    static std::enable_if_t<!has_category<D, input>::value, iterator>
     _init_input_iterator(Device& d)
     {
         SPIO_UNUSED(d);
         return {};
     }
 
-    template <bool Dependent = true>
-    static std::enable_if_t<has_category<Device, output>::value, iterator>
+    template <typename D = Device>
+    static std::enable_if_t<has_category<D, output>::value, iterator>
     _init_output_iterator(Device& d)
     {
         return d.output().begin();
     }
-    template <bool Dependent = true>
-    static std::enable_if_t<!has_category<Device, output>::value, iterator>
+    template <typename D = Device>
+    static std::enable_if_t<!has_category<D, output>::value, iterator>
     _init_output_iterator(Device& d)
     {
         SPIO_UNUSED(d);
@@ -117,7 +117,7 @@ public:
     bool putback(char_type c)
     {
         if (m_input == m_dev->output().begin()) {
-            throw failure{make_error_condition(invalid_operation),
+            throw failure{make_error_code(invalid_operation),
                           "basic_indirect_device::putback: Cannot putback into "
                           "Device that has not been read from!"};
         }
@@ -228,7 +228,7 @@ public:
     bool putback(char_type c)
     {
         if (m_input == m_dev->output().begin()) {
-            throw failure{make_error_condition(invalid_operation),
+            throw failure{make_error_code(invalid_operation),
                           "basic_indirect_device::putback: Cannot putback into "
                           "Device that has not been read from!"};
         }

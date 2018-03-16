@@ -81,7 +81,7 @@ public:
         return !(operator bool());
     }
 
-    const std::error_condition& error() const
+    const std::error_code& error() const
     {
         return m_error;
     }
@@ -98,8 +98,13 @@ public:
 protected:
     stream_base() = default;
 
+    void set_error(std::error_code e)
+    {
+        m_error = std::move(e);
+    }
+
 private:
-    std::error_condition m_error{};
+    std::error_code m_error{};
     int m_state{iostate::good};
     int m_exceptions{iostate::fail | iostate::bad};
 };

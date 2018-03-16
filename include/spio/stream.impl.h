@@ -24,6 +24,7 @@
 #include "fwd.h"
 #include "stream.h"
 #include "stream_ref.h"
+#include "util.h"
 
 namespace spio {
 template <typename Device,
@@ -63,7 +64,7 @@ auto basic_stream<Device,
 {
     auto in = basic_stream_ref<char_type, input>(*this);
     m_source->get_scanner()(instream_iterator<char_type, char_type>(in), f,
-                            a...);
+                            can_overread(*this), a...);
     return *this;
 }
 }  // namespace spio

@@ -33,4 +33,15 @@ TEST_CASE("stream")
         spio::basic_stream<spio::filehandle_device> sout{stdout};
         sout.print("{}{}", "Hello world!", "\n");
     }
+
+    SUBCASE("container in")
+    {
+        auto str = std::string{"Hello world!"};
+        spio::basic_stream<spio::basic_container_source<std::string>> s(str);
+
+        std::string r(64, '\0');
+        auto span = spio::make_span(r);
+        s.scan("{}", span);
+        CHECK(r == "Hello");
+    }
 }
