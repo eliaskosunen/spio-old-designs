@@ -243,6 +243,19 @@ constexpr bool operator!=(const instream_iterator<T, CharT>& lhs,
 {
     return !(lhs == rhs);
 }
+
+template <typename T>
+constexpr bool operator==(const instream_iterator<T, T>& lhs,
+                          const instream_iterator<T, T>& rhs)
+{
+    return lhs.m_in == rhs.m_in;
+}
+template <typename T>
+constexpr bool operator!=(const instream_iterator<T, T>& lhs,
+                          const instream_iterator<T, T>& rhs)
+{
+    return !(lhs == rhs);
+}
 }  // namespace spio
 
 #include "stream_iterator.impl.h"

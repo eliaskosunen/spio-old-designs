@@ -110,10 +110,10 @@ struct bidirectional_seekable_device_tag : device_tag, bidirectional_seekable {
 };
 
 template <typename T, typename Category>
-struct has_category : std::is_base_of<Category, typename T::category> {
+struct is_category : std::is_base_of<Category, T> {
 };
 template <typename T, typename Category>
-struct is_category : std::is_base_of<Category, T> {
+struct has_category : is_category<typename T::category, Category> {
 };
 }  // namespace spio
 

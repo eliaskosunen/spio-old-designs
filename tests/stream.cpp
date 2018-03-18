@@ -42,6 +42,6 @@ TEST_CASE("stream")
         std::string r(64, '\0');
         auto span = spio::make_span(r);
         s.scan("{}", span);
-        CHECK(r == "Hello");
+        CHECK_EQ(std::strcmp(r.c_str(), "Hello"), 0);
     }
 }
