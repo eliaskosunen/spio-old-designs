@@ -47,6 +47,9 @@ namespace detail {
         virtual Formatter& get_formatter() = 0;
         virtual Scanner& get_scanner() = 0;
 
+        virtual SinkBuffer& get_sink_buffer() = 0;
+        virtual SourceBuffer& get_source_buffer() = 0;
+
         virtual ~erased_stream_storage_base() = default;
     };
 
@@ -199,6 +202,47 @@ namespace detail {
     };
 #endif
 
+    template <typename Category, typename = void>
+    struct do_sourcebuffer {
+        template <typename Stream>
+        [[noreturn]] static typename Stream::source_buffer_type&
+        get_source_buffer(Stream&)
+        {
+            SPIO_UNREACHABLE;
+        }
+    };
+    template <typename Category>
+    struct do_sourcebuffer<
+        Category,
+        std::enable_if_t<is_category<Category, input>::value &&
+                         !is_category<Category, nobuffer_tag>::value>> {
+        template <typename Stream>
+        static typename Stream::source_buffer_type& get_source_buffer(Stream& s)
+        {
+            return s.get_source_buffer();
+        }
+    };
+    template <typename Category, typename = void>
+    struct do_sinkbuffer {
+        template <typename Stream>
+        [[noreturn]] static typename Stream::sink_buffer_type& get_sink_buffer(
+            Stream&)
+        {
+            SPIO_UNREACHABLE;
+        }
+    };
+    template <typename Category>
+    struct do_sinkbuffer<
+        Category,
+        std::enable_if_t<is_category<Category, output>::value &&
+                         !is_category<Category, nobuffer_tag>::value>> {
+        template <typename Stream>
+        static typename Stream::sink_buffer_type& get_sink_buffer(Stream& s)
+        {
+            return s.get_sink_buffer();
+        }
+    };
+
     template <typename Stream>
     class erased_stream_storage
         : public erased_stream_storage_base<typename Stream::char_type,
@@ -264,6 +308,15 @@ namespace detail {
         typename Stream::scanner_type& get_scanner() override
         {
             return do_read<category>::get_scanner(*m_stream);
+        }
+
+        typename Stream::source_buffer_type& get_source_buffer() override
+        {
+            return do_sourcebuffer<category>::get_source_buffer(*m_stream);
+        }
+        typename Stream::sink_buffer_type& get_sink_buffer() override
+        {
+            return do_sinkbuffer<category>::get_sink_buffer(*m_stream);
         }
 
     private:
@@ -346,6 +399,12 @@ namespace detail {
                                          SourceBuffer,
                                          Traits>;
 
+        template <typename T>
+        static void _delete(void* ptr)
+        {
+            return static_cast<T*>(ptr)->~T();
+        }
+
     public:
         using base_type = detail::erased_stream_storage_base<CharT,
                                                              Formatter,
@@ -353,30 +412,31 @@ namespace detail {
                                                              SinkBuffer,
                                                              SourceBuffer,
                                                              Traits>;
-        using pointer = std::unique_ptr<base_type>;
+        using storage = typename std::aligned_storage<4 * sizeof(void*),
+                                                      alignof(void*)>::type;
+        using pointer = std::unique_ptr<base_type, void (*)(void*)>;
 
         basic_erased_stream() = default;
         basic_erased_stream(pointer p) : m_ptr(std::move(p)) {}
-
         template <typename Device,
                   typename = std::enable_if_t<std::is_same<
                       CharT,
-                      typename stream_type<Device>::char_type>::value>>
+                      typename stream_type<Device>::char_type>::value>,
+                  typename T = erased_stream_storage<stream_type<Device>>>
         basic_erased_stream(stream_type<Device>& s)
-            : m_ptr(std::make_unique<
-                    detail::erased_stream_storage<stream_type<Device>>>(s))
+            : m_ptr(new (&m_data) T(s), &_delete<T>)
         {
         }
 
         auto& get()
         {
             SPIO_ASSERT(valid(), "erased_stream::get: invalid stream");
-            return *m_ptr;
+            return get_pointer();
         }
         const auto& get() const
         {
             SPIO_ASSERT(valid(), "erased_stream::get: invalid stream");
-            return *m_ptr;
+            return get_pointer();
         }
 
         auto& operator*()
@@ -390,11 +450,11 @@ namespace detail {
 
         auto* operator-> ()
         {
-            return m_ptr.get();
+            return get_pointer();
         }
         const auto* operator-> () const
         {
-            return m_ptr.get();
+            return get_pointer();
         }
 
         bool valid() const
@@ -407,7 +467,17 @@ namespace detail {
         }
 
     private:
-        pointer m_ptr{};
+        storage m_data{{0}};
+        pointer m_ptr{nullptr};
+
+        base_type* get_pointer()
+        {
+            return m_ptr.get();
+        }
+        const base_type* get_pointer() const
+        {
+            return m_ptr.get();
+        }
     };
 }  // namespace detail
 
@@ -527,6 +597,23 @@ public:
         m_stream->get_scanner()(instream_iterator<char_type, char_type>(*this),
                                 f, a...);
         return *this;
+    }
+
+    template <typename C = Category>
+    auto get_source_buffer()
+        -> std::enable_if_t<is_category<C, input>::value &&
+                                !is_category<C, nobuffer_tag>::value,
+                            SourceBuffer&>
+    {
+        return m_stream->get_source_buffer();
+    }
+    template <typename C = Category>
+    auto get_sink_buffer()
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                !is_category<C, nobuffer_tag>::value,
+                            SourceBuffer&>
+    {
+        return m_stream->get_sink_buffer();
     }
 
 private:

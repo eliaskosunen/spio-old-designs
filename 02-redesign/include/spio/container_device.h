@@ -37,12 +37,12 @@ public:
     using char_type = typename Container::value_type;
     using iterator = typename Container::iterator;
 
-    struct category : seekable_device_tag, nobuffer_tag {
+    struct category : seekable_device_tag {
     };
 
     basic_container_device() = default;
     basic_container_device(container_type& c)
-        : m_buf{std::addressof(c)}, m_it{m_buf->begin()}
+        : m_buf(std::addressof(c)), m_it(m_buf->begin())
     {
     }
 
@@ -61,8 +61,11 @@ public:
                     "basic_container_device::read: Cannot write to a nullptr "
                     "container!");
 
+        if (m_it == m_buf->end()) {
+            return -1;
+        }
         auto dist = std::distance(m_it, m_buf->end());
-        auto n = std::max(dist, static_cast<std::ptrdiff_t>(m_buf->size()));
+        auto n = std::min(dist, s.size());
         std::copy_n(m_it, n, s.begin());
         m_it += n;
         return n;
@@ -158,7 +161,7 @@ public:
     using char_type = typename base::char_type;
     using iterator = typename base::iterator;
 
-    struct category : seekable_source_tag, nobuffer_tag {
+    struct category : seekable_source_tag {
     };
 
 #if defined(__GNUC__) && __GNUC__ < 7

@@ -135,6 +135,222 @@ bool can_overread(Device& d)
 {
     return detail::can_overread<Device>::value(d);
 }
+
+namespace detail {
+    struct placement_deleter {
+        template <typename T>
+        void operator()(T* ptr) const
+        {
+            return ptr->~T();
+        }
+    };
+
+    template <typename T, typename... Args>
+    std::unique_ptr<T, placement_deleter> make_in_place(void* place,
+                                                        Args&&... args)
+    {
+        return std::unique_ptr<T, placement_deleter>{
+            ::new (place) T(std::forward<Args>(args)...)};
+    }
+
+    template <typename... Ts>
+    struct variant_helper;
+
+    template <typename Union, typename T, typename... Ts>
+    struct variant_helper<Union, T, Ts...> {
+        static void destroy(std::size_t i, Union* data)
+        {
+            if (i == 0) {
+                reinterpret_cast<T*>(data)->~T();
+            }
+            else {
+                variant_helper<Union, Ts...>::destroy(--i, data);
+            }
+        }
+        static void move(std::size_t i, Union* src, Union* dest)
+        {
+            if (i == 0) {
+                new (dest) T(std::move(*reinterpret_cast<T*>(src)));
+            }
+            else {
+                variant_helper<Union, Ts...>::move(--i, src, dest);
+            }
+        }
+        static void copy(std::size_t i, const Union* src, Union* dest)
+        {
+            if (i == 0) {
+                new (dest) T(*reinterpret_cast<const T*>(src));
+            }
+            else {
+                variant_helper<Union, Ts...>::copy(--i, src, dest);
+            }
+        }
+    };
+
+    template <typename Union>
+    struct variant_helper<Union> {
+        static void destroy(std::size_t, Union*) {}
+        static void move(std::size_t, Union*, Union*) {}
+        static void copy(std::size_t, const Union*, Union*) {}
+    };
+
+    template <typename T, typename... Ts>
+    struct type_index;
+
+    template <typename T, typename... Ts>
+    struct type_index<T, T, Ts...> : std::integral_constant<std::size_t, 0> {
+    };
+
+    template <typename T, typename U, typename... Ts>
+    struct type_index<T, U, Ts...>
+        : std::integral_constant<std::size_t, 1 + type_index<T, Ts...>::value> {
+    };
+
+    template <typename F, typename Union, typename T, typename... Args>
+    auto do_visit(F&& f, Union& u, std::size_t i, std::size_t c = 0)
+    {
+        if (i == c) {
+            return f(*reinterpret_cast<T*>(&u));
+        }
+        return do_visit<F, Union, Args...>(std::forward<F>(f), u, i, ++c);
+    }
+}  // namespace detail
+
+template <typename... Types>
+class variant {
+    using storage_type = std::aligned_union_t<sizeof(char), Types...>;
+    using helper_type = detail::variant_helper<storage_type, Types...>;
+
+    static_assert(sizeof...(Types) > 1,
+                  "Variant must have at least 2 different types");
+
+    struct default_state {
+        int m{0};
+    };
+
+public:
+    template <typename T,
+              typename = std::enable_if_t<contains<T, Types...>::value>>
+    variant(T&& val) : m_index(detail::type_index<T, Types...>::value)
+    {
+        _construct<T>(std::forward<T>(val));
+    }
+    variant(const variant& o) : m_index(o.m_index)
+    {
+        helper_type::copy(m_index, &o.m_storage, &m_storage);
+    }
+    variant& operator=(const variant& o)
+    {
+        _destruct();
+        m_index = o.m_index;
+        helper_type::copy(m_index, &o.m_storage, &m_storage);
+        return *this;
+    }
+    variant(variant&& o) : m_index(std::move(o.m_index))
+    {
+        helper_type::move(m_index, &o.m_storage, &m_storage);
+    }
+    variant& operator=(variant&& o)
+    {
+        _destruct();
+        m_index = o.m_index;
+        helper_type::move(m_index, &o.m_storage, &m_storage);
+        return *this;
+    }
+    ~variant()
+    {
+        _destruct();
+    }
+
+    template <typename T,
+              typename = std::enable_if_t<contains<T, Types...>::value>>
+    bool is() const
+    {
+        return m_index == detail::type_index<T, Types...>();
+    }
+    std::size_t index() const
+    {
+        return m_index;
+    }
+
+    template <typename T,
+              typename = std::enable_if_t<contains<T, Types...>::value>,
+              typename... Args>
+    void set(Args&&... args)
+    {
+        _destruct();
+        _construct<T>(std::forward<Args>(args)...);
+    }
+
+    template <typename T,
+              typename = std::enable_if_t<contains<T, Types...>::value>,
+              typename... Args>
+    static variant create(Args&&... args)
+    {
+        variant<Args...> v(default_state{});
+        v.template _construct<T>(std::forward<Args>(args)...);
+        return v;
+    }
+
+    template <typename T,
+              typename = std::enable_if_t<contains<T, Types...>::value>>
+    T& get()
+    {
+        if (m_index == detail::type_index<T, Types...>::value) {
+            return *reinterpret_cast<T*>(&m_storage);
+        }
+        throw failure(bad_variant_access);
+    }
+    template <typename T,
+              typename = std::enable_if_t<contains<T, Types...>::value>>
+    const T& get() const
+    {
+        if (m_index == detail::type_index<T, Types...>::value) {
+            return *reinterpret_cast<const T*>(&m_storage);
+        }
+        throw failure(bad_variant_access);
+    }
+
+    template <typename F>
+    auto visit(F&& f)
+    {
+        return detail::do_visit<F, storage_type, Types...>(std::forward<F>(f),
+                                                           m_storage, m_index);
+    }
+
+private:
+    variant(default_state) {}
+
+    storage_type m_storage{};
+    std::size_t m_index{0};
+
+    template <typename T, typename... Args>
+    void _construct(Args&&... args)
+    {
+        ::new (&m_storage) T(std::forward<Args>(args)...);
+        m_index = detail::type_index<T, Types...>::value;
+    }
+    void _destruct()
+    {
+        helper_type::destroy(m_index, &m_storage);
+    }
+};
+
+namespace detail {
+    template <typename F, typename Tuple, std::size_t... I>
+    decltype(auto) apply_impl(F&& f, Tuple&& t, std::index_sequence<I...>)
+    {
+        return f(t.operator[](I)...);
+    }
+}  // namespace detail
+
+template <std::size_t N, typename F, typename Tuple>
+decltype(auto) apply_n(F&& f, Tuple&& t)
+{
+    return detail::apply_impl(std::forward<F>(f), std::forward<Tuple>(t),
+                              std::make_index_sequence<N>{});
+}
+
 }  // namespace spio
 
 #endif
