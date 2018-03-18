@@ -70,7 +70,7 @@ void instream_iterator<T, T>::read_into(span<T> s)
     SPIO_ASSERT(m_in,
                 "instream_iterator::_read: Cannot read from nullptr stream");
     m_in->read(s);
-    m_last = s.back();
+    m_last = *s.rbegin();
 }
 
 template <typename T>

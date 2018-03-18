@@ -27,55 +27,45 @@
 
 namespace spio {
 template <typename CharT>
-template <typename... Args>
-auto basic_builtin_scanner<CharT>::do_scan(iterator it,
-                                           const char_type* format,
-                                           bool readall,
-                                           T& arg,
-                                           Args&... args) -> iterator
+auto basic_builtin_scanner<CharT>::vscan(iterator it,
+                                         span<const char> format,
+                                         bool readall,
+                                         arg_list args) -> iterator
 {
-    for (; *format != char_type(0); ++format) {
-        if (*format == char_type('{')) {
-            ++format;
-            if(*format != char_type('{') {
-                it = scan(it, format, readall, arg);
-                break;
+    auto& arg_vec = args.get();
+    auto arg = arg_vec.begin();
+    auto opt = make_scan_options(readall);
+    auto f_it = format.begin();
+    while (f_it != format.end()) {
+        skip_ws(it);
+        if (*f_it == char_type('{')) {
+            ++f_it;
+            if (f_it == format.end()) {
+                throw failure(std::make_error_code(std::errc::invalid_argument),
+                              "Invalid format string: no matching brace");
+            }
+            if (*f_it != char_type('{')) {
+                it = arg->scan(it, f_it, opt, arg->value);
+                ++arg;
+                if (f_it != format.end()) {
+                    ++f_it;
+                }
+                continue;
             }
         }
-        ++it;
-        auto ch = *it;
-        if (ch != *format) {
-            throw failure(std::make_error_code(std::errc::invalid_argument),
-
-                          "Invalid format string: matching character " +
-                              std::basic_string<char_type>(*format) +
-                              " found in the input stream");
-        }
-    }
-    return do_scan(it, format, readall, args...);
-}
-
-template <typename CharT>
-auto basic_builtin_scanner<CharT>::do_scan(iterator it,
-                                           const char_type* format,
-                                           bool readall) -> iterator
-{
-    for (; *format != char_type(0); ++format) {
-        if (*format == char_type('{')) {
-            ++format;
-            if (*format != char_type('{')) {
-                throw failure(
-                    std::make_error_code(std::errc::invalid_argument),
-                    "Invalid format string: argument pack size mismatch");
-            }
+        if (f_it == format.end()) {
+            break;
         }
         ++it;
+        skip_ws(it);
+        if (f_it == format.end()) {
+            break;
+        }
         auto ch = *it;
-        if (ch != *format) {
+        if (ch != *f_it) {
             throw failure(std::make_error_code(std::errc::invalid_argument),
-
-                          "Invalid format string: matching character " +
-                              std::basic_string<char_type>(*format) +
+                          "Invalid format string: no matching character " +
+                              std::basic_string<char_type>(f_it, format.end()) +
                               " found in the input stream");
         }
     }

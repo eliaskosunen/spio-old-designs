@@ -265,9 +265,6 @@ public:
             if (ret == -1) {
                 setstate(iostate::eof);
             }
-            else if (ret != s.size()) {
-                throw failure(unknown_io_error);
-            }
         }
         catch (const failure& f) {
             _handle_exception(f);
@@ -323,9 +320,11 @@ public:
     }
 
     template <typename C = category>
-    auto flush() -> std::enable_if_t<is_category<C, flushable_tag>::value ||
-                                         !is_category<C, nobuffer_tag>::value,
-                                     basic_stream&>
+    auto flush()
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                (is_category<C, flushable_tag>::value ||
+                                 !is_category<C, nobuffer_tag>::value),
+                            basic_stream&>
     {
         try {
             _check_error();
@@ -339,7 +338,9 @@ public:
     }
     template <typename C = category>
     auto flush_buffer()
-        -> std::enable_if_t<!is_category<C, nobuffer_tag>::value, basic_stream&>
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                !is_category<C, nobuffer_tag>::value,
+                            basic_stream&>
     {
         try {
             _check_error();
@@ -448,7 +449,9 @@ private:
     }
     template <typename C = category>
     auto _flush_buffer()
-        -> std::enable_if_t<!is_category<C, nobuffer_tag>::value, void>
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                !is_category<C, nobuffer_tag>::value,
+                            void>
     {
         flush_buffer();
     }
@@ -467,15 +470,17 @@ private:
 
     template <typename C = category>
     auto _flush_destruct()
-        -> std::enable_if_t<!(is_category<C, flushable_tag>::value ||
-                              !is_category<C, nobuffer_tag>::value),
+        -> std::enable_if_t<!(is_category<C, output>::value &&
+                              (is_category<C, flushable_tag>::value ||
+                               !is_category<C, nobuffer_tag>::value)),
                             void>
     {
     }
     template <typename C = category>
     auto _flush_destruct()
-        -> std::enable_if_t<is_category<C, flushable_tag>::value ||
-                                !is_category<C, nobuffer_tag>::value,
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                (is_category<C, flushable_tag>::value ||
+                                 !is_category<C, nobuffer_tag>::value),
                             void>
     {
         flush();
@@ -502,9 +507,9 @@ private:
         auto n = static_cast<streamsize>(
             std::min(get_source_buffer().size(), s.size_us()));
         get_source_buffer().read(s.first(n));
-        auto r = m_dev.read(s);
+        auto r = m_dev.read(s.subspan(n));
         if (r == -1) {
-            get_source_buffer().push(s.first(n));
+            get_source_buffer().push(s.subspan(n));
             return -1;
         }
         return n + r;

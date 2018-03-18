@@ -38,6 +38,7 @@ enum error {
     assertion_failure,
     end_of_file,
     unknown_io_error,
+    bad_variant_access,
     unimplemented,
     unreachable,
     undefined_error
@@ -70,6 +71,8 @@ struct error_category : public std::error_category {
                 return "EOF";
             case unknown_io_error:
                 return "Unknown IO error";
+            case bad_variant_access:
+                return "Bad variant access";
             case unimplemented:
                 return "Unimplemented";
             case unreachable:
