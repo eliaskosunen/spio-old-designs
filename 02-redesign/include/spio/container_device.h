@@ -28,6 +28,7 @@
 #include "error.h"
 #include "span.h"
 #include "traits.h"
+#include "util.h"
 
 namespace spio {
 template <typename Container>
@@ -80,7 +81,8 @@ public:
             if (s.size_us() > m_buf->size()) {
                 m_buf->reserve(m_buf->size() + s.size_us());
             }
-            m_buf->insert(m_buf->end(), s.begin(), s.end());
+            /* m_buf->insert(m_buf->end(), s.begin(), s.end()); */
+            append(s.begin(), s.end());
             m_it = m_buf->end();
         }
         else {
@@ -145,6 +147,32 @@ public:
         }
         m_it = m_buf->end() + off;
         return std::distance(m_buf->begin(), m_it);
+    }
+
+protected:
+    template <typename Iterator, typename C = container_type, typename = void>
+    struct has_append : std::false_type {
+    };
+    template <typename Iterator, typename C>
+    struct has_append<
+        Iterator,
+        C,
+        void_t<decltype(std::declval<C>().append(std::declval<Iterator>(),
+                                                 std::declval<Iterator>()),
+                        void())>> : std::true_type {
+    };
+
+    template <typename Iterator, typename C = container_type>
+    auto append(Iterator b, Iterator e)
+        -> std::enable_if_t<has_append<Iterator, C>::value>
+    {
+        m_buf->append(b, e);
+    }
+    template <typename Iterator, typename C = container_type>
+    auto append(Iterator b, Iterator e)
+        -> std::enable_if_t<!has_append<Iterator, C>::value>
+    {
+        m_buf->insert(m_buf->end(), b, e);
     }
 
 private:

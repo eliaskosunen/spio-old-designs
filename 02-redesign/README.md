@@ -94,30 +94,23 @@ int main()
 The benchmark source code can be found from the `benchmark/` directory.
 
 The benchmarks were run on an Intel i5-6600K quad-core processor clocked at 3.9 GHz, with 16 GB of RAM and Arch Linux running kernel verson 4.12.8.
-The benchmarks were compiled with GCC version 7.1.1 and with `-O3`.
+The benchmarks were compiled with clang version 5.0.1 and with `-O3 -std=c++17`.
 
-All times are nanoseconds.
+All times are nanoseconds of CPU time.
 
-### Integer reading
+### Writing to buffer
 
-`bench_readint.cpp`: read base-10 integers from a randomly generated string buffer with length _n_.
+`bench_writestring.cpp`: Write randomly generated alphanumeric words separated by whitespace totaling in length of _n_.
 
-n   | `spio::input_parser` | `std::stringstream` | `std::scanf` | `std::strtol`
-:-- | :------------------: | :-----------------: | :----------: | :-----------:
-8   | 228                  | 702                 | 5120         | 201
-64  | 726                  | 1624                | 9107         | 572
-512 | 4506                 | 5953                | 14314        | 3240
-
-### Word (string) reading
-
-`bench_readstring.cpp`: read whitespace-separated words from a randomly generated alphanumeric string buffer with length _n_.
-
-n    | `spio::input_parser` | `std::stringstream` | Pointer arithmetic
-:--- | :------------------: | :-----------------: | :----------------:
-8    | 202                  | 574                 | 153
-64   | 517                  | 1033                | 215
-512  | 2970                 | 3884                | 535
-2048 | 10959                | 13654               | 1708
+n                                        | 8    | 64    | 512   | 2048
+ :-------------------------------------- | :--: | :---: | :---: | :-:
+`spio::basic_vector_sink<char>::write`   | 412  | 704   | 1986  | 6413
+`spio::basic_stream<vector_sink>::write` | 636  | 1001  | 2536  | 7769
+`spio::basic_stream<vector_sink>::print` | 739  | 1758  | 8607  | 32765
+`std::stringbuf::sputn`                  | 726  | 912   | 1695  | 4694
+`std::stringstream::operator<<`          | 762  | 1049  | 2307  | 7487
+`std::string::append`                    | 382  | 547   | 1399  | 3903
+`std::vector::insert`                    | 407  | 636   | 1629  | 4921
 
 ## License
 
