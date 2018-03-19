@@ -63,7 +63,7 @@ struct basic_arg {
     scanner_fn_type scan;
 };
 
-template <typename CharT, typename... Types>
+template <typename CharT>
 class basic_arg_list {
 public:
     using arg_type = basic_arg<CharT>;
@@ -186,6 +186,7 @@ namespace detail {
             return it;
         }
     };
+
 }  // namespace detail
 
 template <typename T, typename... Args>
@@ -204,7 +205,7 @@ class basic_builtin_scanner {
 public:
     using char_type = CharT;
     using iterator = instream_iterator<char_type, char_type>;
-    using arg_list = basic_arg_list<char_type, char_type, span<char_type>>;
+    using arg_list = basic_arg_list<char_type>;
 
     basic_builtin_scanner() = default;
 #if SPIO_USE_LOCALE

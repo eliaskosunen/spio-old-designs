@@ -38,9 +38,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compiler_flags(-fvisibility=hidden)
     add_compiler_flags(-fstrict-aliasing)
     if(NOT CMAKE_CXX_STANDARD)
-        add_compiler_flags(-std=c++1y)
+        add_compiler_flags(-std=c++1z)
     endif()
     add_compiler_flags(-ftemplate-backtrace-limit=0)
+
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fno-omit-frame-pointer")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
