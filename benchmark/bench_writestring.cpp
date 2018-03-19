@@ -60,13 +60,16 @@ static void writestring_spio(benchmark::State& state)
         for (auto _ : state) {
             state.PauseTiming();
             auto data = generate_data(static_cast<size_t>(state.range(0)));
-            std::string str;
+            std::vector<char> str;
             state.ResumeTiming();
 
-            spio::string_sink p{str};
+            spio::basic_vector_sink<char> p{str};
             for (auto& n : data) {
                 p.write(spio::make_span(n));
                 bytes += n.length();
+                benchmark::DoNotOptimize(str);
+                benchmark::DoNotOptimize(p);
+                benchmark::DoNotOptimize(data);
             }
         }
         state.SetBytesProcessed(bytes);
@@ -82,7 +85,8 @@ static void writestring_spio(benchmark::State& state)
 /*         size_t bytes = 0; */
 /*         for (auto _ : state) { */
 /*             state.PauseTiming(); */
-/*             auto data = generate_data(static_cast<size_t>(state.range(0))); */
+/*             auto data = generate_data(static_cast<size_t>(state.range(0)));
+ */
 /*             std::vector<char> vec(state.range(0), '\0'); */
 /*             state.ResumeTiming(); */
 
@@ -109,13 +113,42 @@ static void writestring_spio_stream(benchmark::State& state)
         for (auto _ : state) {
             state.PauseTiming();
             auto data = generate_data(static_cast<size_t>(state.range(0)));
-            std::string str;
+            std::vector<char> str;
             state.ResumeTiming();
 
-            spio::basic_stream<spio::string_sink> p{str};
+            spio::basic_stream<spio::basic_vector_sink<char>> p{str};
             for (auto& n : data) {
                 p.write(spio::make_span(n));
                 bytes += n.length();
+                benchmark::DoNotOptimize(str);
+                benchmark::DoNotOptimize(p);
+                benchmark::DoNotOptimize(data);
+            }
+        }
+        state.SetBytesProcessed(bytes);
+    }
+    catch (const spio::failure& f) {
+        state.SkipWithError(f.what());
+    }
+}
+
+static void writestring_spio_stream_print(benchmark::State& state)
+{
+    try {
+        size_t bytes = 0;
+        for (auto _ : state) {
+            state.PauseTiming();
+            auto data = generate_data(static_cast<size_t>(state.range(0)));
+            std::vector<char> str;
+            state.ResumeTiming();
+
+            spio::basic_stream<spio::basic_vector_sink<char>> p{str};
+            for (auto& n : data) {
+                p.print("{}", n);
+                bytes += n.length();
+                benchmark::DoNotOptimize(str);
+                benchmark::DoNotOptimize(p);
+                benchmark::DoNotOptimize(data);
             }
         }
         state.SetBytesProcessed(bytes);
@@ -137,12 +170,33 @@ static void writestring_ios(benchmark::State& state)
         for (auto& n : data) {
             ss << n;
             bytes += n.length();
+            benchmark::DoNotOptimize(ss);
+            benchmark::DoNotOptimize(data);
         }
     }
     state.SetBytesProcessed(bytes);
 }
 
-static void writestring_std(benchmark::State& state)
+static void writestring_streambuf(benchmark::State& state)
+{
+    size_t bytes = 0;
+    for (auto _ : state) {
+        state.PauseTiming();
+        auto data = generate_data(static_cast<size_t>(state.range(0)));
+        state.ResumeTiming();
+
+        std::stringstream ss{};
+        for (auto& n : data) {
+            ss.rdbuf()->sputn(n.data(), n.length());
+            bytes += n.length();
+            benchmark::DoNotOptimize(ss);
+            benchmark::DoNotOptimize(data);
+        }
+    }
+    state.SetBytesProcessed(bytes);
+}
+
+static void writestring_std_string(benchmark::State& state)
 {
     size_t bytes = 0;
     for (auto _ : state) {
@@ -154,6 +208,27 @@ static void writestring_std(benchmark::State& state)
         for (auto& n : data) {
             str.append(n);
             bytes += n.length();
+            benchmark::DoNotOptimize(str);
+            benchmark::DoNotOptimize(data);
+        }
+    }
+    state.SetBytesProcessed(bytes);
+}
+
+static void writestring_std_vector(benchmark::State& state)
+{
+    size_t bytes = 0;
+    for (auto _ : state) {
+        state.PauseTiming();
+        auto data = generate_data(static_cast<size_t>(state.range(0)));
+        std::vector<char> str{};
+        state.ResumeTiming();
+
+        for (auto& n : data) {
+            str.insert(str.end(), n.begin(), n.end());
+            bytes += n.length();
+            benchmark::DoNotOptimize(str);
+            benchmark::DoNotOptimize(data);
         }
     }
     state.SetBytesProcessed(bytes);
@@ -162,5 +237,8 @@ static void writestring_std(benchmark::State& state)
 BENCHMARK(writestring_spio)->Range(8, 8 << 8);
 /* BENCHMARK(writestring_spio_static)->Range(8, 8 << 8); */
 BENCHMARK(writestring_spio_stream)->Range(8, 8 << 8);
+BENCHMARK(writestring_spio_stream_print)->Range(8, 8 << 8);
 BENCHMARK(writestring_ios)->Range(8, 8 << 8);
-BENCHMARK(writestring_std)->Range(8, 8 << 8);
+BENCHMARK(writestring_streambuf)->Range(8, 8 << 8);
+BENCHMARK(writestring_std_string)->Range(8, 8 << 8);
+BENCHMARK(writestring_std_vector)->Range(8, 8 << 8);
