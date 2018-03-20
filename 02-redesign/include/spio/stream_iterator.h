@@ -151,6 +151,10 @@ public:
         return *m_in;
     }
 
+    static instream_iterator get_end() {
+        return instream_iterator{};
+    }
+
     template <typename T_, typename CharT_>
     friend constexpr bool operator==(const instream_iterator<T_, CharT_>&,
                                      const instream_iterator<T_, CharT_>&);
@@ -213,6 +217,10 @@ public:
     }
 
     void read_into(span<T> s);
+
+    static instream_iterator get_end() {
+        return instream_iterator{};
+    }
 
     template <typename T_>
     friend constexpr bool operator==(const instream_iterator<T_, T_>&,

@@ -504,15 +504,17 @@ private:
                                 !is_category<C, nobuffer_tag>::value,
                             streamsize>
     {
-        auto n = static_cast<streamsize>(
-            std::min(get_source_buffer().size(), s.size_us()));
-        get_source_buffer().read(s.first(n));
-        auto r = m_dev.read(s.subspan(n));
+        auto bufsiz = get_source_buffer().size();
+        if (bufsiz >= s.size_us()) {
+            get_source_buffer().read(s);
+            return s.size();
+        }
+        auto r = m_dev.read(s.last(s.size() - bufsiz));
         if (r == -1) {
-            get_source_buffer().push(s.subspan(n));
             return -1;
         }
-        return n + r;
+        get_source_buffer().read(s.first(bufsiz));
+        return bufsiz + r;
     }
 
     template <typename C = category>
