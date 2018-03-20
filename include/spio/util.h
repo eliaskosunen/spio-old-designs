@@ -24,6 +24,7 @@
 #include "fwd.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstring>
 #include <memory>
 #include <tuple>
@@ -134,6 +135,58 @@ template <typename Device>
 bool can_overread(Device& d)
 {
     return detail::can_overread<Device>::value(d);
+}
+
+template <typename IntT>
+constexpr int max_digits() noexcept
+{
+    auto i = std::numeric_limits<IntT>::max();
+
+    int digits = 0;
+    while (i) {
+        i /= 10;
+        digits++;
+    }
+#if SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V
+    if constexpr (std::is_signed_v<IntT>) {
+#else
+    if (std::is_signed<IntT>::value) {
+#endif
+        return digits + 1;
+    }
+    else {
+        return digits;
+    }
+}
+
+template <typename CharT>
+constexpr bool is_digit(CharT c, int base)
+{
+    assert(base >= 2 && base <= 36);
+    if (base <= 10) {
+        return c >= '0' && c <= '0' + (base - 1);
+    }
+    return is_digit(c, 10) || (c >= 'a' && c <= 'a' + (base - 1)) ||
+           (c >= 'A' && c <= 'A' + (base - 1));
+}
+
+template <typename IntT, typename CharT>
+constexpr IntT char_to_int(CharT c, int base)
+{
+    assert(base >= 2 && base <= 36);
+    assert(is_digit(c, base));
+    if (base <= 10) {
+        assert(c <= '0' + (base - 1));
+        return static_cast<IntT>(c - '0');
+    }
+    if (c <= '9') {
+        return static_cast<IntT>(c - '0');
+    }
+    if (c >= 'a' && c <= 'z') {
+        return 10 + static_cast<IntT>(c - 'a');
+    }
+    auto ret = 10 + static_cast<IntT>(c - 'A');
+    return ret;
 }
 
 namespace detail {
