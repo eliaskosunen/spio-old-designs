@@ -71,11 +71,7 @@ public:
     using storage_type = std::vector<arg_type>;
 
     basic_arg_list(storage_type v) : m_vec(std::move(v)) {}
-    template <typename... Args>
-    basic_arg_list(Args&... a)
-        : m_vec{std::initializer_list<basic_arg<Args...>>{a...}}
-    {
-    }
+    basic_arg_list(std::initializer_list<arg_type> i) : m_vec(i) {}
 
     basic_arg_list& operator[](std::size_t i)
     {
@@ -187,6 +183,140 @@ namespace detail {
         }
     };
 
+    template <typename CharT, typename T>
+    struct builtin_scan<
+        CharT,
+        T,
+        std::enable_if_t<std::is_integral<T>::value &&
+                         !std::is_same<CharT, std::decay_t<T>>::value>> {
+        static scan_iterator<CharT> scan(
+            scan_iterator<CharT> it,
+            typename span<const CharT>::iterator& format,
+            const scan_options<CharT>& opt,
+            void* data)
+        {
+            T& val = *reinterpret_cast<T*>(data);
+
+            const auto base = [&format]() {
+                if (*format == CharT('}') || *format == CharT('d')) {
+                    return 10;
+                }
+                else if (*format == CharT('x')) {
+                    return 16;
+                }
+                else if (*format == CharT('o')) {
+                    return 8;
+                }
+                else if (*format == CharT('b')) {
+                    return 2;
+                }
+                throw failure(std::make_error_code(std::errc::invalid_argument),
+                              "Invalid format string: `int`-like types only "
+                              "support bases 'd,x,o,b'");
+            }();
+            ++format;
+
+            constexpr auto n = max_digits<std::remove_reference_t<T>>() + 1;
+            std::array<CharT, n> buf{};
+            buf.fill(0);
+            if (opt.readall) {
+                it.read_into(make_span(buf));
+            }
+            else {
+                for (auto& c : buf) {
+                    if (opt.is_space(*it)) {
+                        it.get_stream().get_source_buffer().push(
+                            make_span(&*it, 1));
+                        c = '\0';
+                        break;
+                    }
+                    c = *it;
+                    if (it == it.get_end()) {
+                        break;
+                    }
+                    ++it;
+                }
+            }
+
+            T tmp = 0;
+            auto buf_it = buf.begin();
+
+            {
+                const bool sign = [&]() {
+#if SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V
+                    if constexpr (std::is_unsigned_v<T>) {
+#else
+                    if (std::is_unsigned<T>::value) {
+#endif
+                        if (*buf_it == '-') {
+                            throw failure(
+                                invalid_input,
+                                "Cannot read a signed integer into an "
+                                "unsigned value");
+                        }
+                    }
+                    else {
+                        if (*buf_it == '-') {
+                            return false;
+                        }
+                    }
+                    if (*buf_it == '+') {
+                        return true;
+                    }
+                    if (is_digit(*buf_it, base)) {
+                        tmp = tmp * static_cast<T>(base) -
+                              char_to_int<T>(*buf_it, base);
+                        return true;
+                    }
+                    std::array<char, 128> errbuf{};
+                    errbuf.fill('\0');
+                    std::snprintf(&errbuf[0], 128,
+                                  "Invalid first character in integer: 0x%x",
+                                  static_cast<int>(*buf_it));
+                    throw failure(invalid_input, &errbuf[0]);
+                }();
+                ++buf_it;
+
+                for (; buf_it != buf.end(); ++buf_it) {
+                    if (is_digit(*buf_it, base)) {
+                        tmp = tmp * static_cast<T>(base) -
+                              char_to_int<T>(*buf_it, base);
+                    }
+                    else {
+                        break;
+                    }
+                }
+                if (sign) {
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4146)
+#endif
+                    tmp = -tmp;
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+                }
+            }
+
+            val = tmp;
+            if (opt.readall) {
+                if (buf_it != buf.end()) {
+                    const auto end = [&]() {
+                        for (auto i = buf_it; i != buf.end(); ++i) {
+                            if (*i == '\0') {
+                                return i;
+                            }
+                        }
+                        return buf.end();
+                    }();
+                    it.get_stream().get_source_buffer().push(
+                        make_span(buf_it, end));
+                }
+            }
+
+            return it;
+        }
+    };
 }  // namespace detail
 
 template <typename T, typename... Args>
@@ -260,8 +390,9 @@ private:
                 return;
             }
         }
-        for (; *it == char_type(0) || opt.is_space(*it); ++it) {
+        for (; it == it.get_end() || opt.is_space(*it); ++it) {
         }
+        it.get_stream().get_source_buffer().push(make_span(&*it, 1));
     }
 };
 }  // namespace spio

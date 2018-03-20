@@ -36,12 +36,36 @@ TEST_CASE("stream")
 
     SUBCASE("container in")
     {
-        auto str = std::string{"Hello world!"};
-        spio::basic_stream<spio::basic_container_source<std::string>> s(str);
+        {
+            auto str = std::string{"Hello world"};
+            spio::basic_stream<spio::basic_container_source<std::string>> s(
+                str);
 
-        std::string r(64, '\0');
-        auto span = spio::make_span(r);
-        s.scan("{}", span);
-        CHECK_EQ(std::strcmp(r.c_str(), "Hello"), 0);
+            std::string r(5, '\0');
+            auto span = spio::make_span(r);
+            s.scan("{}", span);
+            CHECK_EQ(std::strcmp(r.c_str(), "Hello"), 0);
+
+            s.scan("{}", span);
+            CHECK_EQ(std::strcmp(r.c_str(), "world"), 0);
+        }
+        {
+            auto str = std::string{"42 240 7f 1010"};
+            spio::basic_stream<spio::basic_container_source<std::string>> s(
+                str);
+
+            int n;
+            s.scan("{}", n);
+            CHECK(n == 42);
+
+            s.scan("{}", n);
+            CHECK(n == 240);
+
+            s.scan("{x}", n);
+            CHECK(n == 0x7f);
+
+            s.scan("{b}", n);
+            CHECK(n == 9);
+        }
     }
 }
