@@ -36,6 +36,11 @@ namespace detail {
     struct erased_stream_storage_base {
         virtual void read(span<CharT>) = 0;
         virtual void write(span<const CharT>) = 0;
+
+        virtual CharT get() = 0;
+        virtual void putback(span<const CharT>) = 0;
+        virtual void putback(CharT) = 0;
+
         virtual streampos seek(streamoff, seekdir, int) = 0;
         virtual void close() = 0;
         virtual void flush() = 0;
@@ -46,9 +51,13 @@ namespace detail {
 
         virtual Formatter& get_formatter() = 0;
         virtual Scanner& get_scanner() = 0;
+        virtual stream_base& get_base() = 0;
+        virtual const stream_base& get_base() const = 0;
 
         virtual SinkBuffer& get_sink_buffer() = 0;
         virtual SourceBuffer& get_source_buffer() = 0;
+
+        virtual explicit operator bool() const = 0;
 
         virtual ~erased_stream_storage_base() = default;
     };
@@ -57,6 +66,22 @@ namespace detail {
     struct do_read {
         template <typename Stream>
         [[noreturn]] static void read(Stream&, span<typename Stream::char_type>)
+        {
+            SPIO_UNREACHABLE;
+        }
+        template <typename Stream>
+        [[noreturn]] static typename Stream::char_type get(Stream&)
+        {
+            SPIO_UNREACHABLE;
+        }
+        template <typename Stream>
+        [[noreturn]] static void putback(Stream&,
+                                         span<const typename Stream::char_type>)
+        {
+            SPIO_UNREACHABLE;
+        }
+        template <typename Stream>
+        [[noreturn]] static void putback(Stream&, typename Stream::char_type)
         {
             SPIO_UNREACHABLE;
         }
@@ -73,6 +98,21 @@ namespace detail {
         static void read(Stream& s, span<typename Stream::char_type> data)
         {
             s.read(data);
+        }
+        template <typename Stream>
+        static typename Stream::char_type get(Stream& s)
+        {
+            return s.get();
+        }
+        template <typename Stream>
+        static void putback(Stream& s, span<const typename Stream::char_type> d)
+        {
+            s.putback(d);
+        }
+        template <typename Stream>
+        static void putback(Stream& s, typename Stream::char_type ch)
+        {
+            s.putback(ch);
         }
         template <typename Stream>
         static typename Stream::scanner_type& get_scanner(Stream& s)
@@ -267,6 +307,19 @@ namespace detail {
             return do_write<category>::write(*m_stream, s);
         }
 
+        char_type get() override
+        {
+            return do_read<category>::get(*m_stream);
+        }
+        void putback(span<const char_type> s) override
+        {
+            return do_read<category>::putback(*m_stream, s);
+        }
+        void putback(char_type ch) override
+        {
+            return do_read<category>::putback(*m_stream, ch);
+        }
+
         streampos seek(streamoff off, seekdir dir, int which) override
         {
             return do_seek<category>::seek(*m_stream, off, dir, which);
@@ -309,6 +362,14 @@ namespace detail {
         {
             return do_read<category>::get_scanner(*m_stream);
         }
+        stream_base& get_base() override
+        {
+            return static_cast<stream_base&>(*m_stream);
+        }
+        const stream_base& get_base() const override
+        {
+            return static_cast<const stream_base&>(*m_stream);
+        }
 
         typename Stream::source_buffer_type& get_source_buffer() override
         {
@@ -317,6 +378,11 @@ namespace detail {
         typename Stream::sink_buffer_type& get_sink_buffer() override
         {
             return do_sinkbuffer<category>::get_sink_buffer(*m_stream);
+        }
+
+        explicit operator bool() const override
+        {
+            return m_stream->operator bool();
         }
 
     private:
@@ -537,6 +603,27 @@ public:
         m_stream->write(s);
         return *this;
     }
+
+    template <typename C = Category>
+    auto get() -> std::enable_if_t<is_category<C, input>::value, char_type>
+    {
+        return m_stream->get();
+    }
+    template <typename C = Category>
+    auto putback(span<const char_type> s)
+        -> std::enable_if_t<is_category<C, input>::value, basic_stream_ref&>
+    {
+        m_stream->putback(s);
+        return *this;
+    }
+    template <typename C = Category>
+    auto putback(char_type ch)
+        -> std::enable_if_t<is_category<C, input>::value, basic_stream_ref&>
+    {
+        m_stream->putback(ch);
+        return *this;
+    }
+
     template <typename C = Category>
     auto seek(streamoff off,
               seekdir dir,
@@ -581,12 +668,66 @@ public:
     }
 #endif
 
+    explicit operator bool() const
+    {
+        return m_stream->operator bool();
+    }
+
+    int rdstate() const
+    {
+        return m_stream->get_base().rdstate();
+    }
+    void clear(int s = iostate::good)
+    {
+        m_stream->get_base().clear(s);
+    }
+    void setstate(int s)
+    {
+        m_stream->get_base().setstate(s);
+    }
+    void clear_eof()
+    {
+        m_stream->get_base().clear_eof();
+    }
+
+    bool good() const
+    {
+        return m_stream->get_base().good();
+    }
+    bool bad() const
+    {
+        return m_stream->get_base().bad();
+    }
+    bool fail() const
+    {
+        return m_stream->get_base().fail();
+    }
+    bool eof() const
+    {
+        return m_stream->get_base().eof();
+    }
+
+    const std::error_code& error() const
+    {
+        return m_stream->get_base().error();
+    }
+    int exceptions() const
+    {
+        return m_stream->get_base().exceptions();
+    }
+    void exceptions(int e)
+    {
+        m_stream->get_base().exceptions(e);
+    }
+
     template <typename C = Category, typename... Args>
     auto print(const char_type* f, const Args&... a)
         -> std::enable_if_t<is_category<C, output>::value, basic_stream_ref&>
     {
-        m_stream->get_formatter()(
-            outstream_iterator<char_type, char_type>(*this), f, a...);
+        using context = typename fmt::buffer_context<char_type>::type;
+        auto str = m_stream->get_formatter()(
+            f, fmt::basic_format_args<context>(fmt::make_args<context>(a...)));
+        write(make_span(str));
         return *this;
     }
 
@@ -594,8 +735,7 @@ public:
     auto scan(const char_type* f, Args&... a)
         -> std::enable_if_t<is_category<C, input>::value, basic_stream_ref&>
     {
-        m_stream->get_scanner()(instream_iterator<char_type, char_type>(*this),
-                                f, a...);
+        m_stream->get_scanner()(*this, f, can_overread(*this), a...);
         return *this;
     }
 

@@ -147,12 +147,6 @@ else()
     add_definitions(-DSPIO_USE_THREADING=0)
 endif()
 
-if(SPIO_USE_EXCEPTIONS)
-    add_definitions(-DSPIO_USE_EXCEPTIONS=1)
-else()
-    add_definitions(-DSPIO_USE_EXCEPTIONS=0)
-endif()
-
 if(SPIO_THROW_ON_ASSERT)
     add_definitions(-DSPIO_THROW_ON_ASSERT=1)
 else()

@@ -41,10 +41,11 @@ public:
     enum class mode { external, full, line, none };
 
 #ifdef BUFSIZ
-    static constexpr std::size_t default_size = BUFSIZ;
+    static constexpr std::size_t default_size = BUFSIZ / sizeof(value_type);
 #else
     static constexpr std::size_t default_size =
-        4096;  // 4k is the memory page size on many architectures
+        4096 /
+        sizeof(value_type);  // 4k is the memory page size on many architectures
 #endif
 
     basic_sink_buffer(buffer_type b)

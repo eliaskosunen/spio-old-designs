@@ -56,15 +56,20 @@ class basic_fmt_formatter {
 public:
     using char_type = CharT;
     using string_type = std::basic_string<char_type>;
-    using iterator = outstream_iterator<char_type, char_type>;
+
+    template <typename Args>
+    string_type operator()(const char_type* f, Args a) const;
 
     template <typename... Args>
-    iterator operator()(iterator s, const char_type* f, const Args&... a) const;
+    string_type format(const char_type* f, const Args&... a) const
+    {
+        using context = typename fmt::buffer_context<char_type>::type;
+        return operator()(
+            f, fmt::basic_format_args<context>(fmt::make_args<context>(a...)));
+    }
 
     template <typename T>
     string_type to_string(const T& a) const;
-    template <typename... Args>
-    string_type format(const char_type* f, const Args&... a) const;
 };
 
 #if 0

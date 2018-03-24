@@ -27,18 +27,6 @@
 
 namespace spio {
 template <typename CharT>
-template <typename... Args>
-auto basic_fmt_formatter<CharT>::operator()(iterator s,
-                                            const char_type* f,
-                                            const Args&... a) const -> iterator
-{
-    using fmt_context = fmt::basic_context<iterator, CharT>;
-    return fmt::vformat_to(
-        s, f,
-        fmt::basic_format_args<fmt_context>(fmt::make_args<fmt_context>(a...)));
-}
-
-template <typename CharT>
 template <typename T>
 auto basic_fmt_formatter<CharT>::to_string(const T& a) const -> string_type
 {
@@ -46,13 +34,14 @@ auto basic_fmt_formatter<CharT>::to_string(const T& a) const -> string_type
 }
 
 template <typename CharT>
-template <typename... Args>
-auto basic_fmt_formatter<CharT>::format(const char_type* f,
-                                        const Args&... a) const -> string_type
+template <typename Args>
+auto basic_fmt_formatter<CharT>::operator()(const char_type* f, Args a) const
+    -> std::basic_string<char_type>
 {
-    using fmt_context = typename fmt::buffer_context<CharT>::type;
-    return fmt::vformat(f, fmt::basic_format_args<fmt_context>(
-                               fmt::make_args<fmt_context>(a...)));
+    using buffer = fmt::basic_memory_buffer<CharT>;
+    buffer b;
+    fmt::vformat_to(b, f, a);
+    return {b.data(), b.size()};
 }
 }  // namespace spio
 

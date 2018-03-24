@@ -27,17 +27,17 @@
 
 namespace spio {
 template <typename CharT>
-auto basic_builtin_scanner<CharT>::vscan(iterator it,
+void basic_builtin_scanner<CharT>::vscan(stream_type& s,
                                          span<const char> format,
                                          bool readall,
-                                         arg_list args) -> iterator
+                                         arg_list args)
 {
     auto& arg_vec = args.get();
     auto arg = arg_vec.begin();
     auto opt = make_scan_options(readall);
     auto f_it = format.begin();
     while (f_it != format.end()) {
-        skip_ws(it);
+        skip_ws(s);
         if (*f_it == char_type('{')) {
             ++f_it;
             if (f_it == format.end()) {
@@ -45,7 +45,10 @@ auto basic_builtin_scanner<CharT>::vscan(iterator it,
                               "Invalid format string: no matching brace");
             }
             if (*f_it != char_type('{')) {
-                it = arg->scan(it, f_it, opt, arg->value);
+                if (!arg->scan(s, f_it, opt, arg->value)) {
+                    throw failure(make_error_code(unknown_io_error),
+                                  "Unknown error in scanning");
+                }
                 ++arg;
                 if (f_it != format.end()) {
                     ++f_it;
@@ -56,12 +59,11 @@ auto basic_builtin_scanner<CharT>::vscan(iterator it,
         if (f_it == format.end()) {
             break;
         }
-        ++it;
-        skip_ws(it);
+        skip_ws(s);
         if (f_it == format.end()) {
             break;
         }
-        auto ch = *it;
+        auto ch = s.get();
         if (ch != *f_it) {
             throw failure(std::make_error_code(std::errc::invalid_argument),
                           "Invalid format string: no matching character " +
@@ -69,7 +71,6 @@ auto basic_builtin_scanner<CharT>::vscan(iterator it,
                               " found in the input stream");
         }
     }
-    return it;
 }
 }  // namespace spio
 
