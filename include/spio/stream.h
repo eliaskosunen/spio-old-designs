@@ -191,7 +191,7 @@ template <typename Device,
           typename SinkBuffer,
           typename SourceBuffer,
           typename Traits>
-class basic_stream : stream_base {
+class basic_stream : public stream_base {
     using sink_members = detail::sink_members<typename Device::char_type,
                                               typename Device::category,
                                               Formatter,
@@ -286,6 +286,28 @@ public:
             _handle_exception(f);
         }
         return *this;
+    }
+
+    template <typename C = category>
+    auto get() -> std::enable_if_t<is_category<C, input>::value, char_type>
+    {
+        char_type ch;
+        read(make_span(&ch, 1));
+        return ch;
+    }
+    template <typename C = category>
+    auto putback(span<const char_type> s)
+        -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
+    {
+        clear_eof();
+        get_source_buffer().push(s);
+        return *this;
+    }
+    template <typename C = category>
+    auto putback(char_type s)
+        -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
+    {
+        return putback(make_span(&s, 1));
     }
 
     template <typename C = category>
@@ -488,24 +510,10 @@ private:
 
     template <typename C = category>
     auto _buffered_read(span<char_type> s)
-        -> std::enable_if_t<is_category<C, input>::value &&
-                                is_category<C, nobuffer_tag>::value,
-                            streamsize>
+        -> std::enable_if_t<is_category<C, input>::value, streamsize>
     {
-        auto r = m_dev.read(s);
-        if (r == -1) {
-            return -1;
-        }
-        return r;
-    }
-    template <typename C = category>
-    auto _buffered_read(span<char_type> s)
-        -> std::enable_if_t<is_category<C, input>::value &&
-                                !is_category<C, nobuffer_tag>::value,
-                            streamsize>
-    {
-        auto bufsiz = get_source_buffer().size();
-        if (bufsiz >= s.size_us()) {
+        auto bufsiz = static_cast<std::ptrdiff_t>(get_source_buffer().size());
+        if (bufsiz >= s.size()) {
             get_source_buffer().read(s);
             return s.size();
         }

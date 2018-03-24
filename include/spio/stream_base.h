@@ -54,6 +54,11 @@ public:
     {
         clear(rdstate() | s);
     }
+    void clear_eof()
+    {
+        clear((bad() ? iostate::bad : iostate::good) |
+              (fail() ? iostate::fail : iostate::good));
+    }
 
     bool good() const
     {

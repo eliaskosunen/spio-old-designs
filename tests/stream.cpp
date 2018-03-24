@@ -21,51 +21,58 @@
 #include <doctest.h>
 #include <spio/spio.h>
 
-TEST_CASE("stream")
+TEST_CASE("print")
 {
-    SUBCASE("container out")
+    auto str = std::string{};
+    spio::basic_stream<spio::string_sink> s(str);
+    SUBCASE("string")
     {
-        auto str = std::string{};
-        spio::basic_stream<spio::string_sink> s(str);
-        s.write("Hello world!");
-        s.print("{}", str);
+        s.print("Hello world!");
+        CHECK(str == "Hello world!");
 
-        spio::basic_stream<spio::filehandle_device> sout{stdout};
-        sout.print("{}{}", "Hello world!", "\n");
+        str.clear();
+        s.seek(0, spio::seekdir::beg);
+        s.print("{}{}", "Hello world!", "\n");
+        CHECK(str == "Hello world!\n");
     }
-
-    SUBCASE("container in")
+    SUBCASE("various")
     {
-        {
-            auto str = std::string{"Hello world"};
-            spio::basic_stream<spio::basic_container_source<std::string>> s(
-                str);
+        s.print("{} {} {} {}", 100, 3.14, static_cast<void*>(nullptr), true);
+        CHECK(str == "100 3.14 0x0 true");
+    }
+}
 
-            std::string r(5, '\0');
-            auto span = spio::make_span(r);
-            s.scan("{}", span);
-            CHECK_EQ(std::strcmp(r.c_str(), "Hello"), 0);
+TEST_CASE("scan")
+{
+    SUBCASE("span")
+    {
+        auto str = std::string{"Hello world"};
+        spio::basic_stream<spio::basic_container_source<std::string>> s(str);
 
-            s.scan("{}", span);
-            CHECK_EQ(std::strcmp(r.c_str(), "world"), 0);
-        }
-        {
-            auto str = std::string{"42 240 7f 1010"};
-            spio::basic_stream<spio::basic_container_source<std::string>> s(
-                str);
+        std::string r(5, '\0');
+        auto span = spio::make_span(r);
+        s.scan("{}", span);
+        CHECK_EQ(std::strcmp(r.c_str(), "Hello"), 0);
 
-            int n;
-            s.scan("{}", n);
-            CHECK(n == 42);
+        s.scan("{}", span);
+        CHECK_EQ(std::strcmp(r.c_str(), "world"), 0);
+    }
+    SUBCASE("int")
+    {
+        auto str = std::string{"42 240 7f 1010"};
+        spio::basic_stream<spio::basic_container_source<std::string>> s(str);
 
-            s.scan("{}", n);
-            CHECK(n == 240);
+        int n;
+        s.scan("{}", n);
+        CHECK(n == 42);
 
-            s.scan("{x}", n);
-            CHECK(n == 0x7f);
+        s.scan("{}", n);
+        CHECK(n == 240);
 
-            s.scan("{b}", n);
-            CHECK(n == 9);
-        }
+        s.scan("{x}", n);
+        CHECK(n == 0x7f);
+
+        s.scan("{b}", n);
+        CHECK(n == 10);
     }
 }
