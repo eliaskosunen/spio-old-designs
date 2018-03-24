@@ -54,12 +54,12 @@ struct basic_arg {
     using char_type = CharT;
     void* value;
 
-    using iterator_type = instream_iterator<char_type, char_type>;
+    using stream_type = basic_stream_ref<char_type, input>;
     using scanner_fn_type =
-        iterator_type (*)(iterator_type,
-                          typename span<const char_type>::iterator&,
-                          const scan_options<char_type>&,
-                          void*);
+        stream_type& (*)(stream_type&,
+                         typename span<const char_type>::iterator&,
+                         const scan_options<char_type>&,
+                         void*);
     scanner_fn_type scan;
 };
 
@@ -97,7 +97,7 @@ private:
 
 namespace detail {
     template <typename CharT>
-    using scan_iterator = instream_iterator<CharT, CharT>;
+    using scan_stream = basic_stream_ref<CharT, input>;
     template <typename CharT, typename T, typename = void>
     struct builtin_scan;
 
@@ -106,15 +106,15 @@ namespace detail {
         CharT,
         T,
         std::enable_if_t<std::is_same<std::decay_t<T>, CharT>::value>> {
-        static scan_iterator<CharT> scan(
-            scan_iterator<CharT> it,
+        static scan_stream<CharT>& scan(
+            scan_stream<CharT>& s,
             typename span<const CharT>::iterator& format,
             const scan_options<CharT>& opt,
             void* data)
         {
             T& ch = *reinterpret_cast<CharT*>(data);
             SPIO_UNUSED(opt);
-            it.read_into(make_span(&ch, 1));
+            ch = s.get();
 
             if (*format != CharT('}')) {
                 throw failure(
@@ -123,7 +123,7 @@ namespace detail {
                     "format specifiers, expected '}'");
             }
             ++format;
-            return it;
+            return s;
         }
     };
 
@@ -132,44 +132,41 @@ namespace detail {
         CharT,
         span<T>,
         std::enable_if_t<std::is_same<std::decay_t<T>, CharT>::value>> {
-        static scan_iterator<CharT> scan(
-            scan_iterator<CharT> it,
+        static scan_stream<CharT>& scan(
+            scan_stream<CharT>& s,
             typename span<const CharT>::iterator& format,
             const scan_options<CharT>& opt,
             void* data)
         {
             span<T> val = *reinterpret_cast<span<T>*>(data);
-            if (opt.readall) {
+
+            const bool read_till_ws = *format == CharT('w');
+            if (read_till_ws) {
+                ++format;
+            }
+
+            if (opt.readall && !read_till_ws) {
                 std::vector<CharT> str(val.size_us());
                 auto strspan = make_span(str);
-                it.read_into(strspan);
-                const auto len =
-                    static_cast<std::ptrdiff_t>(std::strlen(str.data()));
-                const auto end = [&]() {
-                    for (std::ptrdiff_t i = 0; i < len; ++i) {
-                        if (opt.is_space(strspan[i])) {
-                            return i;
-                        }
-                    }
-                    return strspan.size();
-                }();
-                std::copy(strspan.begin(), strspan.begin() + end, val.begin());
-                if (end + 1 < len) {
-                    it.get_stream().get_source_buffer().push(make_span(
-                        strspan.begin() + end + 1, strspan.begin() + len));
+                if (!s.read(strspan)) {
+                    return s;
                 }
+                std::copy(strspan.begin(), strspan.end(), val.begin());
             }
             else {
-                for (auto val_it = val.begin();
-                     val_it != val.end() && it != scan_iterator<CharT>{};
-                     ++val_it, ++it) {
-                    if (opt.is_space(*it)) {
-                        it.get_stream().get_source_buffer().push(
-                            make_span(&*it, 1));
+                std::vector<CharT> str(val.size_us());
+                for (auto& ch : str) {
+                    ch = s.get();
+                    if (!s) {
+                        return s;
+                    }
+                    if (s.eof() || (read_till_ws && opt.is_space(ch))) {
+                        s.putback(ch);
+                        ch = '\0';
                         break;
                     }
-                    *val_it = *it;
                 }
+                std::copy(str.begin(), str.end(), val.begin());
             }
 
             if (*format != CharT('}')) {
@@ -179,7 +176,7 @@ namespace detail {
                     "format specifiers, expected '}'");
             }
             ++format;
-            return it;
+            return s;
         }
     };
 
@@ -189,8 +186,8 @@ namespace detail {
         T,
         std::enable_if_t<std::is_integral<T>::value &&
                          !std::is_same<CharT, std::decay_t<T>>::value>> {
-        static scan_iterator<CharT> scan(
-            scan_iterator<CharT> it,
+        static scan_stream<CharT>& scan(
+            scan_stream<CharT>& s,
             typename span<const CharT>::iterator& format,
             const scan_options<CharT>& opt,
             void* data)
@@ -214,32 +211,20 @@ namespace detail {
                               "Invalid format string: `int`-like types only "
                               "support bases 'd,x,o,b'");
             }();
-            ++format;
+            if (*format != CharT('}')) {
+                ++format;
+            }
 
             constexpr auto n = max_digits<std::remove_reference_t<T>>() + 1;
             std::array<CharT, n> buf{};
             buf.fill(0);
-            if (opt.readall) {
-                it.read_into(make_span(buf));
-            }
-            else {
-                for (auto& c : buf) {
-                    if (opt.is_space(*it)) {
-                        it.get_stream().get_source_buffer().push(
-                            make_span(&*it, 1));
-                        c = '\0';
-                        break;
-                    }
-                    c = *it;
-                    if (it == it.get_end()) {
-                        break;
-                    }
-                    ++it;
-                }
+            auto bufspan = make_span(buf);
+            if (!s.scan("{w}", bufspan)) {
+                return s;
             }
 
             T tmp = 0;
-            auto buf_it = buf.begin();
+            auto it = buf.begin();
 
             {
                 const bool sign = [&]() {
@@ -248,7 +233,7 @@ namespace detail {
 #else
                     if (std::is_unsigned<T>::value) {
 #endif
-                        if (*buf_it == '-') {
+                        if (*it == '-') {
                             throw failure(
                                 invalid_input,
                                 "Cannot read a signed integer into an "
@@ -256,31 +241,31 @@ namespace detail {
                         }
                     }
                     else {
-                        if (*buf_it == '-') {
+                        if (*it == '-') {
                             return false;
                         }
                     }
-                    if (*buf_it == '+') {
+                    if (*it == '+') {
                         return true;
                     }
-                    if (is_digit(*buf_it, base)) {
+                    if (is_digit(*it, base)) {
                         tmp = tmp * static_cast<T>(base) -
-                              char_to_int<T>(*buf_it, base);
+                              char_to_int<T>(*it, base);
                         return true;
                     }
                     std::array<char, 128> errbuf{};
                     errbuf.fill('\0');
                     std::snprintf(&errbuf[0], 128,
                                   "Invalid first character in integer: 0x%x",
-                                  static_cast<int>(*buf_it));
+                                  static_cast<int>(*it));
                     throw failure(invalid_input, &errbuf[0]);
                 }();
-                ++buf_it;
+                ++it;
 
-                for (; buf_it != buf.end(); ++buf_it) {
-                    if (is_digit(*buf_it, base)) {
+                for (; it != buf.end(); ++it) {
+                    if (is_digit(*it, base)) {
                         tmp = tmp * static_cast<T>(base) -
-                              char_to_int<T>(*buf_it, base);
+                              char_to_int<T>(*it, base);
                     }
                     else {
                         break;
@@ -300,21 +285,20 @@ namespace detail {
 
             val = tmp;
             if (opt.readall) {
-                if (buf_it != buf.end()) {
+                if (it != buf.end()) {
                     const auto end = [&]() {
-                        for (auto i = buf_it; i != buf.end(); ++i) {
+                        for (auto i = it; i != buf.end(); ++i) {
                             if (*i == '\0') {
                                 return i;
                             }
                         }
                         return buf.end();
                     }();
-                    it.get_stream().get_source_buffer().push(
-                        make_span(buf_it, end));
+                    s.putback(make_span(it, end));
                 }
             }
 
-            return it;
+            return s;
         }
     };
 }  // namespace detail
@@ -334,8 +318,8 @@ template <typename CharT>
 class basic_builtin_scanner {
 public:
     using char_type = CharT;
-    using iterator = instream_iterator<char_type, char_type>;
     using arg_list = basic_arg_list<char_type>;
+    using stream_type = basic_stream_ref<char_type, input>;
 
     basic_builtin_scanner() = default;
 #if SPIO_USE_LOCALE
@@ -352,19 +336,21 @@ public:
 #endif
 
     template <typename... Args>
-    iterator operator()(iterator it,
-                        const char_type* format,
-                        bool readall,
-                        Args&... args)
+    void operator()(stream_type& s,
+                    const char_type* format,
+                    bool readall,
+                    Args&... args)
     {
-        return vscan(it, make_span(format, std::strlen(format)), readall,
-                     make_args<arg_list>(args...));
+        vscan(
+            s,
+            make_span(format, static_cast<std::ptrdiff_t>(std::strlen(format))),
+            readall, make_args<arg_list>(args...));
     }
 
-    iterator vscan(iterator it,
-                   span<const char> format,
-                   bool readall,
-                   arg_list args);
+    void vscan(stream_type& s,
+               span<const char> format,
+               bool readall,
+               arg_list args);
 
 private:
 #if SPIO_USE_LOCALE
@@ -380,19 +366,14 @@ private:
     }
 #endif
 
-    void skip_ws(iterator& it)
+    void skip_ws(stream_type& s)
     {
         auto opt = make_scan_options(true);
-        if (*it == char_type(0)) {
-            ++it;
-            if (!opt.is_space(*it)) {
-                it.get_stream().get_source_buffer().push(make_span(&*it, 1));
-                return;
-            }
+        auto ch = s.get();
+        while (s && opt.is_space(ch)) {
+            ch = s.get();
         }
-        for (; it == it.get_end() || opt.is_space(*it); ++it) {
-        }
-        it.get_stream().get_source_buffer().push(make_span(&*it, 1));
+        s.putback(ch);
     }
 };
 }  // namespace spio
