@@ -34,19 +34,12 @@ template <typename CharT>
 struct scan_options {
     using char_type = CharT;
     bool readall;
-#if SPIO_USE_LOCALE
     const std::locale* locale{std::addressof(global_locale())};
 
     bool is_space(char_type ch) const
     {
         return std::isspace(ch, *locale);
     }
-#else
-    bool is_space(char_type ch)
-    {
-        return ch == 32 || ch == 10 || ch == 9 || ch == 13 || ch == 11;
-    }
-#endif
 };
 
 template <typename CharT>
@@ -95,11 +88,30 @@ private:
     storage_type m_vec;
 };
 
+template <typename CharT, typename T>
+void custom_scan(basic_stream_ref<CharT, input>&,
+                 typename span<const CharT>::iterator&,
+                 T&);
+
 namespace detail {
     template <typename CharT>
     using scan_stream = basic_stream_ref<CharT, input>;
+
     template <typename CharT, typename T, typename = void>
-    struct builtin_scan;
+    struct builtin_scan {
+        static scan_stream<CharT>& scan(
+            scan_stream<CharT>& s,
+            typename span<const CharT>::iterator& format,
+            const scan_options<CharT>& opt,
+            void* data)
+        {
+            T& val = *reinterpret_cast<T*>(data);
+            SPIO_UNUSED(opt);
+
+            custom_scan(s, format, val);
+            return s;
+        }
+    };
 
     template <typename CharT, typename T>
     struct builtin_scan<
@@ -155,18 +167,10 @@ namespace detail {
             }
             else {
                 std::vector<CharT> str(val.size_us());
-                for (auto& ch : str) {
-                    ch = s.get();
-                    if (!s) {
-                        return s;
-                    }
-                    if (s.eof() || (read_till_ws && opt.is_space(ch))) {
-                        s.putback(ch);
-                        ch = '\0';
-                        break;
-                    }
+                s.readword(make_span(str));
+                if (s) {
+                    std::copy(str.begin(), str.end(), val.begin());
                 }
-                std::copy(str.begin(), str.end(), val.begin());
             }
 
             if (*format != CharT('}')) {
@@ -185,7 +189,8 @@ namespace detail {
         CharT,
         T,
         std::enable_if_t<std::is_integral<T>::value &&
-                         !std::is_same<CharT, std::decay_t<T>>::value>> {
+                         !std::is_same<CharT, std::decay_t<T>>::value &&
+                         !std::is_same<std::decay_t<T>, bool>::value>> {
         static scan_stream<CharT>& scan(
             scan_stream<CharT>& s,
             typename span<const CharT>::iterator& format,
@@ -219,7 +224,7 @@ namespace detail {
             std::array<CharT, n> buf{};
             buf.fill(0);
             auto bufspan = make_span(buf);
-            if (!s.scan("{w}", bufspan)) {
+            if (!s.readword(bufspan)) {
                 return s;
             }
 
@@ -298,10 +303,159 @@ namespace detail {
                 }
             }
 
+            ++format;
+            return s;
+        }
+    };
+
+    template <typename CharT, typename T>
+    struct builtin_scan<CharT,
+                        T,
+                        std::enable_if_t<std::is_floating_point<T>::value>> {
+        static scan_stream<CharT>& scan(
+            scan_stream<CharT>& s,
+            typename span<const CharT>::iterator& format,
+            const scan_options<CharT>& opt,
+            void* data)
+        {
+            T& val = *reinterpret_cast<T*>(data);
+            SPIO_UNUSED(opt);
+
+            std::array<CharT, 64> buf{};
+            buf.fill(CharT(0));
+
+            bool point = false;
+            for (auto& c : buf) {
+                if (s.eof()) {
+                    break;
+                }
+                s.read(make_span(&c, 1));
+                if (c == CharT('.')) {
+                    if (point) {
+                        s.putback(c);
+                        c = CharT(0);
+                        break;
+                    }
+                    point = true;
+                    continue;
+                }
+                if (!is_digit(c)) {
+                    s.putback(c);
+                    c = CharT(0);
+                    break;
+                }
+            }
+
+            if (buf[0] == CharT(0)) {
+                throw failure(invalid_input,
+                              "Failed to parse floating-point value");
+            }
+
+            CharT* end = buf.data();
+            T tmp = str_to_floating<T, CharT>(buf.data(), &end);
+            if (&*std::find(buf.begin(), buf.end(), 0) != end) {
+                throw failure(invalid_input,
+                              "Failed to parse floating-point value");
+            }
+            val = tmp;
+
+            if (*format != CharT('}')) {
+                throw failure(std::make_error_code(std::errc::invalid_argument),
+                              "Invalid format string: `double`-like types "
+                              "doesn't support "
+                              "format specifiers, expected '}'");
+            }
+            ++format;
+            return s;
+        }
+    };
+
+    template <typename CharT>
+    struct builtin_scan<CharT, bool> {
+        static scan_stream<CharT>& scan(
+            scan_stream<CharT>& s,
+            typename span<const CharT>::iterator& format,
+            const scan_options<CharT>& opt,
+            void* data)
+        {
+            bool& val = *reinterpret_cast<bool*>(data);
+
+            auto ch = s.get();
+            s.putback(ch);
+            if (is_digit(ch)) {
+                int_fast16_t n;
+                auto fmt = span<const char>("}");
+                auto it = fmt.begin();
+                builtin_scan<CharT, int_fast16_t>::scan(s, it, opt,
+                                                        std::addressof(n));
+                if (!s) {
+                    return s;
+                }
+                val = static_cast<bool>(n);
+            }
+            else {
+                std::array<CharT, 6> buf;
+                buf.fill(0);
+
+                if (!s.readword(make_span(buf))) {
+                    return s;
+                }
+                if (buf[0] == CharT('t') && buf[1] == CharT('r') &&
+                    buf[2] == CharT('u') && buf[3] == CharT('e')) {
+                    val = true;
+                }
+                else if (buf[0] == CharT('f') && buf[1] == CharT('a') &&
+                         buf[2] == CharT('l') && buf[3] == CharT('s') &&
+                         buf[4] == CharT('e')) {
+                    val = false;
+                }
+                else {
+                    throw failure(invalid_input, "Invalid bool value");
+                }
+            }
+
+            if (*format != CharT('}')) {
+                throw failure(std::make_error_code(std::errc::invalid_argument),
+                              "Invalid format string: `bool` doesn't support "
+                              "format specifiers, expected '}'");
+            }
+            ++format;
             return s;
         }
     };
 }  // namespace detail
+
+template <typename CharT, typename Allocator>
+void custom_scan(basic_stream_ref<CharT, input>& s,
+                 typename span<const CharT>::iterator& format,
+                 std::basic_string<CharT, Allocator>& str)
+{
+    if (str.empty()) {
+        str.resize(15);
+    }
+
+    auto it = str.begin();
+    auto opt = scan_options<CharT>{true, &s.get_locale()};
+    while (true) {
+        s.readword(make_span(it, str.end()));
+        if (!s || s.eof()) {
+            break;
+        }
+        auto ch = s.get();
+        s.putback(ch);
+        if (opt.is_space(ch)) {
+            break;
+        }
+        auto n = static_cast<
+            typename std::basic_string<CharT, Allocator>::difference_type>(
+            str.size());
+        str.resize(str.size() * 2);
+        it = str.begin() + n;
+    }
+    str.erase(std::find(str.begin(), str.end(), 0), str.end());
+    str.shrink_to_fit();
+    ++format;
+}
 
 template <typename T, typename... Args>
 auto make_args(Args&... a)
@@ -322,7 +476,6 @@ public:
     using stream_type = basic_stream_ref<char_type, input>;
 
     basic_builtin_scanner() = default;
-#if SPIO_USE_LOCALE
     basic_builtin_scanner(const std::locale& l) : m_locale(std::addressof(l)) {}
 
     void imbue(const std::locale& l)
@@ -333,7 +486,6 @@ public:
     {
         return *m_locale;
     }
-#endif
 
     template <typename... Args>
     void operator()(stream_type& s,
@@ -353,18 +505,11 @@ public:
                arg_list args);
 
 private:
-#if SPIO_USE_LOCALE
     const std::locale* m_locale{std::addressof(global_locale())};
     scan_options<char_type> make_scan_options(bool readall) const
     {
         return {readall, m_locale};
     }
-#else
-    scan_options<char_type> make_scan_options(bool readall) const
-    {
-        return {readall};
-    }
-#endif
 
     void skip_ws(stream_type& s)
     {

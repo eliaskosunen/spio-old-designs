@@ -184,7 +184,7 @@ public:
             m_begin = m_it = m_buffer.begin();
             return flush(make_span(m_begin, m_it));
         }
-        if (m_mode == mode::full && m_it != m_begin) {
+        if (m_mode == mode::line && m_it != m_begin) {
             // If we're doing line buffering, check for newlines
             auto doit = [&](auto it) {
                 auto begin = m_begin;

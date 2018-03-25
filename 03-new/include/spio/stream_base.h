@@ -100,6 +100,15 @@ public:
         m_exceptions = e;
     }
 
+    void imbue(const std::locale& l)
+    {
+        m_locale = std::addressof(l);
+    }
+    const std::locale& get_locale() const
+    {
+        return *m_locale;
+    }
+
 protected:
     stream_base() = default;
 
@@ -110,6 +119,7 @@ protected:
 
 private:
     std::error_code m_error{};
+    const std::locale* m_locale{std::addressof(global_locale())};
     int m_state{iostate::good};
     int m_exceptions{iostate::fail | iostate::bad};
 };

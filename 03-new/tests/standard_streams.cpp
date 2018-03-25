@@ -37,4 +37,8 @@ TEST_CASE("standard streams")
         auto n = dev.write(s);
         CHECK(n == s.size());
     }
+    SUBCASE("out")
+    {
+        spio::out().print("Hello world!\n");
+    }
 }
