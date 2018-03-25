@@ -23,6 +23,10 @@
 
 #include "fwd.h"
 
+#if !SPIO_HAS_NATIVE_FILEIO
+#error Native file IO not supported on this platform
+#endif
+
 #include <cstdio>
 #include "span.h"
 #include "traits.h"
@@ -51,7 +55,15 @@ namespace detail {
         }
         static constexpr handle_type stdin_handle()
         {
+            return 0;
+        }
+        static constexpr handle_type stdout_handle()
+        {
             return 1;
+        }
+        static constexpr handle_type stderr_handle()
+        {
+            return 2;
         }
 #elif SPIO_WIN32
         using handle_type = void*;
@@ -61,7 +73,15 @@ namespace detail {
         }
         static constexpr handle_type stdin_handle()
         {
-            return STD_INPUT_HANDLE;
+            return GetStdHandle(STD_INPUT_HANDLE);
+        }
+        static constexpr handle_type stdout_handle()
+        {
+            return GetStdHandle(STD_OUTPUT_HANDLE);
+        }
+        static constexpr handle_type stderr_handle()
+        {
+            return GetStdHandle(STD_ERROR_HANDLE);
         }
 #endif
 
@@ -124,6 +144,19 @@ public:
     bool can_overread() const
     {
         return m_handle.get() == detail::os_file_descriptor::stdin_handle();
+    }
+
+    static detail::os_file_descriptor get_stdin_handle()
+    {
+        return detail::os_file_descriptor::stdin_handle();
+    }
+    static detail::os_file_descriptor get_stdout_handle()
+    {
+        return detail::os_file_descriptor::stdout_handle();
+    }
+    static detail::os_file_descriptor get_stderr_handle()
+    {
+        return detail::os_file_descriptor::stderr_handle();
     }
 
 protected:

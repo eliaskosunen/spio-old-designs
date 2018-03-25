@@ -76,6 +76,19 @@ public:
         return m_handle != stdin;
     }
 
+    static std::FILE* get_stdin_handle()
+    {
+        return stdin;
+    }
+    static std::FILE* get_stdout_handle()
+    {
+        return stdout;
+    }
+    static std::FILE* get_stderr_handle()
+    {
+        return stderr;
+    }
+
 protected:
     std::FILE* m_handle{nullptr};
 };

@@ -59,7 +59,7 @@ TEST_CASE("scan")
     }
     SUBCASE("int")
     {
-        auto str = std::string{"42 240 7f 1010"};
+        auto str = std::string{"42 240 7f 1010 256"};
         spio::basic_stream<spio::basic_container_source<std::string>> s(str);
 
         int n;
@@ -74,5 +74,37 @@ TEST_CASE("scan")
 
         s.scan("{b}", n);
         CHECK(n == 10);
+
+        unsigned u;
+        s.scan("{}", u);
+        CHECK(u == 256);
+    }
+    SUBCASE("float")
+    {
+        auto str = std::string{"3.14159"};
+        spio::basic_stream<spio::basic_container_source<std::string>> s(str);
+
+        double d;
+        s.scan("{}", d);
+        CHECK(d == doctest::Approx(3.14159));
+    }
+    SUBCASE("bool")
+    {
+        auto str = std::string{"1 false"};
+        spio::basic_stream<spio::basic_container_source<std::string>> s(str);
+
+        bool b1, b2;
+        s.scan("{} {}", b1, b2);
+        CHECK(b1);
+        CHECK(!b2);
+    }
+    SUBCASE("string")
+    {
+        auto str = std::string{"This-is-a-very-long-word"};
+        spio::basic_stream<spio::basic_container_source<std::string>> s(str);
+
+        std::string res;
+        s.scan("{}", res);
+        CHECK(str == res);
     }
 }

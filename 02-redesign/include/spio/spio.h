@@ -36,8 +36,11 @@
 #include "file_device.h"
 #include "indirect_device.h"
 #include "memory_device.h"
-#include "native_file_device.h"
 #include "null_device.h"
+
+#if SPIO_HAS_NATIVE_FILEIO
+#include "native_file_device.h"
+#endif
 
 #include "formatter.h"
 #include "scanner.h"
@@ -47,5 +50,7 @@
 #include "stream_buffer.h"
 #include "stream_iterator.h"
 #include "stream_ref.h"
+
+#include "device_stream.h"
 
 #endif

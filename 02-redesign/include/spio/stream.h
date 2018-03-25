@@ -214,8 +214,18 @@ public:
     using source_buffer_type = SourceBuffer;
     using traits = Traits;
 
+    using tied_type = basic_stream_ref<char_type, output>;
+
     basic_stream() = default;
     basic_stream(device_type d) : m_dev(std::move(d)) {}
+    basic_stream(device_type d,
+                 std::unique_ptr<SinkBuffer> sinkbuf,
+                 std::unique_ptr<SourceBuffer> sourcebuf)
+        : m_dev(std::move(d)),
+          m_sink(_init_sink_members(std::move(sinkbuf))),
+          m_source(_init_source_members(std::move(sourcebuf)))
+    {
+    }
 
     ~basic_stream()
     {
@@ -296,6 +306,67 @@ public:
         return ch;
     }
     template <typename C = category>
+    auto readword(span<char_type> s)
+        -> std::enable_if_t<is_category<C, input>::value, streamsize>
+    {
+        auto opt = scan_options<char_type>{can_overread(*this)};
+        streamsize i = 1;
+        for (auto& ch : s) {
+            ch = get();
+            if (fail() || eof()) {
+                break;
+            }
+            if (opt.is_space(ch)) {
+                putback(ch);
+                ch = '\0';
+                break;
+            }
+            ++i;
+        }
+        return i;
+    }
+    template <typename C = category>
+    auto readsome(span<char_type> s)
+        -> std::enable_if_t<is_category<C, input>::value, streamsize>
+    {
+        try {
+            _check_error();
+            auto n = std::min(
+                static_cast<std::ptrdiff_t>(get_source_buffer().size()),
+                s.size());
+            get_source_buffer().read(s.first(n));
+            return n;
+        }
+        catch (const failure& f) {
+            _handle_exception(f);
+            return 0;
+        }
+    }
+    template <typename C = category>
+    auto getline(span<char_type> s)
+        -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
+    {
+        return getline(s, char_type('\n'));
+    }
+    template <typename C = category>
+    auto getline(span<char_type> s, char_type delim)
+        -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
+    {
+        auto it = s.begin();
+        while (it != s.end() - 1) {
+            auto ch = get();
+            if (fail() || eof()) {
+                break;
+            }
+            if (Traits::eq(ch, delim)) {
+                break;
+            }
+            *it = ch;
+            ++it;
+        }
+        *it = char_type();
+    }
+    template <typename C = category>
     auto putback(span<const char_type> s)
         -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
     {
@@ -308,6 +379,13 @@ public:
         -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
     {
         return putback(make_span(&s, 1));
+    }
+
+    template <typename C = category>
+    auto put(char_type ch)
+        -> std::enable_if_t<is_category<C, output>::value, basic_stream&>
+    {
+        return write(make_span(&ch, 1));
     }
 
     template <typename C = category>
@@ -376,29 +454,8 @@ public:
         return *this;
     }
 
-#if SPIO_USE_LOCALE
-    template <typename C = category>
-    auto imbue(const std::locale& l)
-        -> std::enable_if_t<is_category<C, localizable_tag>::value,
-                            basic_stream&>
-    {
-        try {
-            _check_error();
-            m_dev.imbue(l);
-        }
-        catch (const failure& f) {
-            _handle_exception(f);
-        }
-        return *this;
-    }
-    template <typename C = category>
-    auto get_locale()
-        -> std::enable_if_t<is_category<C, localizable_tag>::value,
-                            const std::locale&>
-    {
-        return m_dev.get_locale();
-    }
-#endif
+    tied_type* tie() const;
+    tied_type* tie(tied_type* s);
 
     template <typename C = category, typename... Args>
     auto print(const char_type* f, const Args&... a)
@@ -449,10 +506,13 @@ protected:
     }
 
 private:
-    void _check_error() const
+    void _check_error()
     {
+        if (eof() || bad()) {
+            setstate(iostate::fail);
+        }
         if (fail()) {
-            throw failure(invalid_operation, "fail flag is set");
+            throw failure(invalid_operation, "Failbit is set");
         }
     }
     void _handle_exception(const failure& f)
@@ -549,33 +609,41 @@ private:
         }
     }
 
+    void _handle_tied();
+
     template <typename C = category>
-    static auto _init_sink_members()
+    static auto _init_sink_members(
+        std::unique_ptr<SinkBuffer> buf = std::make_unique<SinkBuffer>())
         -> std::enable_if_t<is_category<C, output>::value, sink_members_ptr>
     {
-        return std::make_unique<sink_members>();
+        return std::make_unique<sink_members>(std::move(buf));
     }
     template <typename C = category>
-    static auto _init_sink_members()
+    static auto _init_sink_members(std::unique_ptr<SinkBuffer> buf = nullptr)
         -> std::enable_if_t<!is_category<C, output>::value, sink_members_ptr>
     {
+        SPIO_UNUSED(buf);
         return nullptr;
     }
 
     template <typename C = category>
-    static auto _init_source_members()
+    static auto _init_source_members(
+        std::unique_ptr<SourceBuffer> buf = std::make_unique<SourceBuffer>())
         -> std::enable_if_t<is_category<C, input>::value, source_members_ptr>
     {
-        return std::make_unique<source_members>();
+        return std::make_unique<source_members>(std::move(buf));
     }
     template <typename C = category>
-    static auto _init_source_members()
+    static auto _init_source_members(
+        std::unique_ptr<SourceBuffer> buf = nullptr)
         -> std::enable_if_t<!is_category<C, input>::value, source_members_ptr>
     {
+        SPIO_UNUSED(buf);
         return nullptr;
     }
 
     device_type m_dev{};
+    tied_type* m_tied{nullptr};
     sink_members_ptr m_sink{_init_sink_members()};
     source_members_ptr m_source{_init_source_members()};
 };  // namespace spio

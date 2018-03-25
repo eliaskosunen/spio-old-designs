@@ -37,17 +37,19 @@ namespace detail {
         virtual void read(span<CharT>) = 0;
         virtual void write(span<const CharT>) = 0;
 
+        virtual streamsize readword(span<CharT>) = 0;
+        virtual streamsize readsome(span<CharT>) = 0;
         virtual CharT get() = 0;
         virtual void putback(span<const CharT>) = 0;
         virtual void putback(CharT) = 0;
 
+        virtual void put(CharT) = 0;
+
         virtual streampos seek(streamoff, seekdir, int) = 0;
         virtual void close() = 0;
         virtual void flush() = 0;
-#if SPIO_USE_LOCALE
         virtual void imbue(const std::locale&) = 0;
         virtual const std::locale& get_locale() const = 0;
-#endif
 
         virtual Formatter& get_formatter() = 0;
         virtual Scanner& get_scanner() = 0;
@@ -66,6 +68,20 @@ namespace detail {
     struct do_read {
         template <typename Stream>
         [[noreturn]] static void read(Stream&, span<typename Stream::char_type>)
+        {
+            SPIO_UNREACHABLE;
+        }
+        template <typename Stream>
+        [[noreturn]] static streamsize readword(
+            Stream&,
+            span<typename Stream::char_type>)
+        {
+            SPIO_UNREACHABLE;
+        }
+        template <typename Stream>
+        [[noreturn]] static streamsize readsome(
+            Stream&,
+            span<typename Stream::char_type>)
         {
             SPIO_UNREACHABLE;
         }
@@ -98,6 +114,18 @@ namespace detail {
         static void read(Stream& s, span<typename Stream::char_type> data)
         {
             s.read(data);
+        }
+        template <typename Stream>
+        static streamsize readword(Stream& s,
+                                   span<typename Stream::char_type> data)
+        {
+            return s.readword(data);
+        }
+        template <typename Stream>
+        static streamsize readsome(Stream& s,
+                                   span<typename Stream::char_type> data)
+        {
+            return s.readsome(data);
         }
         template <typename Stream>
         static typename Stream::char_type get(Stream& s)
@@ -135,6 +163,11 @@ namespace detail {
         {
             SPIO_UNREACHABLE;
         }
+        template <typename Stream>
+        [[noreturn]] static void put(Stream&, typename Stream::char_type)
+        {
+            SPIO_UNREACHABLE;
+        }
     };
     template <typename Category>
     struct do_write<Category,
@@ -149,6 +182,11 @@ namespace detail {
         static typename Stream::formatter_type& get_formatter(Stream& s)
         {
             return s.get_formatter();
+        }
+        template <typename Stream>
+        static void put(Stream& s, typename Stream::char_type ch)
+        {
+            s.put(ch);
         }
     };
 
@@ -208,39 +246,6 @@ namespace detail {
             s.flush();
         }
     };
-
-#if SPIO_USE_LOCALE
-    template <typename Category, typename = void>
-    struct do_locale {
-        template <typename Stream>
-        [[noreturn]] static void imbue(Stream&, const std::locale&)
-        {
-            SPIO_UNREACHABLE;
-        }
-
-        template <typename Stream>
-        [[noreturn]] static const std::locale& get_locale(const Stream&)
-        {
-            SPIO_UNREACHABLE;
-        }
-    };
-    template <typename Category>
-    struct do_locale<
-        Category,
-        std::enable_if_t<is_category<Category, localizable_tag>::value>> {
-        template <typename Stream>
-        static void imbue(Stream& s, const std::locale& l)
-        {
-            s.imbue(l);
-        }
-
-        template <typename Stream>
-        static const std::locale& get_locale(const Stream& s)
-        {
-            return s.get_locale();
-        }
-    };
-#endif
 
     template <typename Category, typename = void>
     struct do_sourcebuffer {
@@ -307,6 +312,14 @@ namespace detail {
             return do_write<category>::write(*m_stream, s);
         }
 
+        streamsize readword(span<char_type> s) override
+        {
+            return do_read<category>::readword(*m_stream, s);
+        }
+        streamsize readsome(span<char_type> s) override
+        {
+            return do_read<category>::readsome(*m_stream, s);
+        }
         char_type get() override
         {
             return do_read<category>::get(*m_stream);
@@ -318,6 +331,11 @@ namespace detail {
         void putback(char_type ch) override
         {
             return do_read<category>::putback(*m_stream, ch);
+        }
+
+        void put(char_type ch) override
+        {
+            return do_write<category>::put(*m_stream, ch);
         }
 
         streampos seek(streamoff off, seekdir dir, int which) override
@@ -334,16 +352,14 @@ namespace detail {
             do_flush<category>::flush(*m_stream);
         }
 
-#if SPIO_USE_LOCALE
         void imbue(const std::locale& l) override
         {
-            do_locale<category>::imbue(*m_stream, l);
+            m_stream->imbue(l);
         }
         const std::locale& get_locale() const override
         {
-            return do_locale<category>::get_locale(*m_stream);
+            return m_stream->get_locale();
         }
-#endif
 
         stream_type& get_stream()
         {
@@ -433,7 +449,6 @@ namespace detail {
                                             asynchronized_tag,
                                             closable_tag,
                                             flushable_tag,
-                                            localizable_tag,
                                             revertible_tag>::value> {
     };
 
@@ -505,6 +520,18 @@ namespace detail {
             return get_pointer();
         }
 
+        template <typename Device,
+                  typename = std::enable_if_t<std::is_same<
+                      CharT,
+                      typename stream_type<Device>::char_type>::value>,
+                  typename T = erased_stream_storage<stream_type<Device>>>
+        void set(stream_type<Device>& s)
+        {
+            m_ptr.release();
+            m_ptr.get_deleter() = &_delete<T>;
+            m_ptr.reset(new (&m_data) T(s));
+        }
+
         auto& operator*()
         {
             return get();
@@ -534,7 +561,7 @@ namespace detail {
 
     private:
         storage m_data{{0}};
-        pointer m_ptr{nullptr};
+        pointer m_ptr{nullptr, &_delete<int>};
 
         base_type* get_pointer()
         {
@@ -565,6 +592,7 @@ class basic_stream_ref {
 public:
     using char_type = CharT;
 
+    basic_stream_ref() = default;
     template <
         typename Stream,
         typename = std::enable_if_t<
@@ -572,6 +600,16 @@ public:
                                                    Category>::value>>
     basic_stream_ref(Stream& s) : m_stream(s)
     {
+    }
+
+    template <
+        typename Stream,
+        typename = std::enable_if_t<
+            detail::is_allowed_category_conversion<typename Stream::category,
+                                                   Category>::value>>
+    void reset(Stream& s)
+    {
+        m_stream.set(s);
     }
 
     template <typename C,
@@ -605,6 +643,18 @@ public:
     }
 
     template <typename C = Category>
+    auto readword(span<char_type> s)
+        -> std::enable_if_t<is_category<C, input>::value, streamsize>
+    {
+        return m_stream->readword(s);
+    }
+    template <typename C = Category>
+    auto readsome(span<char_type> s)
+        -> std::enable_if_t<is_category<C, input>::value, streamsize>
+    {
+        return m_stream->readword(s);
+    }
+    template <typename C = Category>
     auto get() -> std::enable_if_t<is_category<C, input>::value, char_type>
     {
         return m_stream->get();
@@ -621,6 +671,14 @@ public:
         -> std::enable_if_t<is_category<C, input>::value, basic_stream_ref&>
     {
         m_stream->putback(ch);
+        return *this;
+    }
+
+    template <typename C = Category>
+    auto put(char_type ch)
+        -> std::enable_if_t<is_category<C, output>::value, basic_stream_ref&>
+    {
+        m_stream->put(ch);
         return *this;
     }
 
@@ -649,24 +707,17 @@ public:
         return *this;
     }
 
-#if SPIO_USE_LOCALE
     template <typename C = Category>
-    auto imbue(const std::locale& l)
-        -> std::enable_if_t<is_category<C, localizable_tag>::value,
-                            basic_stream_ref&>
+    basic_stream_ref& imbue(const std::locale& l)
     {
         m_stream->imbue(l);
         return *this;
     }
     template <typename C = Category>
-    auto get_locale() const
-        -> std::enable_if_t<is_category<C, localizable_tag>::value,
-                            basic_stream_ref&>
+    const std::locale& get_locale() const
     {
-        m_stream->get_locale();
-        return *this;
+        return m_stream->get_locale();
     }
-#endif
 
     explicit operator bool() const
     {

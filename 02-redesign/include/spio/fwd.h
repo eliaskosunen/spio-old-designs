@@ -97,6 +97,30 @@ class basic_native_file_sink;
 template <typename CharT>
 class basic_native_file_source;
 
+#if SPIO_HAS_NATIVE_FILEIO
+template <typename CharT,
+          typename Category = detail::filehandle_device_default_category>
+using basic_default_filehandle_device =
+    basic_native_filehandle_device<CharT, Category>;
+template <typename CharT>
+using basic_default_file_device = basic_native_file_device<CharT>;
+template <typename CharT>
+using basic_default_file_sink = basic_native_file_sink<CharT>;
+template <typename CharT>
+using basic_default_file_source = basic_native_file_source<CharT>;
+#else
+template <typename CharT,
+          typename Category = detail::filehandle_device_default_category>
+using basic_default_filehandle_device =
+    basic_filehandle_device<CharT, Category>;
+template <typename CharT>
+using basic_default_file_device = basic_file_device<CharT>;
+template <typename CharT>
+using basic_default_file_sink = basic_file_sink<CharT>;
+template <typename CharT>
+using basic_default_file_source = basic_file_source<CharT>;
+#endif
+
 template <typename CharT>
 class basic_null_device;
 template <typename CharT>

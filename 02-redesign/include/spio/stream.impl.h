@@ -33,6 +33,57 @@ template <typename Device,
           typename SinkBuffer,
           typename SourceBuffer,
           typename Traits>
+auto basic_stream<Device,
+                  Formatter,
+                  Scanner,
+                  SinkBuffer,
+                  SourceBuffer,
+                  Traits>::tie() const -> tied_type*
+{
+    return m_tied;
+}
+template <typename Device,
+          typename Formatter,
+          typename Scanner,
+          typename SinkBuffer,
+          typename SourceBuffer,
+          typename Traits>
+auto basic_stream<Device,
+                  Formatter,
+                  Scanner,
+                  SinkBuffer,
+                  SourceBuffer,
+                  Traits>::tie(tied_type* s) -> tied_type*
+{
+    auto prev = m_tied;
+    m_tied = s;
+    return prev;
+}
+
+template <typename Device,
+          typename Formatter,
+          typename Scanner,
+          typename SinkBuffer,
+          typename SourceBuffer,
+          typename Traits>
+void basic_stream<Device,
+                  Formatter,
+                  Scanner,
+                  SinkBuffer,
+                  SourceBuffer,
+                  Traits>::_handle_tied()
+{
+    if (m_tied) {
+        m_tied->flush();
+    }
+}
+
+template <typename Device,
+          typename Formatter,
+          typename Scanner,
+          typename SinkBuffer,
+          typename SourceBuffer,
+          typename Traits>
 template <typename C, typename... Args>
 auto basic_stream<Device,
                   Formatter,

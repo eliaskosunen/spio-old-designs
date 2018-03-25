@@ -85,8 +85,6 @@ struct direct_tag : virtual any_tag {
 };
 struct flushable_tag : virtual any_tag {
 };
-struct localizable_tag : virtual any_tag {
-};
 struct revertible_tag : virtual any_tag {
 };
 struct nobuffer_tag : virtual any_tag {
