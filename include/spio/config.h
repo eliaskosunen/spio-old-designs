@@ -33,10 +33,6 @@
 #define SPIO_USE_FMT_OSTREAM 1
 #endif
 
-#ifndef SPIO_USE_LOCALE
-#define SPIO_USE_LOCALE 1
-#endif
-
 #ifndef SPIO_FAILURE_USE_STRING
 #define SPIO_FAILURE_USE_STRING 1
 #endif
