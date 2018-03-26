@@ -187,7 +187,8 @@ static void writestring_streambuf(benchmark::State& state)
 
         std::stringstream ss{};
         for (auto& n : data) {
-            ss.rdbuf()->sputn(n.data(), n.length());
+            ss.rdbuf()->sputn(n.data(),
+                              static_cast<std::streamsize>(n.length()));
             bytes += n.length();
             benchmark::DoNotOptimize(ss);
             benchmark::DoNotOptimize(data);
