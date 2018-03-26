@@ -151,6 +151,9 @@ namespace detail {
             void* data)
         {
             span<T> val = *reinterpret_cast<span<T>*>(data);
+            if (val.size() == 0) {
+                return it;
+            }
 
             const bool read_till_ws = *format == CharT('w');
             if (read_till_ws) {
