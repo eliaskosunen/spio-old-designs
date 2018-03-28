@@ -152,7 +152,7 @@ namespace detail {
         {
             span<T> val = *reinterpret_cast<span<T>*>(data);
             if (val.size() == 0) {
-                return it;
+                return s;
             }
 
             const bool read_till_ws = *format == CharT('w');

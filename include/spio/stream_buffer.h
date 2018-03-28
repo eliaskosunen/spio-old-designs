@@ -134,13 +134,13 @@ public:
             if (dist >= data.size() - dist_till_end) {
                 m_it =
                     std::copy(data.begin() + dist_till_end, data.end(), m_it);
-                flushed += data.size_us();
+                flushed += data.size();
             }
             else {
                 // If all of it does not fit, copy everything that does
                 m_it = std::copy(data.begin() + dist_till_end,
                                  data.begin() + dist_till_end + dist, m_it);
-                flushed += static_cast<std::size_t>(dist);
+                flushed += dist;
             }
             return flushed;
         }
