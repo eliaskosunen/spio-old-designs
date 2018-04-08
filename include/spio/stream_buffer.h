@@ -24,7 +24,6 @@
 #include "fwd.h"
 
 #include <cstdio>
-#include <vector>
 #include "error.h"
 #include "span.h"
 #include "traits.h"

@@ -159,6 +159,9 @@ template <typename CharT,
           typename Traits = std::char_traits<CharT>>
 class basic_stream_ref;
 
+template <typename... Types>
+class variant;
+
 template <typename T,
           typename Allocator = std::allocator<T>,
           std::size_t Size = 4096 / sizeof(T)>
