@@ -24,7 +24,6 @@
 #include "fwd.h"
 
 #include "formatter.h"
-#include "locale.h"
 #include "scanner.h"
 #include "stream_base.h"
 #include "stream_buffer.h"
@@ -39,19 +38,8 @@ namespace detail {
     template <typename Device, typename... Args>
     struct is_openable_device<
         Device,
-        void_t<decltype(std::declval<Device>().open(std::declval<Args>()...),
-                        void())>,
+        void_t<decltype(std::declval<Device>().open(std::declval<Args>()...))>,
         Args...> : std::true_type {
-    };
-
-    template <typename Device, typename = void>
-    struct is_isopenable_device : std::false_type {
-    };
-    template <typename Device>
-    struct is_isopenable_device<
-        Device,
-        void_t<decltype(std::declval<Device>().is_open(), void())>>
-        : std::true_type {
     };
 
     template <typename CharT,
@@ -255,9 +243,9 @@ public:
         }
         return *this;
     }
-    template <typename D = device_type>
+    template <typename C = category>
     auto is_open() const
-        -> std::enable_if_t<detail::is_isopenable_device<D>::value, bool>
+        -> std::enable_if_t<is_category<C, closable_tag>::value, bool>
     {
         return m_dev.is_open();
     }

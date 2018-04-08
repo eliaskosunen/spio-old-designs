@@ -46,10 +46,9 @@ namespace detail {
         virtual void put(CharT) = 0;
 
         virtual streampos seek(streamoff, seekdir, int) = 0;
+        virtual bool is_open() = 0;
         virtual void close() = 0;
         virtual void flush() = 0;
-        virtual void imbue(const std::locale&) = 0;
-        virtual const std::locale& get_locale() const = 0;
 
         virtual Formatter& get_formatter() = 0;
         virtual Scanner& get_scanner() = 0;
@@ -212,6 +211,11 @@ namespace detail {
     template <typename Category, typename = void>
     struct do_close {
         template <typename Stream>
+        [[noreturn]] static bool is_open(Stream&)
+        {
+            SPIO_UNREACHABLE;
+        }
+        template <typename Stream>
         [[noreturn]] static void close(Stream&)
         {
             SPIO_UNREACHABLE;
@@ -221,6 +225,11 @@ namespace detail {
     struct do_close<
         Category,
         std::enable_if_t<is_category<Category, closable_tag>::value>> {
+        template <typename Stream>
+        static bool is_open(Stream& s)
+        {
+            return s.is_open();
+        }
         template <typename Stream>
         static void close(Stream& s)
         {
@@ -343,6 +352,10 @@ namespace detail {
             return do_seek<category>::seek(*m_stream, off, dir, which);
         }
 
+        bool is_open() override
+        {
+            return do_close<category>::is_open(*m_stream);
+        }
         void close() override
         {
             do_close<category>::close(*m_stream);
@@ -350,15 +363,6 @@ namespace detail {
         void flush() override
         {
             do_flush<category>::flush(*m_stream);
-        }
-
-        void imbue(const std::locale& l) override
-        {
-            m_stream->imbue(l);
-        }
-        const std::locale& get_locale() const override
-        {
-            return m_stream->get_locale();
         }
 
         stream_type& get_stream()
@@ -512,12 +516,12 @@ namespace detail {
         auto& get()
         {
             SPIO_ASSERT(valid(), "erased_stream::get: invalid stream");
-            return get_pointer();
+            return *get_pointer();
         }
         const auto& get() const
         {
             SPIO_ASSERT(valid(), "erased_stream::get: invalid stream");
-            return get_pointer();
+            return *get_pointer();
         }
 
         template <typename Device,
@@ -591,6 +595,12 @@ class basic_stream_ref {
 
 public:
     using char_type = CharT;
+    using category = Category;
+    using formatter_type = Formatter;
+    using scanner_type = Scanner;
+    using sink_buffer_type = SinkBuffer;
+    using source_buffer_type = SourceBuffer;
+    using traits = Traits;
 
     basic_stream_ref() = default;
     template <
@@ -693,6 +703,12 @@ public:
     }
 
     template <typename C = Category>
+    auto is_open()
+        -> std::enable_if_t<is_category<C, closable_tag>::value, bool>
+    {
+        return m_stream->is_open();
+    }
+    template <typename C = Category>
     auto close() -> std::enable_if_t<is_category<C, closable_tag>::value,
                                      basic_stream_ref&>
     {
@@ -705,18 +721,6 @@ public:
     {
         m_stream->flush();
         return *this;
-    }
-
-    template <typename C = Category>
-    basic_stream_ref& imbue(const std::locale& l)
-    {
-        m_stream->imbue(l);
-        return *this;
-    }
-    template <typename C = Category>
-    const std::locale& get_locale() const
-    {
-        return m_stream->get_locale();
     }
 
     explicit operator bool() const
@@ -805,6 +809,15 @@ public:
                             SourceBuffer&>
     {
         return m_stream->get_sink_buffer();
+    }
+
+    auto& get_stream()
+    {
+        return m_stream.get();
+    }
+    const auto& get_stream() const
+    {
+        return m_stream.get();
     }
 
 private:

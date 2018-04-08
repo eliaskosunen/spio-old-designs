@@ -190,11 +190,11 @@ public:
         delete;
     constexpr basic_native_file_device& operator=(
         const basic_native_file_device&) = delete;
-    constexpr basic_native_file_device(basic_native_file_device&&) = default;
-    constexpr basic_native_file_device& operator=(basic_native_file_device&&) =
+    constexpr basic_native_file_device(basic_native_file_device&&) noexcept = default;
+    constexpr basic_native_file_device& operator=(basic_native_file_device&&) noexcept =
         default;
 
-    ~basic_native_file_device()
+    ~basic_native_file_device() noexcept
     {
         if (base::is_open()) {
             close();
