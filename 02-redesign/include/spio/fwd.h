@@ -158,6 +158,11 @@ template <typename CharT,
           typename SourceBuffer = basic_default_source_buffer<CharT>,
           typename Traits = std::char_traits<CharT>>
 class basic_stream_ref;
+
+template <typename T,
+          typename Allocator = std::allocator<T>,
+          std::size_t Size = 4096 / sizeof(T)>
+class small_vector;
 }  // namespace spio
 
 #endif
