@@ -56,15 +56,19 @@ struct basic_arg {
     scanner_fn_type scan;
 };
 
-template <typename CharT>
+template <typename CharT, typename Allocator = std::allocator<CharT>>
 class basic_arg_list {
 public:
     using arg_type = basic_arg<CharT>;
     using char_type = CharT;
-    using storage_type = std::vector<arg_type>;
+    using storage_type = std::vector<arg_type, Allocator>;
 
     basic_arg_list(storage_type v) : m_vec(std::move(v)) {}
-    basic_arg_list(std::initializer_list<arg_type> i) : m_vec(i) {}
+    basic_arg_list(std::initializer_list<arg_type> i,
+                   const Allocator& a = Allocator())
+        : m_vec(i, a)
+    {
+    }
 
     basic_arg_list& operator[](std::size_t i)
     {
@@ -438,7 +442,8 @@ void custom_scan(basic_stream_ref<CharT, input>& s,
     }
 
     auto it = str.begin();
-    auto opt = scan_options<CharT>{true, &s.get_locale()};
+    auto opt = scan_options<CharT>{
+        true, std::addressof(s.get_stream().get_scanner().get_locale())};
     while (true) {
         s.readword(make_span(it, str.end()));
         if (!s || s.eof()) {
@@ -479,7 +484,6 @@ public:
     using stream_type = basic_stream_ref<char_type, input>;
 
     basic_builtin_scanner() = default;
-    basic_builtin_scanner(const std::locale& l) : m_locale(std::addressof(l)) {}
 
     void imbue(const std::locale& l)
     {
