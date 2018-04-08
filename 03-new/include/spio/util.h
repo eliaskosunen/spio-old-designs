@@ -259,13 +259,37 @@ namespace detail {
         : std::integral_constant<std::size_t, 1 + type_index<T, Ts...>::value> {
     };
 
-    template <typename F, typename Union, typename T, typename... Args>
-    auto do_visit(F&& f, Union& u, std::size_t i, std::size_t c = 0)
-    {
-        if (i == c) {
+    struct dummy_visit {
+    };
+    template <typename F, typename Union, typename... Args>
+    struct do_visit_impl;
+    template <typename F, typename Union, typename T>
+    struct do_visit_impl<F, Union, T> {
+        static auto visit(F&& f, Union& u, std::size_t i, std::size_t c = 0)
+        {
+            if (i != c) {
+                throw failure(bad_variant_access);
+            }
             return f(*reinterpret_cast<T*>(&u));
         }
-        return do_visit<F, Union, Args...>(std::forward<F>(f), u, i, ++c);
+    };
+    template <typename F, typename Union, typename T, typename... Args>
+    struct do_visit_impl<F, Union, T, Args...> {
+        static auto visit(F&& f, Union& u, std::size_t i, std::size_t c = 0)
+        {
+            if (i == c) {
+                return f(*reinterpret_cast<T*>(&u));
+            }
+            return do_visit_impl<F, Union, Args...>::visit(std::forward<F>(f),
+                                                           u, i, ++c);
+        }
+    };
+
+    template <typename F, typename Union, typename... Args>
+    auto do_visit(F&& f, Union& u, std::size_t i, std::size_t c = 0)
+    {
+        return do_visit_impl<F, Union, Args...>::visit(std::forward<F>(f), u, i,
+                                                       c);
     }
 }  // namespace detail
 
@@ -284,7 +308,8 @@ class variant {
 public:
     template <typename T,
               typename = std::enable_if_t<contains<T, Types...>::value>>
-    variant(T&& val) : m_index(detail::type_index<T, Types...>::value)
+    variant(T&& val) noexcept(noexcept(T(std::forward<T>(val))))
+        : m_index(detail::type_index<T, Types...>::value)
     {
         _construct<T>(std::forward<T>(val));
     }
@@ -370,6 +395,13 @@ public:
         return detail::do_visit<F, storage_type, Types...>(std::forward<F>(f),
                                                            m_storage, m_index);
     }
+    template <typename F>
+    auto visit(F&& f) const
+    {
+        return detail::do_visit<F, const storage_type,
+                                std::add_const_t<Types>...>(std::forward<F>(f),
+                                                            m_storage, m_index);
+    }
 
 private:
     variant(default_state) {}
@@ -378,7 +410,8 @@ private:
     std::size_t m_index{0};
 
     template <typename T, typename... Args>
-    void _construct(Args&&... args)
+    void _construct(Args&&... args) noexcept(
+        noexcept(T(std::forward<Args>(args)...)))
     {
         ::new (&m_storage) T(std::forward<Args>(args)...);
         m_index = detail::type_index<T, Types...>::value;
@@ -403,6 +436,292 @@ decltype(auto) apply_n(F&& f, Tuple&& t)
     return detail::apply_impl(std::forward<F>(f), std::forward<Tuple>(t),
                               std::make_index_sequence<N>{});
 }
+
+namespace detail {
+    template <typename T, std::size_t Size>
+    class small_vector_storage {
+        using array_type = std::array<T, Size>;
+
+    public:
+        static constexpr auto MaxSize = Size;
+
+        using value_type = T;
+        using size_type = std::size_t;
+        using difference_type = std::ptrdiff_t;
+        using reference = value_type&;
+        using const_reference = const value_type&;
+        using pointer = value_type*;
+        using const_pointer = const value_type*;
+        using iterator = pointer;
+        using const_iterator = const_pointer;
+        using reverse_iterator = std::reverse_iterator<iterator>;
+        using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+        small_vector_storage() = default;
+        small_vector_storage(size_type count, const T& value)
+            : m_end(m_storage.data() + count)
+        {
+            std::fill(m_storage.begin(), m_storage.begin() + count, value);
+        }
+        explicit small_vector_storage(size_type count)
+            : m_end(m_storage.data() + count)
+        {
+        }
+        template <typename InputIt,
+                  typename = std::enable_if_t<
+                      std::is_base_of<std::input_iterator_tag,
+                                      typename std::iterator_traits<
+                                          InputIt>::iterator_category>::value>>
+        small_vector_storage(InputIt first, InputIt last)
+        {
+            m_end = &*std::copy(first, last, m_storage.begin());
+        }
+        small_vector_storage(std::initializer_list<T> init)
+            : small_vector_storage(init.begin(), init.end())
+        {
+        }
+
+        small_vector_storage(const small_vector_storage& other)
+            : small_vector_storage(other.begin(), other.end())
+        {
+        }
+        small_vector_storage& operator=(const small_vector_storage& other)
+        {
+            if (this != &other) {
+                array_type tmp;
+                std::copy(other.begin(), other.end(), tmp.begin());
+
+                m_storage.swap(tmp);
+                m_end = m_storage.data() + other.size();
+            }
+            return *this;
+        }
+        small_vector_storage(small_vector_storage&& other) noexcept
+            : m_storage(std::move(other.m_storage)),
+              m_end(m_storage.data() + other.size())
+        {
+        }
+        small_vector_storage& operator=(small_vector_storage&& other) noexcept
+        {
+            auto size = other.size();
+            m_storage.swap(other.m_storage);
+            m_end = m_storage.data() + size();
+        }
+        ~small_vector_storage() noexcept = default;
+
+        constexpr iterator begin()
+        {
+            return m_storage.data();
+        }
+        constexpr const_iterator begin() const
+        {
+            return m_storage.data();
+        }
+
+        constexpr iterator end()
+        {
+            return m_end;
+        }
+        constexpr const_iterator end() const
+        {
+            return m_end;
+        }
+
+        constexpr size_type size() const noexcept
+        {
+            return static_cast<size_type>(std::distance(begin(), end()));
+        }
+        static constexpr size_type max_size() noexcept
+        {
+            return Size;
+        }
+
+        void push_back(const T& val)
+        {
+            _check_space();
+            *m_end = val;
+            ++m_end;
+        }
+        void push_back(T&& val)
+        {
+            _check_space();
+            *m_end = std::move(val);
+            ++m_end;
+        }
+
+        constexpr pointer data()
+        {
+            return m_end;
+        }
+        constexpr const_pointer data() const
+        {
+            return m_end;
+        }
+
+        constexpr reference operator[](size_type i)
+        {
+            return m_storage[i];
+        }
+        constexpr const_reference operator[](size_type i) const
+        {
+            return m_storage[i];
+        }
+
+    private:
+        void _check_space(std::size_t n)
+        {
+            if (n > max_size() - size()) {
+                throw failure{out_of_range};
+            }
+        }
+
+        std::array<T, Size> m_storage{};
+        T* m_end{m_storage.data()};
+    };
+
+    template <typename T>
+    struct empty_small_vector_storage {
+        std::size_t size() const
+        {
+            return 0;
+        }
+
+        [[noreturn]] T* data() { SPIO_UNREACHABLE; }
+
+            [[noreturn]] const T* data() const
+        {
+            SPIO_UNREACHABLE;
+        }
+    };
+}  // namespace detail
+template <typename T, typename Allocator, std::size_t Size>
+class small_vector {
+    using empty_vector_type = detail::empty_small_vector_storage<T>;
+    using stack_vector_type = detail::small_vector_storage<T, Size>;
+    using heap_vector_type = std::vector<T, Allocator>;
+    using variant_type =
+        variant<empty_vector_type, stack_vector_type, heap_vector_type>;
+
+public:
+    static constexpr auto max_packed_size = Size;
+
+    using value_type = T;
+    using allocator_type = Allocator;
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+    using reference = value_type&;
+    using const_reference = const value_type&;
+    using pointer = value_type*;
+    using const_pointer = const value_type*;
+    using iterator = pointer;
+    using const_iterator = const_pointer;
+    using reverse_iterator = std::reverse_iterator<iterator>;
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+    small_vector() noexcept = default;
+
+    small_vector(size_type count,
+                 const T& value,
+                 const Allocator& alloc = Allocator())
+        : m_vec(_construct(count, value, alloc))
+    {
+    }
+    explicit small_vector(size_type count, const Allocator& alloc = Allocator())
+        : m_vec(_construct(count, alloc))
+    {
+    }
+    small_vector(std::initializer_list<T> init,
+                 const Allocator& alloc = Allocator())
+        : m_vec(_construct(std::move(init), alloc))
+    {
+    }
+
+    size_type size() const
+    {
+        return m_vec.visit([](const auto& vec) { return vec.size(); });
+    }
+
+    iterator begin()
+    {
+        return m_vec.visit([](auto& vec) { return vec.data(); });
+    }
+    const_iterator begin() const
+    {
+        return m_vec.visit([](const auto& vec) { return vec.data(); });
+    }
+
+    iterator end()
+    {
+        return m_vec.visit([](auto& vec) { return vec.data() + vec.size(); });
+    }
+    const_iterator end() const
+    {
+        return m_vec.visit(
+            [](const auto& vec) { return vec.data() + vec.size(); });
+    }
+
+    reference operator[](size_type i)
+    {
+        return m_vec.visit([i](auto& vec) { return vec[i]; });
+    }
+    const_reference operator[](size_type i) const
+    {
+        return m_vec.visit([i](const auto& vec) { return vec[i]; });
+    }
+
+    variant_type& get()
+    {
+        return m_vec;
+    }
+    const variant_type& get() const
+    {
+        return m_vec;
+    }
+
+private:
+    static variant_type _construct(size_type count,
+                                   const T& value,
+                                   const Allocator& alloc)
+    {
+        if (count == 0) {
+            return variant_type(empty_vector_type{});
+        }
+        else if (count <= Size) {
+            return variant_type(stack_vector_type(count, value));
+        }
+        else {
+            return variant_type(heap_vector_type(count, value, alloc));
+        }
+    }
+    static variant_type _construct(size_type count, const Allocator& alloc)
+    {
+        if (count == 0) {
+            return variant_type(empty_vector_type{});
+        }
+        else if (count <= Size) {
+            return variant_type(stack_vector_type(count));
+        }
+        else {
+            return variant_type(heap_vector_type(count, alloc));
+        }
+    }
+    static variant_type _construct(std::initializer_list<T> init,
+                                   const Allocator& alloc)
+    {
+        const auto count = init.size();
+        if (count == 0) {
+            return variant_type(empty_vector_type{});
+        }
+        else if (count <= Size) {
+            return variant_type(stack_vector_type(std::move(init)));
+        }
+        else {
+            return variant_type(heap_vector_type(std::move(init), alloc));
+        }
+    }
+
+    variant_type m_vec{empty_vector_type{}};
+};
 
 namespace detail {
     template <typename A, typename B>

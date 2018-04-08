@@ -61,7 +61,7 @@ class basic_arg_list {
 public:
     using arg_type = basic_arg<CharT>;
     using char_type = CharT;
-    using storage_type = std::vector<arg_type, Allocator>;
+    using storage_type = small_vector<arg_type, Allocator>;
 
     basic_arg_list(storage_type v) : m_vec(std::move(v)) {}
     basic_arg_list(std::initializer_list<arg_type> i,
@@ -165,7 +165,7 @@ namespace detail {
             }
 
             if (opt.readall && !read_till_ws) {
-                std::vector<CharT> str(val.size_us());
+                small_vector<CharT> str(val.size_us());
                 auto strspan = make_span(str);
                 if (!s.read(strspan)) {
                     return s;
@@ -173,7 +173,7 @@ namespace detail {
                 std::copy(strspan.begin(), strspan.end(), val.begin());
             }
             else {
-                std::vector<CharT> str(val.size_us());
+                small_vector<CharT> str(val.size_us());
                 s.readword(make_span(str));
                 if (s) {
                     std::copy(str.begin(), str.end(), val.begin());
