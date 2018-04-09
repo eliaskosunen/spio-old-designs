@@ -483,16 +483,19 @@ namespace detail {
                                           InputIt>::iterator_category>::value>>
         small_vector_storage(InputIt first, InputIt last)
         {
-            m_end = &*std::copy(first, last, m_storage.begin());
+            std::copy(first, last, m_storage.begin());
+            m_end = m_storage.data() + std::distance(first, last);
         }
         small_vector_storage(std::initializer_list<T> init)
-            : small_vector_storage(init.begin(), init.end())
         {
+            std::copy(init.begin(), init.end(), m_storage.begin());
+            m_end = m_storage.data() + init.size();
         }
 
         small_vector_storage(const small_vector_storage& other)
-            : small_vector_storage(other.begin(), other.end())
         {
+            std::copy(other.begin(), other.begin(), m_storage.begin());
+            m_end = m_storage.data() + other.size();
         }
         small_vector_storage& operator=(const small_vector_storage& other)
         {
@@ -604,11 +607,9 @@ namespace detail {
             SPIO_UNREACHABLE;
         }
 
-        [[noreturn]] T* data()
-        {
+        [[noreturn]] T* data() {
             SPIO_UNREACHABLE;
-        }
-        [[noreturn]] const T* data() const
+        }[[noreturn]] const T* data() const
         {
             SPIO_UNREACHABLE;
         }
