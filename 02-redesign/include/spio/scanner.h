@@ -61,7 +61,8 @@ class basic_arg_list {
 public:
     using arg_type = basic_arg<CharT>;
     using char_type = CharT;
-    using storage_type = small_vector<arg_type, Allocator>;
+    //using storage_type = small_vector<arg_type, Allocator, 16>;
+    using storage_type = std::vector<arg_type, Allocator>;
 
     basic_arg_list(storage_type v) : m_vec(std::move(v)) {}
     basic_arg_list(std::initializer_list<arg_type> i,
