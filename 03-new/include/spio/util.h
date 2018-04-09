@@ -265,7 +265,10 @@ namespace detail {
     struct do_visit_impl;
     template <typename F, typename Union, typename T>
     struct do_visit_impl<F, Union, T> {
-        static auto visit(F&& f, Union& u, std::size_t i, std::size_t c = 0)
+        constexpr static decltype(auto) visit(F&& f,
+                                              Union& u,
+                                              std::size_t i,
+                                              std::size_t c = 0)
         {
             if (i != c) {
                 throw failure(bad_variant_access);
@@ -275,7 +278,10 @@ namespace detail {
     };
     template <typename F, typename Union, typename T, typename... Args>
     struct do_visit_impl<F, Union, T, Args...> {
-        static auto visit(F&& f, Union& u, std::size_t i, std::size_t c = 0)
+        constexpr static decltype(auto) visit(F&& f,
+                                              Union& u,
+                                              std::size_t i,
+                                              std::size_t c = 0)
         {
             if (i == c) {
                 return f(*reinterpret_cast<T*>(&u));
@@ -286,7 +292,10 @@ namespace detail {
     };
 
     template <typename F, typename Union, typename... Args>
-    auto do_visit(F&& f, Union& u, std::size_t i, std::size_t c = 0)
+    constexpr decltype(auto) do_visit(F&& f,
+                                      Union& u,
+                                      std::size_t i,
+                                      std::size_t c = 0)
     {
         return do_visit_impl<F, Union, Args...>::visit(std::forward<F>(f), u, i,
                                                        c);
@@ -390,13 +399,13 @@ public:
     }
 
     template <typename F>
-    auto visit(F&& f)
+    constexpr decltype(auto) visit(F&& f)
     {
         return detail::do_visit<F, storage_type, Types...>(std::forward<F>(f),
                                                            m_storage, m_index);
     }
     template <typename F>
-    auto visit(F&& f) const
+    constexpr decltype(auto) visit(F&& f) const
     {
         return detail::do_visit<F, const storage_type,
                                 std::add_const_t<Types>...>(std::forward<F>(f),
@@ -586,9 +595,20 @@ namespace detail {
             return 0;
         }
 
-        [[noreturn]] T* data() { SPIO_UNREACHABLE; }
+        [[noreturn]] T& operator[](std::size_t)
+        {
+            SPIO_UNREACHABLE;
+        }
+        [[noreturn]] const T& operator[](std::size_t) const
+        {
+            SPIO_UNREACHABLE;
+        }
 
-            [[noreturn]] const T* data() const
+        [[noreturn]] T* data()
+        {
+            SPIO_UNREACHABLE;
+        }
+        [[noreturn]] const T* data() const
         {
             SPIO_UNREACHABLE;
         }
@@ -632,48 +652,49 @@ public:
     }
     small_vector(std::initializer_list<T> init,
                  const Allocator& alloc = Allocator())
-        : m_vec(_construct(std::move(init), alloc))
+        : m_vec(_construct(init, alloc))
     {
     }
 
-    size_type size() const
+    constexpr size_type size() const
     {
         return m_vec.visit([](const auto& vec) { return vec.size(); });
     }
 
-    iterator begin()
+    constexpr iterator begin()
     {
         return m_vec.visit([](auto& vec) { return vec.data(); });
     }
-    const_iterator begin() const
+    constexpr const_iterator begin() const
     {
         return m_vec.visit([](const auto& vec) { return vec.data(); });
     }
 
-    iterator end()
+    constexpr iterator end()
     {
         return m_vec.visit([](auto& vec) { return vec.data() + vec.size(); });
     }
-    const_iterator end() const
+    constexpr const_iterator end() const
     {
         return m_vec.visit(
             [](const auto& vec) { return vec.data() + vec.size(); });
     }
 
-    reference operator[](size_type i)
+    constexpr reference operator[](size_type i)
     {
-        return m_vec.visit([i](auto& vec) { return vec[i]; });
+        return m_vec.visit([i](auto& vec) -> reference { return vec[i]; });
     }
-    const_reference operator[](size_type i) const
+    constexpr const_reference operator[](size_type i) const
     {
-        return m_vec.visit([i](const auto& vec) { return vec[i]; });
+        return m_vec.visit(
+            [i](const auto& vec) -> const_reference { return vec[i]; });
     }
 
-    variant_type& get()
+    constexpr variant_type& get()
     {
         return m_vec;
     }
-    const variant_type& get() const
+    constexpr const variant_type& get() const
     {
         return m_vec;
     }
@@ -713,10 +734,10 @@ private:
             return variant_type(empty_vector_type{});
         }
         else if (count <= Size) {
-            return variant_type(stack_vector_type(std::move(init)));
+            return variant_type(stack_vector_type(init));
         }
         else {
-            return variant_type(heap_vector_type(std::move(init), alloc));
+            return variant_type(heap_vector_type(init, alloc));
         }
     }
 
