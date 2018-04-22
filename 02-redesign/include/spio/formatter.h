@@ -64,8 +64,8 @@ public:
     string_type format(const char_type* f, const Args&... a) const
     {
         using context = typename fmt::buffer_context<char_type>::type;
-        return operator()(
-            f, fmt::basic_format_args<context>(fmt::make_args<context>(a...)));
+        return operator()(f, fmt::basic_format_args<context>(
+                                 fmt::make_format_args<context>(a...)));
     }
 
     template <typename T>

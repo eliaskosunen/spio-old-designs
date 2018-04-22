@@ -24,10 +24,11 @@
 #include "fwd.h"
 
 namespace spio {
-template <typename CharT>
+template <typename CharT, typename Traits>
 class basic_null_device {
 public:
     using char_type = CharT;
+    using traits = Traits;
 
     struct category : bidirectional_device_tag {
     };
@@ -48,12 +49,13 @@ public:
 using null_device = basic_null_device<char>;
 using wnull_device = basic_null_device<wchar_t>;
 
-template <typename CharT>
+template <typename CharT, typename Traits>
 class basic_null_source : private basic_null_device<CharT> {
     using base = basic_null_device<CharT>;
 
 public:
     using char_type = typename base::char_type;
+    using traits = Traits;
 
     using base::base;
     using base::read;
@@ -62,12 +64,13 @@ public:
 using null_source = basic_null_source<char>;
 using wnull_source = basic_null_source<wchar_t>;
 
-template <typename CharT>
+template <typename CharT, typename Traits>
 class basic_null_sink : private basic_null_device<CharT> {
     using base = basic_null_device<CharT>;
 
 public:
     using char_type = typename base::char_type;
+    using traits = Traits;
 
     using base::base;
     using base::write;

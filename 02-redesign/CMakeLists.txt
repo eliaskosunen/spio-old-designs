@@ -158,5 +158,5 @@ enable_testing()
 add_subdirectory(include/spio)
 add_subdirectory(tests)
 add_subdirectory(benchmark)
-#add_subdirectory(examples)
+add_subdirectory(examples)
 

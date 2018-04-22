@@ -27,8 +27,6 @@
 
 namespace spio {
 using streamsize = std::ptrdiff_t;
-using streampos = std::ptrdiff_t;
-using streamoff = std::ptrdiff_t;
 
 enum class seekdir { beg, cur, end };
 

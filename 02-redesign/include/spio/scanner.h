@@ -48,21 +48,24 @@ struct basic_arg {
     void* value;
 
     using stream_type = basic_stream_ref<char_type, input>;
-    using scanner_fn_type =
-        stream_type& (*)(stream_type&,
-                         typename span<const char_type>::iterator&,
-                         const scan_options<char_type>&,
-                         void*);
+    using scanner_fn_type = stream_type& (*)(stream_type&,
+                                             const CharT*&,
+                                             const scan_options<char_type>&,
+                                             void*);
     scanner_fn_type scan;
 };
 
-template <typename CharT, typename Allocator = std::allocator<CharT>>
+template <typename CharT,
+          typename Arg = basic_arg<CharT>,
+          typename Allocator = std::allocator<Arg>>
 class basic_arg_list {
 public:
-    using arg_type = basic_arg<CharT>;
     using char_type = CharT;
-    //using storage_type = small_vector<arg_type, Allocator, 16>;
-    using storage_type = std::vector<arg_type, Allocator>;
+    using arg_type = Arg;
+    using allocator_type = Allocator;
+
+    // using storage_type = small_vector<arg_type, allocator_type, 16>;
+    using storage_type = std::vector<arg_type, allocator_type>;
 
     basic_arg_list(storage_type v) : m_vec(std::move(v)) {}
     basic_arg_list(std::initializer_list<arg_type> i,
@@ -93,22 +96,34 @@ private:
     storage_type m_vec;
 };
 
-template <typename CharT, typename T>
-void custom_scan(basic_stream_ref<CharT, input>&,
-                 typename span<const CharT>::iterator&,
-                 T&);
+template <typename CharT, typename T, typename Enable = void>
+void custom_scan(basic_stream_ref<CharT, input>&, const CharT*&, T&);
+
+template <typename CharT>
+inline void skip_format(const CharT*& f)
+{
+    if (*f == 0) {
+        return;
+    }
+    if (*f != CharT('}')) {
+        throw failure(std::make_error_code(std::errc::invalid_argument),
+                      "Invalid format string: expected '}'");
+    }
+    ++f;
+}
 
 namespace detail {
     template <typename CharT>
     using scan_stream = basic_stream_ref<CharT, input>;
+    template <typename CharT>
+    using scan_stream_traits = typename scan_stream<CharT>::traits;
 
     template <typename CharT, typename T, typename = void>
     struct builtin_scan {
-        static scan_stream<CharT>& scan(
-            scan_stream<CharT>& s,
-            typename span<const CharT>::iterator& format,
-            const scan_options<CharT>& opt,
-            void* data)
+        static scan_stream<CharT>& scan(scan_stream<CharT>& s,
+                                        const CharT*& format,
+                                        const scan_options<CharT>& opt,
+                                        void* data)
         {
             T& val = *reinterpret_cast<T*>(data);
             SPIO_UNUSED(opt);
@@ -123,23 +138,16 @@ namespace detail {
         CharT,
         T,
         std::enable_if_t<std::is_same<std::decay_t<T>, CharT>::value>> {
-        static scan_stream<CharT>& scan(
-            scan_stream<CharT>& s,
-            typename span<const CharT>::iterator& format,
-            const scan_options<CharT>& opt,
-            void* data)
+        static scan_stream<CharT>& scan(scan_stream<CharT>& s,
+                                        const CharT*& format,
+                                        const scan_options<CharT>& opt,
+                                        void* data)
         {
             T& ch = *reinterpret_cast<CharT*>(data);
             SPIO_UNUSED(opt);
             ch = s.get();
 
-            if (*format != CharT('}')) {
-                throw failure(
-                    std::make_error_code(std::errc::invalid_argument),
-                    "Invalid format string: `char_type` doesn't support "
-                    "format specifiers, expected '}'");
-            }
-            ++format;
+            skip_format(format);
             return s;
         }
     };
@@ -149,11 +157,10 @@ namespace detail {
         CharT,
         span<T>,
         std::enable_if_t<std::is_same<std::decay_t<T>, CharT>::value>> {
-        static scan_stream<CharT>& scan(
-            scan_stream<CharT>& s,
-            typename span<const CharT>::iterator& format,
-            const scan_options<CharT>& opt,
-            void* data)
+        static scan_stream<CharT>& scan(scan_stream<CharT>& s,
+                                        const CharT*& format,
+                                        const scan_options<CharT>& opt,
+                                        void* data)
         {
             span<T> val = *reinterpret_cast<span<T>*>(data);
             if (val.size() == 0) {
@@ -171,23 +178,21 @@ namespace detail {
                 if (!s.read(strspan)) {
                     return s;
                 }
-                std::copy(strspan.begin(), strspan.end(), val.begin());
+                /* std::copy(strspan.begin(), strspan.end(), val.begin()); */
+                scan_stream_traits<CharT>::copy(val.data(), strspan.data(),
+                                                strspan.size_us());
             }
             else {
                 small_vector<CharT> str(val.size_us());
                 s.readword(make_span(str));
                 if (s) {
-                    std::copy(str.begin(), str.end(), val.begin());
+                    /* std::copy(str.begin(), str.end(), val.begin()); */
+                    scan_stream_traits<CharT>::copy(val.data(), str.data(),
+                                                    str.size());
                 }
             }
 
-            if (*format != CharT('}')) {
-                throw failure(
-                    std::make_error_code(std::errc::invalid_argument),
-                    "Invalid format string: `span<char_type>` doesn't support "
-                    "format specifiers, expected '}'");
-            }
-            ++format;
+            skip_format(format);
             return s;
         }
     };
@@ -199,11 +204,10 @@ namespace detail {
         std::enable_if_t<std::is_integral<T>::value &&
                          !std::is_same<CharT, std::decay_t<T>>::value &&
                          !std::is_same<std::decay_t<T>, bool>::value>> {
-        static scan_stream<CharT>& scan(
-            scan_stream<CharT>& s,
-            typename span<const CharT>::iterator& format,
-            const scan_options<CharT>& opt,
-            void* data)
+        static scan_stream<CharT>& scan(scan_stream<CharT>& s,
+                                        const CharT*& format,
+                                        const scan_options<CharT>& opt,
+                                        void* data)
         {
             T& val = *reinterpret_cast<T*>(data);
 
@@ -246,7 +250,7 @@ namespace detail {
 #else
                     if (std::is_unsigned<T>::value) {
 #endif
-                        if (*it == '-') {
+                        if (scan_stream_traits<CharT>::eq(*it, '-')) {
                             throw failure(
                                 invalid_input,
                                 "Cannot read a signed integer into an "
@@ -254,11 +258,11 @@ namespace detail {
                         }
                     }
                     else {
-                        if (*it == '-') {
+                        if (scan_stream_traits<CharT>::eq(*it, '-')) {
                             return false;
                         }
                     }
-                    if (*it == '+') {
+                    if (scan_stream_traits<CharT>::eq(*it, '+')) {
                         return true;
                     }
                     if (is_digit(*it, base)) {
@@ -301,7 +305,7 @@ namespace detail {
                 if (it != buf.end()) {
                     const auto end = [&]() {
                         for (auto i = it; i != buf.end(); ++i) {
-                            if (*i == '\0') {
+                            if (scan_stream_traits<CharT>::eq(*i, 0)) {
                                 return i;
                             }
                         }
@@ -320,11 +324,10 @@ namespace detail {
     struct builtin_scan<CharT,
                         T,
                         std::enable_if_t<std::is_floating_point<T>::value>> {
-        static scan_stream<CharT>& scan(
-            scan_stream<CharT>& s,
-            typename span<const CharT>::iterator& format,
-            const scan_options<CharT>& opt,
-            void* data)
+        static scan_stream<CharT>& scan(scan_stream<CharT>& s,
+                                        const CharT*& format,
+                                        const scan_options<CharT>& opt,
+                                        void* data)
         {
             T& val = *reinterpret_cast<T*>(data);
             SPIO_UNUSED(opt);
@@ -367,24 +370,17 @@ namespace detail {
             }
             val = tmp;
 
-            if (*format != CharT('}')) {
-                throw failure(std::make_error_code(std::errc::invalid_argument),
-                              "Invalid format string: `double`-like types "
-                              "doesn't support "
-                              "format specifiers, expected '}'");
-            }
-            ++format;
+            skip_format(format);
             return s;
         }
     };
 
     template <typename CharT>
     struct builtin_scan<CharT, bool> {
-        static scan_stream<CharT>& scan(
-            scan_stream<CharT>& s,
-            typename span<const CharT>::iterator& format,
-            const scan_options<CharT>& opt,
-            void* data)
+        static scan_stream<CharT>& scan(scan_stream<CharT>& s,
+                                        const CharT*& format,
+                                        const scan_options<CharT>& opt,
+                                        void* data)
         {
             bool& val = *reinterpret_cast<bool*>(data);
 
@@ -392,9 +388,8 @@ namespace detail {
             s.putback(ch);
             if (is_digit(ch)) {
                 int_fast16_t n;
-                auto fmt = span<const char>("}");
-                auto it = fmt.begin();
-                builtin_scan<CharT, int_fast16_t>::scan(s, it, opt,
+                auto fmt = "}";
+                builtin_scan<CharT, int_fast16_t>::scan(s, fmt, opt,
                                                         std::addressof(n));
                 if (!s) {
                     return s;
@@ -422,12 +417,7 @@ namespace detail {
                 }
             }
 
-            if (*format != CharT('}')) {
-                throw failure(std::make_error_code(std::errc::invalid_argument),
-                              "Invalid format string: `bool` doesn't support "
-                              "format specifiers, expected '}'");
-            }
-            ++format;
+            skip_format(format);
             return s;
         }
     };
@@ -435,7 +425,7 @@ namespace detail {
 
 template <typename CharT, typename Allocator>
 void custom_scan(basic_stream_ref<CharT, input>& s,
-                 typename span<const CharT>::iterator& format,
+                 const CharT*& format,
                  std::basic_string<CharT, Allocator>& str)
 {
     if (str.empty()) {
@@ -501,16 +491,10 @@ public:
                     bool readall,
                     Args&... args)
     {
-        vscan(
-            s,
-            make_span(format, static_cast<std::ptrdiff_t>(std::strlen(format))),
-            readall, make_args<arg_list>(args...));
+        vscan(s, format, readall, make_args<arg_list>(args...));
     }
 
-    void vscan(stream_type& s,
-               span<const char> format,
-               bool readall,
-               arg_list args);
+    void vscan(stream_type& s, const char_type* format, bool readall, arg_list args);
 
 private:
     const std::locale* m_locale{std::addressof(global_locale())};

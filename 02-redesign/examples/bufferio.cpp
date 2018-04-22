@@ -24,6 +24,7 @@
 #include "examples.h"
 #include "spio/spio.h"
 
+/*
 void bufferio()
 {
     io::sout().println(" *** Buffer IO *** ");
@@ -35,10 +36,10 @@ void bufferio()
     auto& buf = w.get_buffer();
     auto s = io::make_span(buf.begin(), buf.end());
     io::buffer_instream in{s};
-    /* io::buffer_instream in{out.get_buffer()}; */
     std::string word;
     int num;
     in.scan("{} {}", word, num);
 
     io::sout().println("'{}', '{}'", word, num);
 }
+*/

@@ -21,6 +21,10 @@
 #include <doctest.h>
 #include <spio/spio.h>
 
+struct user_type {
+    int num;
+};
+
 TEST_CASE("print")
 {
     auto str = std::string{};
@@ -42,12 +46,43 @@ TEST_CASE("print")
     }
 }
 
+TEST_CASE("wide print")
+{
+    auto str = std::wstring{};
+    spio::basic_stream<spio::wstring_sink> s(str);
+    SUBCASE("string")
+    {
+        s.print(L"Hello world!");
+        CHECK(str == L"Hello world!");
+
+        str.clear();
+        s.seek(0, spio::seekdir::beg);
+        s.print(L"{}{}", L"Hello world!", L'\n');
+        CHECK(str == L"Hello world!\n");
+    }
+    SUBCASE("various")
+    {
+        s.print(L"{} {} {} {}", 100, 3.14, static_cast<void*>(nullptr), true);
+        CHECK(str == L"100 3.14 0x0 true");
+    }
+}
+
+template <typename CharT>
+void custom_scan(spio::basic_stream_ref<CharT, spio::input>& s,
+                 const CharT*& format,
+                 user_type& val)
+{
+    spio::codeconv<char, CharT> conv;
+    s.scan(conv("{}").c_str(), val.num);
+    spio::skip_format(format);
+}
+
 TEST_CASE("scan")
 {
     SUBCASE("span")
     {
         auto str = std::string{"Hello world"};
-        spio::basic_stream<spio::basic_container_source<std::string>> s(str);
+        spio::basic_stream<spio::string_source> s(str);
 
         std::string r(5, '\0');
         auto span = spio::make_span(r);
@@ -60,7 +95,7 @@ TEST_CASE("scan")
     SUBCASE("int")
     {
         auto str = std::string{"42 240 7f 1010 256"};
-        spio::basic_stream<spio::basic_container_source<std::string>> s(str);
+        spio::basic_stream<spio::string_source> s(str);
 
         int n;
         s.scan("{}", n);
@@ -82,7 +117,7 @@ TEST_CASE("scan")
     SUBCASE("float")
     {
         auto str = std::string{"3.14159"};
-        spio::basic_stream<spio::basic_container_source<std::string>> s(str);
+        spio::basic_stream<spio::string_source> s(str);
 
         double d;
         s.scan("{}", d);
@@ -91,7 +126,7 @@ TEST_CASE("scan")
     SUBCASE("bool")
     {
         auto str = std::string{"1 false"};
-        spio::basic_stream<spio::basic_container_source<std::string>> s(str);
+        spio::basic_stream<spio::string_source> s(str);
 
         bool b1, b2;
         s.scan("{} {}", b1, b2);
@@ -101,10 +136,72 @@ TEST_CASE("scan")
     SUBCASE("string")
     {
         auto str = std::string{"This-is-a-very-long-word"};
-        spio::basic_stream<spio::basic_container_source<std::string>> s(str);
+        spio::basic_stream<spio::string_source> s(str);
 
         std::string res;
         s.scan("{}", res);
         CHECK(str == res);
+    }
+    SUBCASE("user type")
+    {
+        auto str = std::string{"255"};
+        spio::basic_stream<spio::string_source> s(str);
+
+        user_type ut;
+        s.scan("{}", ut);
+        CHECK(ut.num == 255);
+    }
+}
+
+TEST_CASE("wide scan")
+{
+    SUBCASE("span")
+    {
+        auto str = std::wstring{L"Hello world"};
+        spio::basic_stream<spio::wstring_source> s(str);
+
+        std::wstring r(5, L'\0');
+        auto span = spio::make_span(r);
+        s.scan(L"{}", span);
+        CHECK_EQ(std::wcscmp(r.c_str(), L"Hello"), 0);
+
+        s.scan(L"{}", span);
+        CHECK_EQ(std::wcscmp(r.c_str(), L"world"), 0);
+    }
+    SUBCASE("int")
+    {
+        auto str = std::wstring{L"42 240 7f 1010 256"};
+        spio::basic_stream<spio::wstring_source> s(str);
+
+        int n;
+        s.scan(L"{}", n);
+        CHECK(n == 42);
+    }
+    SUBCASE("float")
+    {
+        auto str = std::wstring{L"3.14159"};
+        spio::basic_stream<spio::wstring_source> s(str);
+
+        double d;
+        s.scan(L"{}", d);
+        CHECK(d == doctest::Approx(3.14159));
+    }
+    SUBCASE("string")
+    {
+        auto str = std::wstring{L"This-is-a-very-long-word"};
+        spio::basic_stream<spio::wstring_source> s(str);
+
+        std::wstring res;
+        s.scan(L"{}", res);
+        CHECK(str == res);
+    }
+    SUBCASE("user type")
+    {
+        auto str = std::wstring{L"255"};
+        spio::basic_stream<spio::wstring_source> s(str);
+
+        user_type ut;
+        s.scan(L"{}", ut);
+        CHECK(ut.num == 255);
     }
 }

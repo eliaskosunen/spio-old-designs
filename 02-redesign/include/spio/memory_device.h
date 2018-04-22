@@ -35,7 +35,7 @@ namespace detail {
     public:
         using char_type = CharT;
 
-        struct category : Mode, direct_tag {
+        struct category : Mode, direct_tag, nobuffer_tag {
         };
 
         constexpr basic_memory_device_adaptor() = default;
@@ -72,7 +72,7 @@ namespace detail {
     };
 }  // namespace detail
 
-template <typename CharT>
+template <typename CharT, typename Traits>
 class basic_memory_device
     : private detail::basic_memory_device_adaptor<seekable_device_tag, CharT> {
     using base =
@@ -81,6 +81,7 @@ class basic_memory_device
 public:
     using char_type = CharT;
     using category = typename base::category;
+    using traits = Traits;
 
     using base::base;
     using base::buffer;
@@ -91,7 +92,7 @@ public:
 using memory_device = basic_memory_device<char>;
 using wmemory_device = basic_memory_device<wchar_t>;
 
-template <typename CharT>
+template <typename CharT, typename Traits>
 class basic_memory_source
     : private detail::basic_memory_device_adaptor<seekable_source_tag, CharT> {
     using base =
@@ -100,6 +101,7 @@ class basic_memory_source
 public:
     using char_type = CharT;
     using category = typename base::category;
+    using traits = Traits;
 
     using base::base;
     using base::buffer;
@@ -109,7 +111,7 @@ public:
 using memory_source = basic_memory_source<char>;
 using wmemory_source = basic_memory_source<wchar_t>;
 
-template <typename CharT>
+template <typename CharT, typename Traits>
 class basic_memory_sink
     : private detail::basic_memory_device_adaptor<seekable_sink_tag, CharT> {
     using base = detail::basic_memory_device_adaptor<seekable_sink_tag, CharT>;
@@ -117,6 +119,7 @@ class basic_memory_sink
 public:
     using char_type = CharT;
     using category = typename base::category;
+    using traits = Traits;
 
     using base::base;
     using base::buffer;
@@ -126,15 +129,15 @@ public:
 using memory_sink = basic_memory_sink<char>;
 using wmemory_sink = basic_memory_sink<wchar_t>;
 
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 using basic_indirect_memory_device =
-    basic_indirect_device<seekable_device_tag, CharT>;
-template <typename CharT>
+    basic_indirect_device<seekable_device_tag, CharT, Traits>;
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 using basic_indirect_memory_source =
-    basic_indirect_source<seekable_source_tag, CharT>;
-template <typename CharT>
+    basic_indirect_source<seekable_source_tag, CharT, Traits>;
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 using basic_indirect_memory_sink =
-    basic_indirect_sink<seekable_sink_tag, CharT>;
+    basic_indirect_sink<seekable_sink_tag, CharT, Traits>;
 
 using indirect_memory_device = basic_indirect_memory_device<char>;
 using windirect_memory_device = basic_indirect_memory_device<wchar_t>;

@@ -30,11 +30,12 @@
 #include "traits.h"
 
 namespace spio {
-template <typename CharT, typename Category>
+template <typename CharT, typename Category, typename Traits>
 class basic_filehandle_device {
 public:
     using char_type = CharT;
     using category = Category;
+    using traits = Traits;
 
     constexpr basic_filehandle_device() = default;
     constexpr basic_filehandle_device(std::FILE* h) : m_handle(h) {}
@@ -67,9 +68,9 @@ public:
 
     bool putback(char_type c);
 
-    streampos seek(streamoff off,
-                   seekdir way,
-                   int which = openmode::in | openmode::out);
+    typename Traits::pos_type seek(typename Traits::off_type off,
+                                   seekdir way,
+                                   int which = openmode::in | openmode::out);
 
     bool can_overread() const
     {
@@ -96,12 +97,13 @@ protected:
 using filehandle_device = basic_filehandle_device<char>;
 using wfilehandle_device = basic_filehandle_device<wchar_t>;
 
-template <typename CharT>
-class basic_file_device : public basic_filehandle_device<CharT> {
-    using base = basic_filehandle_device<CharT>;
+template <typename CharT, typename Traits>
+class basic_file_device : public basic_filehandle_device<CharT, Traits> {
+    using base = basic_filehandle_device<CharT, Traits>;
 
 public:
     using char_type = CharT;
+    using traits = Traits;
 
     struct category : base::category, closable_tag {
     };
@@ -132,12 +134,13 @@ public:
 using file_device = basic_file_device<char>;
 using wfile_device = basic_file_device<wchar_t>;
 
-template <typename CharT>
-class basic_file_source : private basic_file_device<CharT> {
-    using base = basic_file_device<CharT>;
+template <typename CharT, typename Traits>
+class basic_file_source : private basic_file_device<CharT, Traits> {
+    using base = basic_file_device<CharT, Traits>;
 
 public:
     using char_type = CharT;
+    using traits = Traits;
 
     struct category : seekable_source_tag, closable_tag {
     };
@@ -162,12 +165,13 @@ public:
 using file_source = basic_file_source<char>;
 using wfile_source = basic_file_source<wchar_t>;
 
-template <typename CharT>
-class basic_file_sink : private basic_file_device<CharT> {
-    using base = basic_file_device<CharT>;
+template <typename CharT, typename Traits>
+class basic_file_sink : private basic_file_device<CharT, Traits> {
+    using base = basic_file_device<CharT, Traits>;
 
 public:
     using char_type = CharT;
+    using traits = Traits;
 
     struct category : seekable_sink_tag, closable_tag, flushable_tag {
     };
