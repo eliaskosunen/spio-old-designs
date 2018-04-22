@@ -27,6 +27,7 @@
 
 #define PI 3.14159265358979323846L
 
+/*
 void stdio()
 {
     io::sout().println(" *** Standard streams IO *** ");
@@ -48,3 +49,4 @@ void stdio()
     io::sout().println("You were {}% off from {}!", std::fabs((PI - pi) / PI),
                        PI);
 }
+*/

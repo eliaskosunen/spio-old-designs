@@ -23,52 +23,53 @@
 
 #include "fwd.h"
 
+#include "codeconv.h"
 #include "scanner.h"
 
 namespace spio {
 template <typename CharT>
 void basic_builtin_scanner<CharT>::vscan(stream_type& s,
-                                         span<const char> format,
+                                         const CharT* format,
                                          bool readall,
                                          arg_list args)
 {
     auto& arg_vec = args.get();
     auto arg = arg_vec.begin();
     auto opt = make_scan_options(readall);
-    auto f_it = format.begin();
-    while (f_it != format.end()) {
+    while (*format != 0) {
         skip_ws(s);
-        if (*f_it == char_type('{')) {
-            ++f_it;
-            if (f_it == format.end()) {
+        if (*format == CharT('{')) {
+            ++format;
+            if (*format == 0) {
                 throw failure(std::make_error_code(std::errc::invalid_argument),
                               "Invalid format string: no matching brace");
             }
-            if (*f_it != char_type('{')) {
-                if (!arg->scan(s, f_it, opt, arg->value)) {
+            if (*format != CharT('{')) {
+                if (!arg->scan(s, format, opt, arg->value)) {
                     throw failure(make_error_code(unknown_io_error),
                                   "Unknown error in scanning");
                 }
                 ++arg;
-                if (f_it != format.end()) {
-                    ++f_it;
+                if (*format != 0) {
+                    ++format;
                 }
                 continue;
             }
         }
-        if (f_it == format.end()) {
+        if (*format == 0) {
             break;
         }
         skip_ws(s);
-        if (f_it == format.end()) {
+        if (*format == 0) {
             break;
         }
         auto ch = s.get();
-        if (ch != *f_it) {
+        if (ch != *format) {
+            codeconv<char, CharT> conv;
             throw failure(std::make_error_code(std::errc::invalid_argument),
-                          "Invalid format string: no matching character " +
-                              std::basic_string<char_type>(f_it, format.end()) +
-                              " found in the input stream");
+                          "Invalid format string: no matching character '" +
+                              conv.reverse(make_span(format, 1)) +
+                              "' found in the input stream");
         }
     }
 }

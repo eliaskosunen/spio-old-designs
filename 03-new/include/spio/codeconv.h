@@ -24,6 +24,7 @@
 #include "fwd.h"
 
 #include <codecvt>
+#include <cstring>
 #include "locale.h"
 #include "span.h"
 
@@ -34,9 +35,19 @@ class codeconv {
     converter_type converter;
 
 public:
-    typename converter_type::wide_string operator()(span<Source> s)
+    template <typename T>
+    auto operator()(T s)
+        -> std::enable_if_t<std::is_same<Source, typename T::value_type>::value,
+                            typename converter_type::wide_string>
     {
         return converter.from_bytes({s.begin(), s.end()});
+    }
+    template <typename T>
+    auto operator()(T* s)
+        -> std::enable_if_t<std::is_same<Source, std::remove_cv_t<T>>::value,
+                            typename converter_type::wide_string>
+    {
+        return operator()(typename converter_type::byte_string(s));
     }
     typename converter_type::wide_string operator()(
         typename converter_type::byte_string s)
@@ -44,9 +55,19 @@ public:
         return converter.from_bytes(s);
     }
 
-    typename converter_type::byte_string reverse(span<Dest> s)
+    template <typename T>
+    auto reverse(T s)
+        -> std::enable_if_t<std::is_same<Dest, typename T::value_type>::value,
+                            typename converter_type::byte_string>
     {
         return converter.to_bytes({s.begin(), s.end()});
+    }
+    template <typename T>
+    auto reverse(T* s)
+        -> std::enable_if_t<std::is_same<Dest, std::remove_cv_t<T>>::value,
+                            typename converter_type::byte_string>
+    {
+        return reverse(typename converter_type::wide_string(s));
     }
     typename converter_type::byte_string reverse(
         typename converter_type::wide_string s)
@@ -58,18 +79,38 @@ public:
 template <typename Char>
 class codeconv<Char, Char> {
 public:
-    std::basic_string<Char> operator()(span<Char> s) const
+    template <typename T>
+    auto operator()(T s) const
+        -> std::enable_if_t<std::is_same<Char, typename T::value_type>::value,
+                            std::basic_string<Char>>
     {
         return {s.begin(), s.end()};
+    }
+    template <typename T>
+    auto operator()(T* s) const
+        -> std::enable_if_t<std::is_same<Char, std::remove_cv_t<T>>::value,
+                            std::basic_string<Char>>
+    {
+        return operator()(std::basic_string<Char>(s));
     }
     std::basic_string<Char> operator()(std::basic_string<Char> s) const
     {
         return s;
     }
 
-    auto reverse(span<Char> s) const
+    template <typename T>
+    auto reverse(T s) const
+        -> std::enable_if_t<std::is_same<Char, typename T::value_type>::value,
+                            std::basic_string<Char>>
     {
         return operator()(s);
+    }
+    template <typename T>
+    auto reverse(T* s) const
+        -> std::enable_if_t<std::is_same<Char, std::remove_cv_t<T>>::value,
+                            std::basic_string<Char>>
+    {
+        return reverse(std::basic_string<Char>(s));
     }
     auto reverse(std::basic_string<Char> s) const
     {

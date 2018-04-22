@@ -22,6 +22,7 @@
 #define SPIO_FWD_H
 
 #include <deque>
+#include <string>
 #include <vector>
 #include "config.h"
 #include "traits.h"
@@ -32,11 +33,14 @@ class basic_builtin_scanner;
 template <typename CharT>
 using basic_default_scanner = basic_builtin_scanner<CharT>;
 
-template <typename Container>
+template <typename Container,
+          typename Traits = std::char_traits<typename Container::value_type>>
 class basic_container_device;
-template <typename Container>
+template <typename Container,
+          typename Traits = std::char_traits<typename Container::value_type>>
 class basic_container_sink;
-template <typename Container>
+template <typename Container,
+          typename Traits = std::char_traits<typename Container::value_type>>
 class basic_container_source;
 
 template <typename Buffer>
@@ -56,13 +60,14 @@ namespace detail {
 }  // namespace detail
 
 template <typename CharT,
-          typename Category = detail::filehandle_device_default_category>
+          typename Category = detail::filehandle_device_default_category,
+          typename Traits = std::char_traits<CharT>>
 class basic_filehandle_device;
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_file_device;
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_file_sink;
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_file_source;
 
 template <typename CharT>
@@ -70,31 +75,39 @@ class basic_fmt_formatter;
 template <typename CharT>
 using basic_default_formatter = basic_fmt_formatter<CharT>;
 
-template <typename Category, typename Device, typename = void>
+template <typename Category,
+          typename Device,
+          typename Traits = std::char_traits<typename Device::char_type>,
+          typename = void>
 class basic_indirect_device;
-template <typename Category, typename Device>
+template <typename Category,
+          typename Device,
+          typename Traits = std::char_traits<typename Device::char_type>>
 class basic_indirect_sink;
-template <typename Category, typename Device>
+template <typename Category,
+          typename Device,
+          typename Traits = std::char_traits<typename Device::char_type>>
 class basic_indirect_source;
 
 template <typename CharT>
 class basic_ios_base;
 
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_memory_device;
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_memory_sink;
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_memory_source;
 
 template <typename CharT,
-          typename Category = detail::filehandle_device_default_category>
+          typename Category = detail::filehandle_device_default_category,
+          typename Traits = std::char_traits<CharT>>
 class basic_native_filehandle_device;
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_native_file_device;
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_native_file_sink;
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_native_file_source;
 
 #if SPIO_HAS_NATIVE_FILEIO
@@ -110,22 +123,23 @@ template <typename CharT>
 using basic_default_file_source = basic_native_file_source<CharT>;
 #else
 template <typename CharT,
-          typename Category = detail::filehandle_device_default_category>
+          typename Category = detail::filehandle_device_default_category,
+          typename Traits = std::char_traits<CharT>>
 using basic_default_filehandle_device =
     basic_filehandle_device<CharT, Category>;
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 using basic_default_file_device = basic_file_device<CharT>;
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 using basic_default_file_sink = basic_file_sink<CharT>;
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 using basic_default_file_source = basic_file_source<CharT>;
 #endif
 
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_null_device;
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_null_sink;
-template <typename CharT>
+template <typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_null_source;
 
 template <typename Source, typename Dest>
@@ -147,8 +161,23 @@ template <
     typename SinkBuffer = basic_default_sink_buffer<typename Device::char_type>,
     typename SourceBuffer =
         basic_default_source_buffer<typename Device::char_type>,
-    typename Traits = std::char_traits<typename Device::char_type>>
+    typename Traits = std::char_traits<typename Device::char_type>,
+    typename Enable = void>
 class basic_stream;
+
+namespace detail {
+    template <typename Device,
+              typename Formatter =
+                  basic_default_formatter<typename Device::char_type>,
+              typename Scanner =
+                  basic_default_scanner<typename Device::char_type>,
+              typename SinkBuffer =
+                  basic_default_sink_buffer<typename Device::char_type>,
+              typename SourceBuffer =
+                  basic_default_source_buffer<typename Device::char_type>,
+              typename Traits = std::char_traits<typename Device::char_type>>
+    class basic_container_stream;
+}
 
 template <typename CharT,
           typename Category,

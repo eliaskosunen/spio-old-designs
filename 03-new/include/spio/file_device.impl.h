@@ -26,8 +26,8 @@
 #include "util.h"
 
 namespace spio {
-template <typename CharT, typename Category>
-void basic_filehandle_device<CharT, Category>::flush()
+template <typename CharT, typename Category, typename Traits>
+void basic_filehandle_device<CharT, Category, Traits>::flush()
 {
     SPIO_ASSERT(
         is_open(),
@@ -39,8 +39,9 @@ void basic_filehandle_device<CharT, Category>::flush()
     }
 }
 
-template <typename CharT, typename Category>
-streamsize basic_filehandle_device<CharT, Category>::read(span<char_type> s)
+template <typename CharT, typename Category, typename Traits>
+streamsize basic_filehandle_device<CharT, Category, Traits>::read(
+    span<char_type> s)
 {
     SPIO_ASSERT(
         is_open(),
@@ -63,8 +64,8 @@ streamsize basic_filehandle_device<CharT, Category>::read(span<char_type> s)
     return static_cast<streamsize>(b / sizeof(CharT));
 }
 
-template <typename CharT, typename Category>
-streamsize basic_filehandle_device<CharT, Category>::write(
+template <typename CharT, typename Category, typename Traits>
+streamsize basic_filehandle_device<CharT, Category, Traits>::write(
     span<const char_type> s)
 {
     SPIO_ASSERT(
@@ -82,8 +83,8 @@ streamsize basic_filehandle_device<CharT, Category>::write(
     return static_cast<streamsize>(b / sizeof(CharT));
 }
 
-template <typename CharT, typename Category>
-bool basic_filehandle_device<CharT, Category>::putback(char_type c)
+template <typename CharT, typename Category, typename Traits>
+bool basic_filehandle_device<CharT, Category, Traits>::putback(char_type c)
 {
     SPIO_ASSERT(
         is_open(),
@@ -96,10 +97,12 @@ bool basic_filehandle_device<CharT, Category>::putback(char_type c)
     SPIO_UNREACHABLE;
 }
 
-template <typename CharT, typename Category>
-streampos basic_filehandle_device<CharT, Category>::seek(streamoff off,
-                                                         seekdir way,
-                                                         int which)
+template <typename CharT, typename Category, typename Traits>
+typename Traits::pos_type
+basic_filehandle_device<CharT, Category, Traits>::seek(
+    typename Traits::off_type off,
+    seekdir way,
+    int which)
 {
     SPIO_UNUSED(which);
     SPIO_ASSERT(is_open(),
@@ -123,21 +126,21 @@ streampos basic_filehandle_device<CharT, Category>::seek(streamoff off,
     if (p != 0) {
         throw failure{SPIO_MAKE_ERRNO};
     }
-    return static_cast<streampos>(p);
+    return p;
 }
 
-template <typename CharT>
-basic_file_device<CharT>::basic_file_device(const std::string& path,
-                                            int mode,
-                                            int base_mode)
+template <typename CharT, typename Traits>
+basic_file_device<CharT, Traits>::basic_file_device(const std::string& path,
+                                                    int mode,
+                                                    int base_mode)
 {
     open(path, mode, base_mode);
 }
 
-template <typename CharT>
-void basic_file_device<CharT>::open(const std::string& path,
-                                    int mode,
-                                    int base_mode)
+template <typename CharT, typename Traits>
+void basic_file_device<CharT, Traits>::open(const std::string& path,
+                                            int mode,
+                                            int base_mode)
 {
     SPIO_ASSERT(!base::is_open(),
                 "basic_file_device::open: Cannot open an already open Device!");
@@ -177,8 +180,8 @@ void basic_file_device<CharT>::open(const std::string& path,
     base::m_handle = h;
 }
 
-template <typename CharT>
-void basic_file_device<CharT>::close()
+template <typename CharT, typename Traits>
+void basic_file_device<CharT, Traits>::close()
 {
     SPIO_ASSERT(
         base::is_open(),

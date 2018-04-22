@@ -27,7 +27,7 @@
 #include "traits.h"
 
 namespace spio {
-template <typename Device>
+template <typename Device, typename Traits>
 class basic_indirect_device_base {
 public:
     using device_type = Device;
@@ -35,6 +35,7 @@ public:
     using buffer_type = span<char_type>;
     using iterator = typename buffer_type::iterator;
     using const_iterator = typename buffer_type::const_iterator;
+    using traits = Traits;
 
     constexpr basic_indirect_device_base() = default;
     constexpr basic_indirect_device_base(Device& dev)
@@ -79,9 +80,10 @@ private:
     }
 };
 
-template <typename Category, typename Device, typename>
-class basic_indirect_device : public basic_indirect_device_base<Device> {
-    using base = basic_indirect_device_base<Device>;
+template <typename Category, typename Device, typename Traits, typename>
+class basic_indirect_device
+    : public basic_indirect_device_base<Device, Traits> {
+    using base = basic_indirect_device_base<Device, Traits>;
 
     using base::m_dev;
     using base::m_input;
@@ -90,6 +92,7 @@ class basic_indirect_device : public basic_indirect_device_base<Device> {
 public:
     using char_type = typename Device::char_type;
     using category = Category;
+    using traits = Traits;
 
     using base::base;
 
@@ -131,8 +134,8 @@ public:
 
     template <bool Dependent = true>
     std::enable_if_t<has_category<Device, detail::random_access>::value,
-                     streampos>
-    seek(streamoff off,
+                     typename Traits::pos_type>
+    seek(typename Traits::off_type off,
          seekdir way,
          uint64_t which = openmode::in | openmode::out)
     {
@@ -140,7 +143,7 @@ public:
 
         auto buf = m_dev->input();
         if (way == seekdir::beg) {
-            auto size = static_cast<streamoff>(buf.size());
+            auto size = static_cast<typename Traits::off_type>(buf.size());
             if (size < off || off < 0) {
                 throw failure{
                     make_error_code(std::errc::invalid_argument),
@@ -176,7 +179,7 @@ public:
             return std::distance(buf.begin(), m_input);
         }
 
-        auto size = static_cast<streamoff>(buf.size());
+        auto size = static_cast<typename Traits::off_type>(buf.size());
         if (size < -off || off > 0) {
             throw failure{
                 make_error_code(std::errc::invalid_argument),
@@ -188,13 +191,14 @@ public:
     }
 };
 
-template <typename Category, typename Device>
+template <typename Category, typename Device, typename Traits>
 class basic_indirect_device<
     Category,
     Device,
+    Traits,
     std::enable_if_t<has_category<Device, detail::two_head>::value>>
-    : public basic_indirect_device_base<Device> {
-    using base = basic_indirect_device_base<Device>;
+    : public basic_indirect_device_base<Device, Traits> {
+    using base = basic_indirect_device_base<Device, Traits>;
 
     using base::m_dev;
     using base::m_input;
@@ -203,6 +207,7 @@ class basic_indirect_device<
 public:
     using char_type = typename Device::char_type;
     using category = Category;
+    using traits = Traits;
 
     using base::base;
 
@@ -240,40 +245,48 @@ public:
     }
 };
 
-template <typename Category, typename Device>
-class basic_indirect_source : basic_indirect_device<Category, Device> {
-    using base = basic_indirect_device_base<Device>;
+template <typename Category, typename Device, typename Traits>
+class basic_indirect_source : basic_indirect_device<Category, Device, Traits> {
+    using base = basic_indirect_device_base<Device, Traits>;
 
 public:
     using char_type = typename Device::char_type;
     using category = typename base::category;
+    using traits = Traits;
 
     using base::base;
     using base::putback;
     using base::read;
 
     template <bool Dependent = true>
-    std::enable_if_t<has_category<Category, input_seekable>::value, streampos>
-    seek(streamoff off, seekdir way, uint64_t which = openmode::in)
+    std::enable_if_t<has_category<Category, input_seekable>::value,
+                     typename Traits::pos_type>
+    seek(typename Traits::off_type off,
+         seekdir way,
+         uint64_t which = openmode::in)
     {
         return base::seek(off, way, which);
     }
 };
 
-template <typename Category, typename Device>
-class basic_indirect_sink : basic_indirect_device<Category, Device> {
-    using base = basic_indirect_device_base<Device>;
+template <typename Category, typename Device, typename Traits>
+class basic_indirect_sink : basic_indirect_device<Category, Device, Traits> {
+    using base = basic_indirect_device_base<Device, Traits>;
 
 public:
     using char_type = typename Device::char_type;
     using category = typename base::category;
+    using traits = Traits;
 
     using base::base;
     using base::write;
 
     template <bool Dependent = true>
-    std::enable_if_t<has_category<Category, output_seekable>::value, streampos>
-    seek(streamoff off, seekdir way, uint64_t which = openmode::out)
+    std::enable_if_t<has_category<Category, output_seekable>::value,
+                     typename Traits::pos_type>
+    seek(typename Traits::off_type off,
+         seekdir way,
+         uint64_t which = openmode::out)
     {
         return base::seek(off, way, which);
     }

@@ -26,9 +26,8 @@
 #include "util.h"
 
 namespace spio {
-
-template <typename CharT>
-void basic_native_filehandle_device<CharT>::flush()
+template <typename CharT, typename Category, typename Traits>
+void basic_native_filehandle_device<CharT, Category, Traits>::flush()
 {
     SPIO_ASSERT(
         is_open(),
@@ -40,8 +39,9 @@ void basic_native_filehandle_device<CharT>::flush()
     }
 }
 
-template <typename CharT>
-streamsize basic_native_filehandle_device<CharT>::read(span<char_type> s)
+template <typename CharT, typename Category, typename Traits>
+streamsize basic_native_filehandle_device<CharT, Category, Traits>::read(
+    span<char_type> s)
 {
     SPIO_ASSERT(is_open(),
                 "basic_native_filehandle_device::read: Cannot read from a "
@@ -64,8 +64,9 @@ streamsize basic_native_filehandle_device<CharT>::read(span<char_type> s)
     return static_cast<streamsize>(b / sizeof(CharT));
 }
 
-template <typename CharT>
-streamsize basic_native_filehandle_device<CharT>::write(span<const char_type> s)
+template <typename CharT, typename Category, typename Traits>
+streamsize basic_native_filehandle_device<CharT, Category, Traits>::write(
+    span<const char_type> s)
 {
     SPIO_ASSERT(is_open(),
                 "basic_native_filehandle_device::write: Cannot write to a "
@@ -83,10 +84,12 @@ streamsize basic_native_filehandle_device<CharT>::write(span<const char_type> s)
     return static_cast<streamsize>(b / sizeof(CharT));
 }
 
-template <typename CharT>
-streampos basic_native_filehandle_device<CharT>::seek(streamoff off,
-                                                      seekdir way,
-                                                      int which)
+template <typename CharT, typename Traits>
+typename Traits::pos_type
+basic_native_filehandle_device<CharT, Category, Traits>::seek(
+    typename Traits::off_type off,
+    seekdir way,
+    int which)
 {
     SPIO_UNUSED(which);
     SPIO_ASSERT(is_open(),
@@ -106,11 +109,11 @@ streampos basic_native_filehandle_device<CharT>::seek(streamoff off,
     if (ret == -1) {
         throw failure{SPIO_MAKE_ERRNO};
     }
-    return static_cast<streampos>(ret);
+    return ret;
 }
 
-template <typename CharT>
-basic_native_file_device<CharT>::basic_native_file_device(
+template <typename CharT, typename Traits>
+basic_native_file_device<CharT, Traits>::basic_native_file_device(
     const std::string& path,
     int mode,
     int base_mode)
@@ -118,10 +121,10 @@ basic_native_file_device<CharT>::basic_native_file_device(
     open(path, mode, base_mode);
 }
 
-template <typename CharT>
-void basic_native_file_device<CharT>::open(const std::string& path,
-                                           int mode,
-                                           int base_mode)
+template <typename CharT, typename Traits>
+void basic_native_file_device<CharT, Traits>::open(const std::string& path,
+                                                   int mode,
+                                                   int base_mode)
 {
     SPIO_ASSERT(
         !is_open(),
@@ -186,8 +189,8 @@ void basic_native_file_device<CharT>::open(const std::string& path,
     m_handle = h;
 }
 
-template <typename CharT>
-void basic_native_file_device<CharT>::close()
+template <typename CharT, typename Traits>
+void basic_native_file_device<CharT, Traits>::close()
 {
     SPIO_ASSERT(is_open(),
                 "basic_native_file_device::close: Cannot close a Device which "
