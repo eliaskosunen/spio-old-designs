@@ -52,6 +52,7 @@ namespace detail {
         virtual bool is_open() = 0;
         virtual void close() = 0;
         virtual void flush() = 0;
+        virtual void sync() = 0;
 
         virtual Formatter& get_formatter() = 0;
         virtual Scanner& get_scanner() = 0;
@@ -270,11 +271,31 @@ namespace detail {
     template <typename Category>
     struct do_flush<
         Category,
-        std::enable_if_t<is_category<Category, flushable_tag>::value>> {
+        std::enable_if_t<is_category<Category, output>::value &&
+                         !is_category<Category, no_output_buffer_tag>::value>> {
         template <typename Stream>
         static void flush(Stream& s)
         {
             s.flush();
+        }
+    };
+
+    template <typename Category, typename = void>
+    struct do_sync {
+        template <typename Stream>
+        [[noreturn]] static void sync(Stream&)
+        {
+            SPIO_UNREACHABLE;
+        }
+    };
+    template <typename Category>
+    struct do_sync<
+        Category,
+        std::enable_if_t<is_category<Category, syncable_tag>::value>> {
+        template <typename Stream>
+        static void sync(Stream& s)
+        {
+            s.sync();
         }
     };
 
@@ -291,7 +312,7 @@ namespace detail {
     struct do_sourcebuffer<
         Category,
         std::enable_if_t<is_category<Category, input>::value &&
-                         !is_category<Category, nobuffer_tag>::value>> {
+                         !is_category<Category, no_output_buffer_tag>::value>> {
         template <typename Stream>
         static typename Stream::source_buffer_type& get_source_buffer(Stream& s)
         {
@@ -311,7 +332,7 @@ namespace detail {
     struct do_sinkbuffer<
         Category,
         std::enable_if_t<is_category<Category, output>::value &&
-                         !is_category<Category, nobuffer_tag>::value>> {
+                         !is_category<Category, no_output_buffer_tag>::value>> {
         template <typename Stream>
         static typename Stream::sink_buffer_type& get_sink_buffer(Stream& s)
         {
@@ -393,6 +414,10 @@ namespace detail {
         void flush() override
         {
             do_flush<category>::flush(*m_stream);
+        }
+        void sync() override
+        {
+            do_sync<category>::sync(*m_stream);
         }
 
         stream_type& get_stream()
@@ -482,7 +507,7 @@ namespace detail {
                                             detail::random_access,
                                             asynchronized_tag,
                                             closable_tag,
-                                            flushable_tag,
+                                            syncable_tag,
                                             revertible_tag>::value> {
     };
 
@@ -754,10 +779,18 @@ public:
         return *this;
     }
     template <typename C = Category>
-    auto flush() -> std::enable_if_t<is_category<C, flushable_tag>::value,
-                                     basic_stream_ref&>
+    auto flush()
+        -> std::enable_if_t<!is_category<C, no_output_buffer_tag>::value,
+                            basic_stream_ref&>
     {
         m_stream->flush();
+        return *this;
+    }
+    template <typename C = Category>
+    auto sync() -> std::enable_if_t<is_category<C, syncable_tag>::value,
+                                    basic_stream_ref&>
+    {
+        m_stream->sync();
         return *this;
     }
 
@@ -836,7 +869,7 @@ public:
     template <typename C = Category>
     auto get_source_buffer()
         -> std::enable_if_t<is_category<C, input>::value &&
-                                !is_category<C, nobuffer_tag>::value,
+                                !is_category<C, no_output_buffer_tag>::value,
                             SourceBuffer&>
     {
         return m_stream->get_source_buffer();
@@ -844,7 +877,7 @@ public:
     template <typename C = Category>
     auto get_sink_buffer()
         -> std::enable_if_t<is_category<C, output>::value &&
-                                !is_category<C, nobuffer_tag>::value,
+                                !is_category<C, no_output_buffer_tag>::value,
                             SourceBuffer&>
     {
         return m_stream->get_sink_buffer();

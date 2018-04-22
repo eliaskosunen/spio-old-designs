@@ -27,11 +27,11 @@
 
 namespace spio {
 template <typename CharT, typename Category, typename Traits>
-void basic_native_filehandle_device<CharT, Category, Traits>::flush()
+void basic_native_filehandle_device<CharT, Category, Traits>::sync()
 {
     SPIO_ASSERT(
         is_open(),
-        "basic_native_filehandle_device::flush: Cannot flush a Device which "
+        "basic_native_filehandle_device::sync: Cannot sync a Device which "
         "is not open!");
 
     if (::fsync(m_handle.get()) != 0) {

@@ -320,9 +320,10 @@ public:
     template <typename C = category>
     auto unchecked_write(span<const char_type> s)
         -> std::enable_if_t<is_category<C, output>::value &&
-                                is_category<C, nobuffer_tag>::value,
+                                is_category<C, no_output_buffer_tag>::value,
                             streamsize>
     {
+        prepare_direct();
         auto res = base::get_device().output().subspan(m_output);
         std::copy(s.begin(), s.begin() + s.size(), res.begin());
         m_output += s.size();
@@ -331,9 +332,10 @@ public:
     template <typename C = category>
     auto unchecked_write(span<const char_type> s)
         -> std::enable_if_t<is_category<C, output>::value &&
-                                !is_category<C, nobuffer_tag>::value,
+                                !is_category<C, no_output_buffer_tag>::value,
                             streamsize>
     {
+        prepare_direct();
         auto _write_nocheck = [&](span<const char_type> data) {
             auto res = base::get_device().output().subspan(m_output);
             std::copy(data.begin(), data.begin() + data.size(), res.begin());
@@ -362,6 +364,11 @@ public:
         -> std::enable_if_t<is_category<C, output>::value, span<char_type>>
     {
         return base::get_device().output();
+    }
+
+    void prepare_direct()
+    {
+        base::_handle_tied();
     }
 
     template <typename C = category, typename... Args>
@@ -430,6 +437,7 @@ private:
     auto _buffered_read(span<char_type> s)
         -> std::enable_if_t<is_category<C, input>::value, streamsize>
     {
+        base::_handle_tied();
         auto bufsiz =
             static_cast<std::ptrdiff_t>(base::get_source_buffer().size());
         if (bufsiz >= s.size()) {
@@ -461,17 +469,19 @@ private:
     template <typename C = category>
     auto _buffered_write(span<const char_type> s)
         -> std::enable_if_t<is_category<C, output>::value &&
-                                is_category<C, nobuffer_tag>::value,
+                                is_category<C, no_output_buffer_tag>::value,
                             streamsize>
     {
+        base::_handle_tied();
         return _write(s);
     }
     template <typename C = category>
     auto _buffered_write(span<const char_type> s)
         -> std::enable_if_t<is_category<C, output>::value &&
-                                !is_category<C, nobuffer_tag>::value,
+                                !is_category<C, no_output_buffer_tag>::value,
                             streamsize>
     {
+        base::_handle_tied();
         if (!base::get_sink_buffer().is_writable_mode()) {
             return _write(s);
         }

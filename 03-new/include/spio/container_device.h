@@ -220,7 +220,7 @@ public:
     using iterator = typename base::iterator;
     using traits = Traits;
 
-    struct category : seekable_sink_tag, nobuffer_tag {
+    struct category : seekable_sink_tag, no_output_buffer_tag {
     };
 
 #if defined(__GNUC__) && __GNUC__ < 7
