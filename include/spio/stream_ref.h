@@ -42,10 +42,13 @@ namespace detail {
         virtual CharT get() = 0;
         virtual void putback(span<const CharT>) = 0;
         virtual void putback(CharT) = 0;
+        virtual void ignore(std::size_t, typename Traits::int_type) = 0;
 
         virtual void put(CharT) = 0;
 
-        virtual streampos seek(streamoff, seekdir, int) = 0;
+        virtual typename Traits::pos_type seek(typename Traits::off_type,
+                                               seekdir,
+                                               int) = 0;
         virtual bool is_open() = 0;
         virtual void close() = 0;
         virtual void flush() = 0;
@@ -101,6 +104,13 @@ namespace detail {
             SPIO_UNREACHABLE;
         }
         template <typename Stream>
+        [[noreturn]] static void ignore(Stream&,
+                                        std::size_t,
+                                        typename Stream::traits::int_type)
+        {
+            SPIO_UNREACHABLE;
+        }
+        template <typename Stream>
         [[noreturn]] static typename Stream::scanner_type& get_scanner(Stream&)
         {
             SPIO_UNREACHABLE;
@@ -140,6 +150,13 @@ namespace detail {
         static void putback(Stream& s, typename Stream::char_type ch)
         {
             s.putback(ch);
+        }
+        template <typename Stream>
+        static void ignore(Stream& s,
+                           std::size_t count,
+                           typename Stream::traits::int_type delim)
+        {
+            s.ignore(count, delim);
         }
         template <typename Stream>
         static typename Stream::scanner_type& get_scanner(Stream& s)
@@ -192,7 +209,8 @@ namespace detail {
     template <typename Category, typename = void>
     struct do_seek {
         template <typename Stream>
-        [[noreturn]] static streampos seek(Stream&, streamoff, seekdir, int)
+        [[noreturn]] static typename Stream::traits::pos_type
+        seek(Stream&, typename Stream::traits::off_type, seekdir, int)
         {
             SPIO_UNREACHABLE;
         }
@@ -202,7 +220,11 @@ namespace detail {
         Category,
         std::enable_if_t<is_category<Category, detail::random_access>::value>> {
         template <typename Stream>
-        static auto seek(Stream& s, streamoff off, seekdir dir, int which)
+        static typename Stream::traits::pos_type seek(
+            Stream& s,
+            typename Stream::traits::off_type off,
+            seekdir dir,
+            int which)
         {
             return s.seek(off, dir, which);
         }
@@ -335,19 +357,27 @@ namespace detail {
         }
         void putback(span<const char_type> s) override
         {
-            return do_read<category>::putback(*m_stream, s);
+            do_read<category>::putback(*m_stream, s);
         }
         void putback(char_type ch) override
         {
-            return do_read<category>::putback(*m_stream, ch);
+            do_read<category>::putback(*m_stream, ch);
+        }
+        void ignore(std::size_t count,
+                    typename Stream::traits::int_type delim) override
+        {
+            do_read<category>::ignore(*m_stream, count, delim);
         }
 
         void put(char_type ch) override
         {
-            return do_write<category>::put(*m_stream, ch);
+            do_write<category>::put(*m_stream, ch);
         }
 
-        streampos seek(streamoff off, seekdir dir, int which) override
+        typename Stream::traits::pos_type seek(
+            typename Stream::traits::off_type off,
+            seekdir dir,
+            int which) override
         {
             return do_seek<category>::seek(*m_stream, off, dir, which);
         }
@@ -685,6 +715,14 @@ public:
     }
 
     template <typename C = Category>
+    auto ignore(std::size_t count = 1,
+                typename Traits::int_type delim = Traits::eof())
+    {
+        m_stream->ignore(count, delim);
+        return *this;
+    }
+
+    template <typename C = Category>
     auto put(char_type ch)
         -> std::enable_if_t<is_category<C, output>::value, basic_stream_ref&>
     {
@@ -693,11 +731,11 @@ public:
     }
 
     template <typename C = Category>
-    auto seek(streamoff off,
+    auto seek(typename Traits::off_type off,
               seekdir dir,
               int which = openmode::in | openmode::out)
         -> std::enable_if_t<is_category<C, detail::random_access>::value,
-                            streampos>
+                            typename Traits::pos_type>
     {
         return m_stream->seek(off, dir, which);
     }
@@ -781,7 +819,8 @@ public:
     {
         using context = typename fmt::buffer_context<char_type>::type;
         auto str = m_stream->get_formatter()(
-            f, fmt::basic_format_args<context>(fmt::make_args<context>(a...)));
+            f, fmt::basic_format_args<context>(
+                   fmt::make_format_args<context>(a...)));
         write(make_span(str));
         return *this;
     }

@@ -47,10 +47,12 @@
 
 #include "stream.h"
 #include "stream_base.h"
+
+#include "direct_stream.h"
+
+#include "device_stream.h"
 #include "stream_buffer.h"
 #include "stream_iterator.h"
 #include "stream_ref.h"
-
-#include "device_stream.h"
 
 #endif

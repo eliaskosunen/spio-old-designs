@@ -31,12 +31,13 @@
 #include "util.h"
 
 namespace spio {
-template <typename Container>
+template <typename Container, typename Traits>
 class basic_container_device {
 public:
     using container_type = Container;
     using char_type = typename Container::value_type;
     using iterator = typename Container::iterator;
+    using traits = Traits;
 
     struct category : seekable_device_tag {
     };
@@ -99,7 +100,9 @@ public:
         return s.size();
     }
 
-    streampos seek(streamoff off, seekdir way, int which = openmode::out)
+    typename Traits::pos_type seek(typename Traits::off_type off,
+                                   seekdir way,
+                                   int which = openmode::out)
     {
         SPIO_UNUSED(which);
         SPIO_ASSERT(
@@ -107,7 +110,7 @@ public:
             "basic_container_device::seek: Cannot seek a nullptr container!");
 
         if (way == seekdir::beg) {
-            auto size = static_cast<streamoff>(m_buf->size());
+            auto size = static_cast<typename Traits::off_type>(m_buf->size());
             if (size < off || off < 0) {
                 throw failure{
                     make_error_code(std::errc::invalid_argument),
@@ -140,7 +143,7 @@ public:
             return std::distance(m_buf->begin(), m_it);
         }
 
-        auto size = static_cast<streamoff>(m_buf->size());
+        auto size = static_cast<typename Traits::off_type>(m_buf->size());
         if (size < -off || off > 0) {
             throw failure{make_error_code(std::errc::invalid_argument),
                           "basic_container_sink::seek: offset is out of range"};
@@ -180,14 +183,16 @@ private:
     iterator m_it{};
 };
 
-template <typename Container>
-class basic_container_source : private basic_container_device<Container> {
-    using base = basic_container_device<Container>;
+template <typename Container, typename Traits>
+class basic_container_source
+    : private basic_container_device<Container, Traits> {
+    using base = basic_container_device<Container, Traits>;
 
 public:
     using container_type = Container;
     using char_type = typename base::char_type;
     using iterator = typename base::iterator;
+    using traits = Traits;
 
     struct category : seekable_source_tag {
     };
@@ -205,14 +210,15 @@ public:
     using base::seek;
 };
 
-template <typename Container>
-class basic_container_sink : private basic_container_device<Container> {
-    using base = basic_container_device<Container>;
+template <typename Container, typename Traits>
+class basic_container_sink : private basic_container_device<Container, Traits> {
+    using base = basic_container_device<Container, Traits>;
 
 public:
     using container_type = Container;
     using char_type = typename base::char_type;
     using iterator = typename base::iterator;
+    using traits = Traits;
 
     struct category : seekable_sink_tag, nobuffer_tag {
     };
@@ -229,6 +235,18 @@ public:
     using base::seek;
     using base::write;
 };
+
+template <typename CharT, typename Allocator = std::allocator<CharT>>
+using basic_vector_source =
+    basic_container_source<std::vector<CharT, Allocator>>;
+template <typename CharT,
+          typename Traits = std::char_traits<CharT>,
+          typename Allocator = std::allocator<CharT>>
+using basic_string_source =
+    basic_container_source<std::basic_string<CharT, Traits, Allocator>>;
+
+using string_source = basic_string_source<char>;
+using wstring_source = basic_string_source<wchar_t>;
 
 template <typename CharT, typename Allocator = std::allocator<CharT>>
 using basic_vector_sink = basic_container_sink<std::vector<CharT, Allocator>>;

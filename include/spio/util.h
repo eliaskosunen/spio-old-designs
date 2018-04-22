@@ -607,9 +607,11 @@ namespace detail {
             SPIO_UNREACHABLE;
         }
 
-        [[noreturn]] T* data() {
+        [[noreturn]] T* data()
+        {
             SPIO_UNREACHABLE;
-        }[[noreturn]] const T* data() const
+        }
+        [[noreturn]] const T* data() const
         {
             SPIO_UNREACHABLE;
         }
@@ -679,6 +681,15 @@ public:
     {
         return m_vec.visit(
             [](const auto& vec) { return vec.data() + vec.size(); });
+    }
+
+    constexpr pointer data()
+    {
+        return m_vec.visit([](auto& vec) { return vec.data(); });
+    }
+    constexpr const_pointer data() const
+    {
+        return m_vec.visit([](const auto& vec) { return vec.data(); });
     }
 
     constexpr reference operator[](size_type i)

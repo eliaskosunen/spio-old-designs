@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <spio/spio.h>
+
 void readme();
 void bufferio();
 void stdio();

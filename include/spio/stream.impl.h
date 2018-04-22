@@ -27,75 +27,80 @@
 #include "util.h"
 
 namespace spio {
-template <typename Device,
-          typename Formatter,
-          typename Scanner,
-          typename SinkBuffer,
-          typename SourceBuffer,
-          typename Traits>
-auto basic_stream<Device,
-                  Formatter,
-                  Scanner,
-                  SinkBuffer,
-                  SourceBuffer,
-                  Traits>::tie() const -> tied_type*
-{
-    return m_tied;
-}
-template <typename Device,
-          typename Formatter,
-          typename Scanner,
-          typename SinkBuffer,
-          typename SourceBuffer,
-          typename Traits>
-auto basic_stream<Device,
-                  Formatter,
-                  Scanner,
-                  SinkBuffer,
-                  SourceBuffer,
-                  Traits>::tie(tied_type* s) -> tied_type*
-{
-    auto prev = m_tied;
-    m_tied = s;
-    return prev;
-}
-
-template <typename Device,
-          typename Formatter,
-          typename Scanner,
-          typename SinkBuffer,
-          typename SourceBuffer,
-          typename Traits>
-void basic_stream<Device,
-                  Formatter,
-                  Scanner,
-                  SinkBuffer,
-                  SourceBuffer,
-                  Traits>::_handle_tied()
-{
-    if (m_tied) {
-        m_tied->flush();
+namespace detail {
+    template <typename Device,
+              typename Formatter,
+              typename Scanner,
+              typename SinkBuffer,
+              typename SourceBuffer,
+              typename Traits>
+    auto basic_stream_base<Device,
+                           Formatter,
+                           Scanner,
+                           SinkBuffer,
+                           SourceBuffer,
+                           Traits>::tie() const -> tied_type*
+    {
+        return m_tied;
     }
-}
+    template <typename Device,
+              typename Formatter,
+              typename Scanner,
+              typename SinkBuffer,
+              typename SourceBuffer,
+              typename Traits>
+    auto basic_stream_base<Device,
+                           Formatter,
+                           Scanner,
+                           SinkBuffer,
+                           SourceBuffer,
+                           Traits>::tie(tied_type* s) -> tied_type*
+    {
+        auto prev = m_tied;
+        m_tied = s;
+        return prev;
+    }
+
+    template <typename Device,
+              typename Formatter,
+              typename Scanner,
+              typename SinkBuffer,
+              typename SourceBuffer,
+              typename Traits>
+    void basic_stream_base<Device,
+                           Formatter,
+                           Scanner,
+                           SinkBuffer,
+                           SourceBuffer,
+                           Traits>::_handle_tied()
+    {
+        if (m_tied) {
+            m_tied->flush();
+        }
+    }
+}  // namespace detail
 
 template <typename Device,
           typename Formatter,
           typename Scanner,
           typename SinkBuffer,
           typename SourceBuffer,
-          typename Traits>
+          typename Traits,
+          typename Enable>
 template <typename C, typename... Args>
 auto basic_stream<Device,
                   Formatter,
                   Scanner,
                   SinkBuffer,
                   SourceBuffer,
-                  Traits>::print(const char_type* f, const Args&... a)
+                  Traits,
+                  Enable>::print(const char_type* f, const Args&... a)
     -> std::enable_if_t<is_category<C, output>::value, basic_stream&>
 {
     using context = typename fmt::buffer_context<char_type>::type;
-    auto str = m_sink->get_fmt()(
-        f, fmt::basic_format_args<context>(fmt::make_args<context>(a...)));
+    auto str = base::get_formatter()(
+        f,
+        fmt::basic_format_args<context>(fmt::make_format_args<context>(a...)));
     write(make_span(str));
     return *this;
 }
@@ -105,18 +110,20 @@ template <typename Device,
           typename Scanner,
           typename SinkBuffer,
           typename SourceBuffer,
-          typename Traits>
+          typename Traits,
+          typename Enable>
 template <typename C, typename... Args>
 auto basic_stream<Device,
                   Formatter,
                   Scanner,
                   SinkBuffer,
                   SourceBuffer,
-                  Traits>::scan(const char_type* f, Args&... a)
+                  Traits,
+                  Enable>::scan(const char_type* f, Args&... a)
     -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
 {
     auto ref = basic_stream_ref<char_type, input>(*this);
-    m_source->get_scanner()(ref, f, can_overread(*this), a...);
+    base::get_scanner()(ref, f, can_overread(*this), a...);
     return *this;
 }
 }  // namespace spio
