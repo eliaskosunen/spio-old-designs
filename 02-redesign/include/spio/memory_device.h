@@ -35,7 +35,7 @@ namespace detail {
     public:
         using char_type = CharT;
 
-        struct category : Mode, direct_tag, nobuffer_tag {
+        struct category : Mode, direct_tag, no_output_buffer_tag {
         };
 
         constexpr basic_memory_device_adaptor() = default;

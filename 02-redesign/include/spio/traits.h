@@ -81,11 +81,12 @@ struct closable_tag : virtual any_tag {
 };
 struct direct_tag : virtual any_tag {
 };
-struct flushable_tag : virtual any_tag {
-};
 struct revertible_tag : virtual any_tag {
 };
-struct nobuffer_tag : virtual any_tag {
+struct syncable_tag : virtual any_tag {
+};
+
+struct no_output_buffer_tag : virtual any_tag {
 };
 
 struct source_tag : device_tag, input {
@@ -110,6 +111,10 @@ struct is_category : std::is_base_of<Category, T> {
 };
 template <typename T, typename Category>
 struct has_category : is_category<typename T::category, Category> {
+};
+
+template <typename... Bases>
+struct make_category : Bases... {
 };
 }  // namespace spio
 

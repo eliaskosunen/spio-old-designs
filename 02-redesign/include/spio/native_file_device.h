@@ -133,7 +133,7 @@ public:
         return m_handle.get();
     }
 
-    void flush();
+    void sync();
 
     streamsize read(span<char_type> s);
     streamsize write(span<const char_type> s);
@@ -255,11 +255,11 @@ public:
     using char_type = CharT;
     using traits = Traits;
 
-    struct category : seekable_sink_tag, closable_tag, flushable_tag {
+    struct category : seekable_sink_tag, closable_tag, syncable_tag {
     };
 
     using base::close;
-    using base::flush;
+    using base::sync;
     using base::is_open;
     using base::seek;
     using base::write;

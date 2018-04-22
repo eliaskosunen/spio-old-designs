@@ -55,7 +55,7 @@ using basic_default_source_buffer = basic_source_buffer<std::deque<T, Alloc>>;
 
 namespace detail {
     struct filehandle_device_default_category : seekable_device_tag,
-                                                flushable_tag {
+                                                syncable_tag {
     };
 }  // namespace detail
 
