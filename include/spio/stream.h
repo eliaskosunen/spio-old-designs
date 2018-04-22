@@ -69,14 +69,14 @@ namespace detail {
     private:
         template <typename C = Category>
         static auto _init_buf()
-            -> std::enable_if_t<is_category<nobuffer_tag, C>::value,
+            -> std::enable_if_t<is_category<no_output_buffer_tag, C>::value,
                                 std::nullptr_t>
         {
             return nullptr;
         }
         template <typename C = Category>
         static auto _init_buf()
-            -> std::enable_if_t<!is_category<nobuffer_tag, C>::value,
+            -> std::enable_if_t<!is_category<no_output_buffer_tag, C>::value,
                                 std::unique_ptr<Buffer>>
         {
             return std::make_unique<Buffer>();
@@ -193,7 +193,7 @@ namespace detail {
         using source_buffer_type = SourceBuffer;
         using traits = Traits;
         using int_type = typename traits::int_type;
-        using tied_type = basic_stream_ref<char_type, output>;
+        using tied_type = basic_stream_ref<char_type, make_category<output>>;
 
         basic_stream_base() = default;
         basic_stream_base(device_type d) : m_dev(std::move(d)) {}
@@ -256,33 +256,31 @@ namespace detail {
         }
 
         template <typename C = category>
-        auto flush()
-            -> std::enable_if_t<is_category<C, output>::value &&
-                                    (is_category<C, flushable_tag>::value ||
-                                     !is_category<C, nobuffer_tag>::value),
-                                basic_stream_base&>
-        {
-            try {
-                _check_error();
-                _flush_buffer();
-                _flush_device();
-            }
-            catch (const failure& f) {
-                _handle_exception(f);
-            }
-            return *this;
-        }
-        template <typename C = category>
-        auto flush_buffer()
-            -> std::enable_if_t<is_category<C, output>::value &&
-                                    !is_category<C, nobuffer_tag>::value,
-                                basic_stream_base&>
+        auto flush() -> std::enable_if_t<
+            is_category<C, output>::value &&
+                !is_category<C, no_output_buffer_tag>::value,
+            basic_stream_base&>
         {
             try {
                 _check_error();
                 auto b = get_sink_buffer().get_flushable_data();
                 auto n = m_dev.write(b);
                 get_sink_buffer().flag_flushed(n);
+            }
+            catch (const failure& f) {
+                _handle_exception(f);
+            }
+            return *this;
+        }
+
+        template <typename C = category>
+        auto sync() -> std::enable_if_t<is_category<C, output>::value &&
+                                            is_category<C, syncable_tag>::value,
+                                        basic_stream_base&>
+        {
+            try {
+                _check_error();
+                m_dev.sync();
             }
             catch (const failure& f) {
                 _handle_exception(f);
@@ -317,10 +315,10 @@ namespace detail {
         }
 
         template <typename C = category>
-        auto get_sink_buffer()
-            -> std::enable_if_t<is_category<C, output>::value &&
-                                    !is_category<C, nobuffer_tag>::value,
-                                sink_buffer_type&>
+        auto get_sink_buffer() -> std::enable_if_t<
+            is_category<C, output>::value &&
+                !is_category<C, no_output_buffer_tag>::value,
+            sink_buffer_type&>
         {
             return *m_sink->get_sink_buffer();
         }
@@ -352,47 +350,49 @@ namespace detail {
         }
 
         template <typename C = category>
-        auto _flush_buffer()
-            -> std::enable_if_t<is_category<C, nobuffer_tag>::value, void>
+        auto _flush_destruct_flush() -> std::enable_if_t<
+            is_category<C, output>::value &&
+                !is_category<C, no_output_buffer_tag>::value,
+            void>
         {
+            try {
+                flush();
+            }
+            catch (...) {
+            }
         }
         template <typename C = category>
-        auto _flush_buffer()
-            -> std::enable_if_t<is_category<C, output>::value &&
-                                    !is_category<C, nobuffer_tag>::value,
-                                void>
-        {
-            flush_buffer();
-        }
-
-        template <typename C = category>
-        auto _flush_device()
-            -> std::enable_if_t<is_category<C, flushable_tag>::value, void>
-        {
-            m_dev.flush();
-        }
-        template <typename C = category>
-        auto _flush_device()
-            -> std::enable_if_t<!is_category<C, flushable_tag>::value, void>
-        {
-        }
-
-        template <typename C = category>
-        auto _flush_destruct()
+        auto _flush_destruct_flush()
             -> std::enable_if_t<!(is_category<C, output>::value &&
-                                  (is_category<C, flushable_tag>::value ||
-                                   !is_category<C, nobuffer_tag>::value)),
+                                  !is_category<C, no_output_buffer_tag>::value),
                                 void>
         {
         }
+
         template <typename C = category>
-        auto _flush_destruct()
+        auto _flush_destruct_sync()
             -> std::enable_if_t<is_category<C, output>::value &&
-                                    (is_category<C, flushable_tag>::value ||
-                                     !is_category<C, nobuffer_tag>::value),
+                                    is_category<C, syncable_tag>::value,
                                 void>
         {
-            flush();
+            try {
+                sync();
+            }
+            catch (...) {
+            }
+        }
+        template <typename C = category>
+        auto _flush_destruct_sync()
+            -> std::enable_if_t<!(is_category<C, output>::value &&
+                                  is_category<C, syncable_tag>::value),
+                                void>
+        {
+        }
+
+        void _flush_destruct()
+        {
+            _flush_destruct_flush();
+            _flush_destruct_sync();
         }
 
         void _handle_tied();
@@ -661,6 +661,7 @@ private:
     auto _buffered_read(span<char_type> s)
         -> std::enable_if_t<is_category<C, input>::value, streamsize>
     {
+        base::_handle_tied();
         auto bufsiz =
             static_cast<std::ptrdiff_t>(base::get_source_buffer().size());
         if (bufsiz >= s.size()) {
@@ -678,17 +679,19 @@ private:
     template <typename C = category>
     auto _buffered_write(span<const char_type> s)
         -> std::enable_if_t<is_category<C, output>::value &&
-                                is_category<C, nobuffer_tag>::value,
+                                is_category<C, no_output_buffer_tag>::value,
                             streamsize>
     {
+        base::_handle_tied();
         return base::get_device().write(s);
     }
     template <typename C = category>
     auto _buffered_write(span<const char_type> s)
         -> std::enable_if_t<is_category<C, output>::value &&
-                                !is_category<C, nobuffer_tag>::value,
+                                !is_category<C, no_output_buffer_tag>::value,
                             streamsize>
     {
+        base::_handle_tied();
         if (!base::get_sink_buffer().is_writable_mode()) {
             return base::get_device().write(s);
         }
