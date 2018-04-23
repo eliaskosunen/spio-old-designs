@@ -164,6 +164,46 @@ namespace detail {
             basic_source_members_base;
     };
 
+    template <typename CharT,
+              typename Formatter,
+              typename Write,
+              typename... Args>
+    void print(Formatter& f, Write&& w, const CharT* fmt, const Args&... a)
+    {
+        using context = typename fmt::buffer_context<CharT>::type;
+        auto str = f(fmt, fmt::basic_format_args<context>(
+                              fmt::make_format_args<context>(a...)));
+        w(make_span(str));
+    }
+
+    template <typename CharT,
+              typename Scanner,
+              typename Stream,
+              typename... Args>
+    void scan(Scanner& s,
+              Stream& stream,
+              bool overread,
+              const CharT* fmt,
+              Args&... a)
+    {
+        auto ref = basic_stream_ref<CharT, input>(stream);
+        s(ref, fmt, overread, a...);
+    }
+    template <typename CharT, typename Scanner, typename... Args>
+    void scan(Scanner& s,
+              basic_stream_ref<CharT, input>& ref,
+              bool overread,
+              const CharT* fmt,
+              Args&... a)
+    {
+        s(ref, fmt, overread, a...);
+    }
+
+    template <typename CharT, typename T>
+    void getline(T container, CharT delim)
+    {
+    }
+
     template <typename Device,
               typename Formatter,
               typename Scanner,
@@ -529,7 +569,7 @@ public:
     auto readword(span<char_type> s)
         -> std::enable_if_t<is_category<C, input>::value, streamsize>
     {
-        auto opt = scan_options<char_type>{can_overread(*this)};
+        auto opt = scan_options<char_type>{can_overread(base::get_device())};
         streamsize i = 1;
         for (auto& ch : s) {
             auto tmp = get();
@@ -565,14 +605,9 @@ public:
             return 0;
         }
     }
+
     template <typename C = category>
-    auto getline(span<char_type> s)
-        -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
-    {
-        return getline(s, char_type('\n'));
-    }
-    template <typename C = category>
-    auto getline(span<char_type> s, char_type delim)
+    auto getline(span<char_type> s, char_type delim = char_type{'\n'})
         -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
     {
         auto it = s.begin();

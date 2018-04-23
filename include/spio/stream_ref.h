@@ -24,6 +24,7 @@
 #include "error.h"
 #include "fwd.h"
 #include "stream.h"
+#include "util.h"
 
 namespace spio {
 namespace detail {
@@ -53,6 +54,8 @@ namespace detail {
         virtual void close() = 0;
         virtual void flush() = 0;
         virtual void sync() = 0;
+
+        virtual bool _can_overread() = 0;
 
         virtual Formatter& get_formatter() = 0;
         virtual Scanner& get_scanner() = 0;
@@ -418,6 +421,11 @@ namespace detail {
         void sync() override
         {
             do_sync<category>::sync(*m_stream);
+        }
+
+        bool _can_overread() override
+        {
+            return can_overread(m_stream->get_device());
         }
 
         stream_type& get_stream()
@@ -850,11 +858,8 @@ public:
     auto print(const char_type* f, const Args&... a)
         -> std::enable_if_t<is_category<C, output>::value, basic_stream_ref&>
     {
-        using context = typename fmt::buffer_context<char_type>::type;
-        auto str = m_stream->get_formatter()(
-            f, fmt::basic_format_args<context>(
-                   fmt::make_format_args<context>(a...)));
-        write(make_span(str));
+        detail::print<char_type>(m_stream->get_formatter(),
+                                 [&](auto s) { write(s); }, f, a...);
         return *this;
     }
 
@@ -862,7 +867,8 @@ public:
     auto scan(const char_type* f, Args&... a)
         -> std::enable_if_t<is_category<C, input>::value, basic_stream_ref&>
     {
-        m_stream->get_scanner()(*this, f, can_overread(*this), a...);
+        detail::scan<char_type>(m_stream->get_scanner(), *this, _can_overread(),
+                                f, a...);
         return *this;
     }
 
@@ -893,6 +899,12 @@ public:
     }
 
 private:
+    template <typename C = Category>
+    auto _can_overread() -> std::enable_if_t<is_category<C, input>::value, bool>
+    {
+        return m_stream->_can_overread();
+    }
+
     erased_stream m_stream;
 };
 }  // namespace spio

@@ -112,8 +112,11 @@ template <class Default, template <class...> class Op, class... Args>
 using detected_or = detail::detector<Default, void, Op, Args...>;
 
 namespace detail {
+    template <typename Device>
+    using overread_t = decltype(std::declval<Device&>().can_overread());
+
     template <typename Device, typename = void>
-    struct can_overread {
+    struct can_overread_impl {
         static bool value(Device&)
         {
             return true;
@@ -121,9 +124,9 @@ namespace detail {
     };
 
     template <typename Device>
-    struct can_overread<
+    struct can_overread_impl<
         Device,
-        void_t<decltype(std::declval<Device>().can_overread())>> {
+        std::enable_if_t<is_detected<overread_t, Device>::value>> {
         static bool value(Device& d)
         {
             return d.can_overread();
@@ -134,7 +137,7 @@ namespace detail {
 template <typename Device>
 bool can_overread(Device& d)
 {
-    return detail::can_overread<Device>::value(d);
+    return detail::can_overread_impl<Device>::value(d);
 }
 
 template <typename IntT>
