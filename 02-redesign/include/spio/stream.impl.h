@@ -97,11 +97,8 @@ auto basic_stream<Device,
                   Enable>::print(const char_type* f, const Args&... a)
     -> std::enable_if_t<is_category<C, output>::value, basic_stream&>
 {
-    using context = typename fmt::buffer_context<char_type>::type;
-    auto str = base::get_formatter()(
-        f,
-        fmt::basic_format_args<context>(fmt::make_format_args<context>(a...)));
-    write(make_span(str));
+    detail::print<char_type>(base::get_formatter(), [&](auto s) { write(s); },
+                             f, a...);
     return *this;
 }
 
@@ -122,8 +119,8 @@ auto basic_stream<Device,
                   Enable>::scan(const char_type* f, Args&... a)
     -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
 {
-    auto ref = basic_stream_ref<char_type, input>(*this);
-    base::get_scanner()(ref, f, can_overread(*this), a...);
+    detail::scan<char_type>(base::get_scanner(), *this,
+                            can_overread(base::get_device()), f, a...);
     return *this;
 }
 }  // namespace spio
