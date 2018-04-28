@@ -205,3 +205,84 @@ TEST_CASE("wide scan")
         CHECK(ut.num == 255);
     }
 }
+
+TEST_CASE("getline")
+{
+    auto str = std::string{"Hello world!\nHello another line!"};
+    spio::string_instream s(str);
+
+    SUBCASE("fixed")
+    {
+        std::string c(12, 0);
+        s.getline(c);
+        CHECK(c == "Hello world!");
+
+        c = std::string(19, 0);
+        s.getline(c);
+        CHECK(c == "Hello another line!");
+    }
+
+    SUBCASE("fixed oversized")
+    {
+        std::string c(25, 0);
+        s.getline(c);
+        auto hellow = "Hello world!";
+        CHECK(std::equal(hellow, hellow + std::strlen(hellow), std::begin(c)));
+
+        auto hellow_another = "Hello another line!";
+        s.getline(c);
+        CHECK(std::equal(hellow_another,
+                         hellow_another + std::strlen(hellow_another),
+                         std::begin(c)));
+    }
+
+    SUBCASE("fixed undersized")
+    {
+        std::string c(10, 0);
+        s.getline(c);
+        CHECK(c == "Hello worl");
+
+        c = std::string(2, 0);
+        s.getline(c);
+        CHECK(c == "d!");
+
+        c = std::string(19, 0);
+        s.getline(c);
+        CHECK(c == "Hello another line!");
+    }
+
+    SUBCASE("fixed oversized delim")
+    {
+        std::string c(25, 0);
+        s.getline(c, ' ');
+        auto hello = "Hello";
+        CHECK(std::equal(hello, hello + std::strlen(hello), std::begin(c)));
+
+        auto world = "world!";
+        c = std::string(25, 0);
+        s.getline(c, ' ');
+        CHECK(std::equal(world, world + std::strlen(world), std::begin(c)));
+    }
+
+    SUBCASE("dynamic")
+    {
+        std::string c;
+        spio::getline(s, c);
+        CHECK(c == "Hello world!");
+
+        c.clear();
+        spio::getline(s, c);
+        CHECK(c == "Hello another line!");
+    }
+
+    SUBCASE("dynamic delim")
+    {
+        std::string c;
+        spio::getline(s, c, ' ');
+        CHECK(c == "Hello");
+
+        c.clear();
+        spio::getline(s, c, ' ');
+        CHECK(c == "world!");
+    }
+}
