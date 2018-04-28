@@ -18,46 +18,46 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// readme.cpp
-// Example from README.md
+#include <doctest.h>
+#include <spio/spio.h>
 
-#include "examples.h"
-
-void readme()
+TEST_CASE("source buffer")
 {
-    // Write to standard streams
-    spio::out().print("Hello world!\n");
-    spio::err().print("Hello stderr!\n");
-
-    // Read from standard streams
-    spio::out().print("Give me an integer: ");
-    int num{};
-    spio::in().scan("{}", num);
-
-    // Formatted output
-    spio::out().print("Your integer was {}", num).nl();
-
-    spio::out().print("Do you happen to have something to say?\n");
-    std::string say{};
-    spio::getline(spio::in(), say);
-
-    // Buffer IO
-    spio::memory_instream in{spio::make_span(say)};
-    std::vector<std::string> words;
-    while (in && !in.eof()) {
-        std::string tmp;
-        in.scan("{}", tmp);
-        words.push_back(std::move(tmp));
+    SUBCASE("construct")
+    {
+        spio::basic_default_source_buffer<char> buf{};
+        CHECK(buf.size() == 0);
     }
 
-    // Write words to buffer_outstream in reverse order
-    std::vector<char> out_buf;
-    spio::vector_outstream out{out_buf};
-    for (auto it = words.rbegin(); it != words.rend(); ++it) {
-        out.write(*it);
-        if (it + 1 != words.rend()) {
-            out.put(' ');
+    {
+        spio::basic_default_source_buffer<char> buf{};
+        std::vector<char> data{'1', '2', '3', '4', '5'};
+        std::vector<char> in(5, 0);
+
+        SUBCASE("test")
+        {
+            buf.push(data);
+
+            buf.read(in);
+            CHECK(data == in);
+            CHECK(buf.size() == 0);
+
+            buf.push(data);
+
+            buf.read(spio::make_span(in.data(), 4));
+            CHECK(spio::make_span(in.data(), 4) ==
+                  spio::make_span(data.data(), 4));
+
+            buf.push(data);
+            buf.read(in);
+            CHECK(in[0] == data[4]);
+            CHECK(spio::make_span(in).last(4) ==
+                  spio::make_span(data).first(4));
+            CHECK(buf.size() == 1);
+
+            buf.read(spio::make_span(in.data(), 1));
+            CHECK(in[0] == data[4]);
+            CHECK(buf.size() == 0);
         }
     }
-    spio::out().write(out_buf).nl();
 }

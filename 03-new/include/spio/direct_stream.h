@@ -248,7 +248,7 @@ public:
                                   "out of range"};
                 }
                 a = n;
-                return n;
+                return pos_type(n);
             }
             if (d == seekdir::cur) {
                 if (n == 0) {
@@ -281,7 +281,7 @@ public:
             a = max + off;
             return a;
         };
-        auto ret = -1;
+        pos_type ret(-1);
         if ((which & openmode::in) != 0 && is_category<C, input>::value) {
             ret = _seek(m_input, _input_range_size(), dir, off);
         }
@@ -420,7 +420,9 @@ private:
     auto _read(span<char_type> s)
         -> std::enable_if_t<is_category<C, input>::value, streamsize>
     {
-        auto res = base::get_device().input().subspan(m_input);
+        auto res = base::get_device().input().size() > m_input
+                       ? base::get_device().input().subspan(m_input)
+                       : span<char_type>{};
         if (res.size() >= s.size()) {
             std::copy(res.begin(), res.begin() + s.size(), s.begin());
             m_input += s.size();

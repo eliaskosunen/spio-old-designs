@@ -199,11 +199,6 @@ namespace detail {
         s(ref, fmt, overread, a...);
     }
 
-    template <typename CharT, typename T>
-    void getline(T container, CharT delim)
-    {
-    }
-
     template <typename Device,
               typename Formatter,
               typename Scanner,
@@ -377,16 +372,14 @@ namespace detail {
                 setstate(iostate::fail);
             }
             if (fail()) {
+                setstate(iostate::good);
                 throw failure(invalid_operation, "Failbit is set");
             }
         }
         void _handle_exception(const failure& f)
         {
             setstate(iostate::fail);
-            set_error(f.code());
-            if ((exceptions() & iostate::fail) != 0) {
-                throw f;
-            }
+            _handle_error(f.code());
         }
 
         template <typename C = category>
@@ -610,21 +603,38 @@ public:
     auto getline(span<char_type> s, char_type delim = char_type{'\n'})
         -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
     {
-        auto it = s.begin();
-        while (it != s.end() - 1) {
-            auto ch = get();
-            if (base::fail() || base::eof()) {
-                break;
+        try {
+            base::_check_error();
+            auto it = s.begin();
+            bool found_delim = false;
+            while (it != s.end()) {
+                auto ch = get();
+                if (base::fail() || base::eof()) {
+                    break;
+                }
+                if (Traits::eq(ch, delim)) {
+                    found_delim = true;
+                    break;
+                }
+                *it = ch;
+                ++it;
             }
-            if (Traits::eq(ch, delim)) {
-                break;
+            if (!found_delim && !(base::fail() || base::eof())) {
+                auto ch = get();
+                if (!Traits::eq(ch, delim)) {
+                    putback(ch);
+                }
             }
-            *it = ch;
-            ++it;
+            if (!found_delim && it == s.end() && !base::eof()) {
+                throw failure{out_of_range, "Out of range"};
+            }
         }
-        *it = char_type();
+        catch (const failure& f) {
+            base::_handle_exception(f);
+        }
         return *this;
     }
+
     template <typename C = category>
     auto putback(span<const char_type> s)
         -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
@@ -738,6 +748,69 @@ private:
         }
     }
 };
+
+template <typename Stream,
+          typename Container,
+          typename CharT = typename Stream::char_type,
+          typename Traits = typename Stream::traits>
+auto getline(Stream& in, Container& out, CharT delim) -> Stream&
+{
+    out.erase();
+    if (out.empty()) {
+        // Commonly maximum size of SSO
+        out.resize(15);
+    }
+
+    in.get_scanner().skip_ws(in);
+
+    if (!in || in.eof()) {
+        return in;
+    }
+
+    auto it = out.begin();
+    while (true) {
+        auto ch = in.get();
+        if (!Traits::eq(ch, delim)) {
+            if (it == out.end()) {
+                auto s = out.size();
+                auto newsize = s + std::max(64 - s, s);
+                if (newsize > out.max_size()) {
+                    if (s + 1 >= out.max_size()) {
+                        in.setstate(iostate::fail);
+                    }
+                    else {
+                        newsize = out.max_size();
+                    }
+                }
+                out.resize(newsize);
+                it = out.begin() +
+                     static_cast<typename Container::difference_type>(s);
+            }
+            *it = ch;
+        }
+        else {
+            in.get_source_buffer().push(make_span(&ch, 1));
+            out.erase(it, out.end());
+            out.shrink_to_fit();
+            return in;
+        }
+        if (!in || in.eof()) {
+            out.erase(it, out.end());
+            out.shrink_to_fit();
+            return in;
+        }
+        ++it;
+    }
+}
+
+template <typename Stream,
+          typename Container,
+          typename CharT = typename Stream::char_type,
+          typename Traits = typename Stream::traits>
+auto getline(Stream& in, Container& out) -> Stream&
+{
+    return getline(in, out, CharT('\n'));
+}
 }  // namespace spio
 
 #include "stream.impl.h"
