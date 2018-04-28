@@ -423,10 +423,10 @@ namespace detail {
     };
 }  // namespace detail
 
-template <typename CharT, typename Allocator>
+template <typename CharT, typename Allocator, typename Traits>
 void custom_scan(basic_stream_ref<CharT, input>& s,
                  const CharT*& format,
-                 std::basic_string<CharT, Allocator>& str)
+                 std::basic_string<CharT, Allocator, Traits>& str)
 {
     if (str.empty()) {
         str.resize(15);
@@ -446,7 +446,7 @@ void custom_scan(basic_stream_ref<CharT, input>& s,
             break;
         }
         auto n = static_cast<
-            typename std::basic_string<CharT, Allocator>::difference_type>(
+            typename std::basic_string<CharT, Allocator, Traits>::difference_type>(
             str.size());
         str.resize(str.size() * 2);
         it = str.begin() + n;
@@ -494,15 +494,21 @@ public:
         vscan(s, format, readall, make_args<arg_list>(args...));
     }
 
-    void vscan(stream_type& s, const char_type* format, bool readall, arg_list args);
+    void vscan(stream_type& s,
+               const char_type* format,
+               bool readall,
+               arg_list args);
 
-private:
-    const std::locale* m_locale{std::addressof(global_locale())};
-    scan_options<char_type> make_scan_options(bool readall) const
+    template <typename Stream>
+    void skip_ws(Stream& s)
     {
-        return {readall, m_locale};
+        auto opt = make_scan_options(true);
+        auto ch = s.get();
+        while (s && opt.is_space(ch)) {
+            ch = s.get();
+        }
+        s.putback(ch);
     }
-
     void skip_ws(stream_type& s)
     {
         auto opt = make_scan_options(true);
@@ -511,6 +517,12 @@ private:
             ch = s.get();
         }
         s.putback(ch);
+    }
+
+    const std::locale* m_locale{std::addressof(global_locale())};
+    scan_options<char_type> make_scan_options(bool readall) const
+    {
+        return {readall, m_locale};
     }
 };
 }  // namespace spio

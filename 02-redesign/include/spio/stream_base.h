@@ -33,6 +33,69 @@ struct iostate {
     enum : char { good = 0, bad = 1, fail = 2, eof = 4 };
 };
 
+namespace detail {
+    class stream_error_handler {
+    public:
+        using error_function_type = std::function<bool(const failure&)>;
+
+        stream_error_handler() = default;
+
+        void push(error_function_type f)
+        {
+            m_error_handlers.push_back(std::move(f));
+        }
+        void pop()
+        {
+            m_error_handlers.pop_back();
+        }
+        auto size()
+        {
+            return m_error_handlers.size();
+        }
+        void restore()
+        {
+            m_error_handlers.clear();
+            push(_default_error_handler());
+        }
+
+        auto begin()
+        {
+            return m_error_handlers.begin();
+        }
+        auto end()
+        {
+            return m_error_handlers.end();
+        }
+
+        auto begin() const
+        {
+            return m_error_handlers.begin();
+        }
+        auto end() const
+        {
+            return m_error_handlers.end();
+        }
+
+    private:
+        static error_function_type _default_error_handler()
+        {
+            return [](const failure& e) {
+                if (e.code()) {
+                    throw e;
+                }
+                return true;
+            };
+        }
+        static std::vector<error_function_type> _init_error_handlers()
+        {
+            return {_default_error_handler()};
+        }
+
+        std::vector<error_function_type> m_error_handlers{
+            _init_error_handlers()};
+    };
+}  // namespace detail
+
 class stream_base {
 public:
     stream_base(const stream_base&) = delete;
@@ -86,32 +149,30 @@ public:
         return !(operator bool());
     }
 
-    const std::error_code& error() const
+    auto& error()
     {
         return m_error;
     }
-
-    int exceptions() const
+    auto& error() const
     {
-        return m_exceptions;
-    }
-    void exceptions(int e)
-    {
-        m_exceptions = e;
+        return m_error;
     }
 
 protected:
     stream_base() = default;
 
-    void set_error(std::error_code e)
+    void _handle_error(const failure& e)
     {
-        m_error = std::move(e);
+        for (auto& h : m_error) {
+            if (!h(e)) {
+                break;
+            }
+        }
     }
 
 private:
-    std::error_code m_error{};
     int m_state{iostate::good};
-    int m_exceptions{iostate::fail | iostate::bad};
+    detail::stream_error_handler m_error{};
 };
 }  // namespace spio
 
