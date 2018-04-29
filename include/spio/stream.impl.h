@@ -27,78 +27,56 @@
 #include "util.h"
 
 namespace spio {
-namespace detail {
-    template <typename Device,
-              typename Formatter,
-              typename Scanner,
-              typename SinkBuffer,
-              typename SourceBuffer,
-              typename Traits>
-    auto basic_stream_base<Device,
-                           Formatter,
-                           Scanner,
-                           SinkBuffer,
-                           SourceBuffer,
-                           Traits>::tie() const -> tied_type*
-    {
-        return m_tied;
-    }
-    template <typename Device,
-              typename Formatter,
-              typename Scanner,
-              typename SinkBuffer,
-              typename SourceBuffer,
-              typename Traits>
-    auto basic_stream_base<Device,
-                           Formatter,
-                           Scanner,
-                           SinkBuffer,
-                           SourceBuffer,
-                           Traits>::tie(tied_type* s) -> tied_type*
-    {
-        auto prev = m_tied;
-        m_tied = s;
-        return prev;
-    }
-
-    template <typename Device,
-              typename Formatter,
-              typename Scanner,
-              typename SinkBuffer,
-              typename SourceBuffer,
-              typename Traits>
-    void basic_stream_base<Device,
-                           Formatter,
-                           Scanner,
-                           SinkBuffer,
-                           SourceBuffer,
-                           Traits>::_handle_tied()
-    {
-        if (m_tied) {
-            m_tied->flush();
-        }
-    }
-}  // namespace detail
+template <typename Device,
+          typename Formatter,
+          typename Scanner,
+          typename SinkBuffer,
+          typename SourceBuffer,
+          typename Traits>
+auto basic_stream<Device,
+                  Formatter,
+                  Scanner,
+                  SinkBuffer,
+                  SourceBuffer,
+                  Traits>::tie() const -> tied_type*
+{
+    return m_tied;
+}
+template <typename Device,
+          typename Formatter,
+          typename Scanner,
+          typename SinkBuffer,
+          typename SourceBuffer,
+          typename Traits>
+auto basic_stream<Device,
+                  Formatter,
+                  Scanner,
+                  SinkBuffer,
+                  SourceBuffer,
+                  Traits>::tie(tied_type* s) -> tied_type*
+{
+    auto prev = m_tied;
+    m_tied = s;
+    return prev;
+}
 
 template <typename Device,
           typename Formatter,
           typename Scanner,
           typename SinkBuffer,
           typename SourceBuffer,
-          typename Traits,
-          typename Enable>
+          typename Traits>
 template <typename C, typename... Args>
 auto basic_stream<Device,
                   Formatter,
                   Scanner,
                   SinkBuffer,
                   SourceBuffer,
-                  Traits,
-                  Enable>::print(const char_type* f, const Args&... a)
+                  Traits>::print(const char_type* f, const Args&... a)
     -> std::enable_if_t<is_category<C, output>::value, basic_stream&>
 {
-    detail::print<char_type>(base::get_formatter(), [&](auto s) { write(s); },
-                             f, a...);
+    detail::print<char_type>(get_formatter(), [&](auto s) { write(s); }, f,
+                             a...);
     return *this;
 }
 
@@ -107,20 +85,18 @@ template <typename Device,
           typename Scanner,
           typename SinkBuffer,
           typename SourceBuffer,
-          typename Traits,
-          typename Enable>
+          typename Traits>
 template <typename C, typename... Args>
 auto basic_stream<Device,
                   Formatter,
                   Scanner,
                   SinkBuffer,
                   SourceBuffer,
-                  Traits,
-                  Enable>::scan(const char_type* f, Args&... a)
+                  Traits>::scan(const char_type* f, Args&... a)
     -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
 {
-    detail::scan<char_type>(base::get_scanner(), *this,
-                            can_overread(base::get_device()), f, a...);
+    detail::scan<char_type>(get_scanner(), *this, can_overread(get_device()), f,
+                            a...);
     return *this;
 }
 }  // namespace spio

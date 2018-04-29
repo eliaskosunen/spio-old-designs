@@ -445,9 +445,8 @@ void custom_scan(basic_stream_ref<CharT, input>& s,
         if (opt.is_space(ch)) {
             break;
         }
-        auto n = static_cast<
-            typename std::basic_string<CharT, Allocator, Traits>::difference_type>(
-            str.size());
+        auto n = static_cast<typename std::basic_string<
+            CharT, Allocator, Traits>::difference_type>(str.size());
         str.resize(str.size() * 2);
         it = str.begin() + n;
     }
@@ -500,23 +499,31 @@ public:
                arg_list args);
 
     template <typename Stream>
-    void skip_ws(Stream& s)
+    bool skip_ws(Stream& s)
     {
         auto opt = make_scan_options(true);
         auto ch = s.get();
         while (s && opt.is_space(ch)) {
             ch = s.get();
         }
-        s.putback(ch);
+        if (!opt.is_space(ch)) {
+            s.putback(ch);
+            return true;
+        }
+        return false;
     }
-    void skip_ws(stream_type& s)
+    bool skip_ws(stream_type& s)
     {
         auto opt = make_scan_options(true);
         auto ch = s.get();
         while (s && opt.is_space(ch)) {
             ch = s.get();
         }
-        s.putback(ch);
+        if (!opt.is_space(ch)) {
+            s.putback(ch);
+            return true;
+        }
+        return false;
     }
 
     const std::locale* m_locale{std::addressof(global_locale())};

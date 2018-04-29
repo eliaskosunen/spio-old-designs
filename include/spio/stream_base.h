@@ -169,6 +169,11 @@ protected:
             }
         }
     }
+    void _set_error(int state, const failure& f)
+    {
+        setstate(state);
+        _handle_error(f);
+    }
 
 private:
     int m_state{iostate::good};
