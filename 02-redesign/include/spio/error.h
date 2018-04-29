@@ -40,6 +40,7 @@ enum error {
     unknown_io_error,
     bad_variant_access,
     out_of_range,
+    sentry_error,
     unimplemented,
     unreachable,
     undefined_error
@@ -76,6 +77,8 @@ struct error_category : public std::error_category {
                 return "Bad variant access";
             case out_of_range:
                 return "Out of range";
+            case sentry_error:
+                return "Sentry error";
             case unimplemented:
                 return "Unimplemented";
             case unreachable:

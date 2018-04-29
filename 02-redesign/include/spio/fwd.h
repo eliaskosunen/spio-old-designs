@@ -161,8 +161,7 @@ template <
     typename SinkBuffer = basic_default_sink_buffer<typename Device::char_type>,
     typename SourceBuffer =
         basic_default_source_buffer<typename Device::char_type>,
-    typename Traits = std::char_traits<typename Device::char_type>,
-    typename Enable = void>
+    typename Traits = std::char_traits<typename Device::char_type>>
 class basic_stream;
 
 namespace detail {
