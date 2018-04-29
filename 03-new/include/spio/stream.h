@@ -45,7 +45,8 @@ namespace detail {
     template <typename CharT,
               typename Category,
               typename Formatter,
-              typename Buffer>
+              typename Buffer,
+              typename Traits>
     struct basic_sink_members_base {
         basic_sink_members_base() = default;
         basic_sink_members_base(std::unique_ptr<Buffer> b) : m_buf(std::move(b))
@@ -66,6 +67,15 @@ namespace detail {
             return m_fmt;
         }
 
+        auto& get_pos()
+        {
+            return m_pos;
+        }
+        auto& get_pos() const
+        {
+            return m_pos;
+        }
+
     private:
         template <typename C = Category>
         static auto _init_buf()
@@ -84,36 +94,46 @@ namespace detail {
 
         Formatter m_fmt{};
         std::unique_ptr<Buffer> m_buf{_init_buf()};
+        typename Traits::pos_type m_pos{0};
     };
     template <typename CharT,
               typename Category,
               typename Formatter,
               typename Buffer,
+              typename Traits,
               typename = void>
     struct basic_sink_members {
         Formatter& get_fmt() = delete;
         Buffer* get_sink_buffer() = delete;
         bool has_sink_buffer() const = delete;
+        typename Traits::pos_type& get_pos() = delete;
+        const typename Traits::pos_type& get_pos() const = delete;
     };
     template <typename CharT,
               typename Category,
               typename Formatter,
-              typename Buffer>
+              typename Buffer,
+              typename Traits>
     struct basic_sink_members<
         CharT,
         Category,
         Formatter,
         Buffer,
+        Traits,
         std::enable_if_t<is_category<Category, output>::value>>
-        : basic_sink_members_base<CharT, Category, Formatter, Buffer> {
-        using basic_sink_members_base<CharT, Category, Formatter, Buffer>::
-            basic_sink_members_base;
+        : basic_sink_members_base<CharT, Category, Formatter, Buffer, Traits> {
+        using basic_sink_members_base<CharT,
+                                      Category,
+                                      Formatter,
+                                      Buffer,
+                                      Traits>::basic_sink_members_base;
     };
 
     template <typename CharT,
               typename Category,
               typename Scanner,
-              typename Buffer>
+              typename Buffer,
+              typename Traits>
     struct basic_source_members_base {
         basic_source_members_base() = default;
         basic_source_members_base(std::unique_ptr<Buffer> b)
@@ -135,33 +155,51 @@ namespace detail {
             return m_scan;
         }
 
+        auto& get_pos()
+        {
+            return m_pos;
+        }
+        auto& get_pos() const
+        {
+            return m_pos;
+        }
+
     private:
         Scanner m_scan{};
         std::unique_ptr<Buffer> m_buf{std::make_unique<Buffer>()};
+        typename Traits::pos_type m_pos{0};
     };
     template <typename CharT,
               typename Category,
               typename Scanner,
               typename Buffer,
+              typename Traits,
               typename = void>
     struct basic_source_members {
         Scanner& get_scanner() = delete;
         Buffer* get_source_buffer() = delete;
         bool has_source_buffer() = delete;
+        typename Traits::pos_type& get_pos() = delete;
+        const typename Traits::pos_type& get_pos() const = delete;
     };
     template <typename CharT,
               typename Category,
               typename Scanner,
-              typename Buffer>
+              typename Buffer,
+              typename Traits>
     struct basic_source_members<
         CharT,
         Category,
         Scanner,
         Buffer,
+        Traits,
         std::enable_if_t<is_category<Category, input>::value>>
-        : basic_source_members_base<CharT, Category, Scanner, Buffer> {
-        using basic_source_members_base<CharT, Category, Scanner, Buffer>::
-            basic_source_members_base;
+        : basic_source_members_base<CharT, Category, Scanner, Buffer, Traits> {
+        using basic_source_members_base<CharT,
+                                        Category,
+                                        Scanner,
+                                        Buffer,
+                                        Traits>::basic_source_members_base;
     };
 
     template <typename CharT,
@@ -198,279 +236,6 @@ namespace detail {
     {
         s(ref, fmt, overread, a...);
     }
-
-    template <typename Device,
-              typename Formatter,
-              typename Scanner,
-              typename SinkBuffer,
-              typename SourceBuffer,
-              typename Traits>
-    class basic_stream_base : public stream_base {
-        using sink_members = basic_sink_members<typename Device::char_type,
-                                                typename Device::category,
-                                                Formatter,
-                                                SinkBuffer>;
-        using source_members = basic_source_members<typename Device::char_type,
-                                                    typename Device::category,
-                                                    Scanner,
-                                                    SourceBuffer>;
-
-        using sink_members_ptr = std::unique_ptr<sink_members>;
-        using source_members_ptr = std::unique_ptr<source_members>;
-
-    public:
-        using device_type = Device;
-        using char_type = typename device_type::char_type;
-        using category = typename device_type::category;
-        using formatter_type = Formatter;
-        using scanner_type = Scanner;
-        using sink_buffer_type = SinkBuffer;
-        using source_buffer_type = SourceBuffer;
-        using traits = Traits;
-        using int_type = typename traits::int_type;
-        using tied_type = basic_stream_ref<char_type, make_category<output>>;
-
-        basic_stream_base() = default;
-        basic_stream_base(device_type d) : m_dev(std::move(d)) {}
-        basic_stream_base(device_type d,
-                          std::unique_ptr<SinkBuffer> sinkbuf,
-                          std::unique_ptr<SourceBuffer> sourcebuf)
-            : m_dev(std::move(d)),
-              m_sink(_init_sink_members(std::move(sinkbuf))),
-              m_source(_init_source_members(std::move(sourcebuf)))
-        {
-        }
-
-        ~basic_stream_base()
-        {
-            _flush_destruct();
-        }
-
-        device_type& get_device()
-        {
-            return m_dev;
-        }
-        const device_type& get_device() const
-        {
-            return m_dev;
-        }
-
-        template <typename... Args>
-        auto open(Args&&... a)
-            -> std::enable_if_t<is_openable_device<device_type, Args...>::value,
-                                basic_stream_base&>
-        {
-            try {
-                _check_error();
-                m_dev.open(std::forward<Args>(a)...);
-            }
-            catch (const failure& f) {
-                _handle_exception(f);
-            }
-            return *this;
-        }
-        template <typename C = category>
-        auto is_open() const
-            -> std::enable_if_t<is_category<C, closable_tag>::value, bool>
-        {
-            return m_dev.is_open();
-        }
-
-        template <typename C = category>
-        auto close() -> std::enable_if_t<is_category<C, closable_tag>::value,
-                                         basic_stream_base&>
-        {
-            try {
-                _check_error();
-                m_dev.close();
-            }
-            catch (const failure& f) {
-                _handle_exception(f);
-            }
-            return *this;
-        }
-
-        template <typename C = category>
-        auto flush() -> std::enable_if_t<
-            is_category<C, output>::value &&
-                !is_category<C, no_output_buffer_tag>::value,
-            basic_stream_base&>
-        {
-            try {
-                _check_error();
-                auto b = get_sink_buffer().get_flushable_data();
-                auto n = m_dev.write(b);
-                get_sink_buffer().flag_flushed(n);
-            }
-            catch (const failure& f) {
-                _handle_exception(f);
-            }
-            return *this;
-        }
-
-        template <typename C = category>
-        auto sync() -> std::enable_if_t<is_category<C, output>::value &&
-                                            is_category<C, syncable_tag>::value,
-                                        basic_stream_base&>
-        {
-            try {
-                _check_error();
-                m_dev.sync();
-            }
-            catch (const failure& f) {
-                _handle_exception(f);
-            }
-            return *this;
-        }
-
-        tied_type* tie() const;
-        tied_type* tie(tied_type* s);
-
-        template <typename C = category, typename... Args>
-        auto print(const char_type* f, const Args&... a)
-            -> std::enable_if_t<is_category<C, output>::value,
-                                basic_stream_base&>;
-
-        template <typename C = category, typename... Args>
-        auto scan(const char_type* f, Args&... a)
-            -> std::enable_if_t<is_category<C, input>::value,
-                                basic_stream_base&>;
-
-        template <typename C = category>
-        auto get_formatter()
-            -> std::enable_if_t<is_category<C, output>::value, formatter_type&>
-        {
-            return m_sink->get_fmt();
-        }
-        template <typename C = category>
-        auto get_scanner()
-            -> std::enable_if_t<is_category<C, input>::value, scanner_type&>
-        {
-            return m_source->get_scanner();
-        }
-
-        template <typename C = category>
-        auto get_sink_buffer() -> std::enable_if_t<
-            is_category<C, output>::value &&
-                !is_category<C, no_output_buffer_tag>::value,
-            sink_buffer_type&>
-        {
-            return *m_sink->get_sink_buffer();
-        }
-        template <typename C = category>
-        auto get_source_buffer()
-            -> std::enable_if_t<is_category<C, input>::value,
-                                source_buffer_type&>
-        {
-            return *m_source->get_source_buffer();
-        }
-
-    protected:
-        void _check_error()
-        {
-            if (eof() || bad()) {
-                setstate(iostate::fail);
-            }
-            if (fail()) {
-                setstate(iostate::good);
-                throw failure(invalid_operation, "Failbit is set");
-            }
-        }
-        void _handle_exception(const failure& f)
-        {
-            setstate(iostate::fail);
-            _handle_error(f.code());
-        }
-
-        template <typename C = category>
-        auto _flush_destruct_flush() -> std::enable_if_t<
-            is_category<C, output>::value &&
-                !is_category<C, no_output_buffer_tag>::value,
-            void>
-        {
-            try {
-                flush();
-            }
-            catch (...) {
-            }
-        }
-        template <typename C = category>
-        auto _flush_destruct_flush()
-            -> std::enable_if_t<!(is_category<C, output>::value &&
-                                  !is_category<C, no_output_buffer_tag>::value),
-                                void>
-        {
-        }
-
-        template <typename C = category>
-        auto _flush_destruct_sync()
-            -> std::enable_if_t<is_category<C, output>::value &&
-                                    is_category<C, syncable_tag>::value,
-                                void>
-        {
-            try {
-                sync();
-            }
-            catch (...) {
-            }
-        }
-        template <typename C = category>
-        auto _flush_destruct_sync()
-            -> std::enable_if_t<!(is_category<C, output>::value &&
-                                  is_category<C, syncable_tag>::value),
-                                void>
-        {
-        }
-
-        void _flush_destruct()
-        {
-            _flush_destruct_flush();
-            _flush_destruct_sync();
-        }
-
-        void _handle_tied();
-
-        template <typename C = category>
-        static auto _init_sink_members(
-            std::unique_ptr<SinkBuffer> buf = std::make_unique<SinkBuffer>())
-            -> std::enable_if_t<is_category<C, output>::value, sink_members_ptr>
-        {
-            return std::make_unique<sink_members>(std::move(buf));
-        }
-        template <typename C = category>
-        static auto _init_sink_members(
-            std::unique_ptr<SinkBuffer> buf = nullptr)
-            -> std::enable_if_t<!is_category<C, output>::value,
-                                sink_members_ptr>
-        {
-            SPIO_UNUSED(buf);
-            return nullptr;
-        }
-
-        template <typename C = category>
-        static auto _init_source_members(std::unique_ptr<SourceBuffer> buf =
-                                             std::make_unique<SourceBuffer>())
-            -> std::enable_if_t<is_category<C, input>::value,
-                                source_members_ptr>
-        {
-            return std::make_unique<source_members>(std::move(buf));
-        }
-        template <typename C = category>
-        static auto _init_source_members(
-            std::unique_ptr<SourceBuffer> buf = nullptr)
-            -> std::enable_if_t<!is_category<C, input>::value,
-                                source_members_ptr>
-        {
-            SPIO_UNUSED(buf);
-            return nullptr;
-        }
-
-    private:
-        device_type m_dev{};
-        tied_type* m_tied{nullptr};
-        sink_members_ptr m_sink{_init_sink_members()};
-        source_members_ptr m_source{_init_source_members()};
-    };
 }  // namespace detail
 
 template <typename Device,
@@ -478,41 +243,128 @@ template <typename Device,
           typename Scanner,
           typename SinkBuffer,
           typename SourceBuffer,
-          typename Traits,
-          typename Enable>
-class basic_stream : public detail::basic_stream_base<Device,
-                                                      Formatter,
-                                                      Scanner,
-                                                      SinkBuffer,
-                                                      SourceBuffer,
-                                                      Traits> {
-    using base = detail::basic_stream_base<Device,
-                                           Formatter,
-                                           Scanner,
-                                           SinkBuffer,
-                                           SourceBuffer,
-                                           Traits>;
+          typename Traits>
+class basic_stream : public stream_base {
+    using sink_members = detail::basic_sink_members<typename Device::char_type,
+                                                    typename Device::category,
+                                                    Formatter,
+                                                    SinkBuffer,
+                                                    Traits>;
+    using source_members =
+        detail::basic_source_members<typename Device::char_type,
+                                     typename Device::category,
+                                     Scanner,
+                                     SourceBuffer,
+                                     Traits>;
+
+    using sink_members_ptr = std::unique_ptr<sink_members>;
+    using source_members_ptr = std::unique_ptr<source_members>;
+
+    class instream_sentry {
+    public:
+        instream_sentry(basic_stream& s, bool noskipws = false) : m_stream(s)
+        {
+            if (!s.good()) {
+                s._set_error(iostate::fail,
+                             failure{invalid_operation, "Stream is not good"});
+                return;
+            }
+
+            if (s.tie()) {
+                s.tie()->flush();
+            }
+
+            if (!noskipws) {
+                if (!s.get_scanner().skip_ws(s)) {
+                    s.setstate(iostate::eof);
+                    s._set_error(
+                        iostate::fail,
+                        failure{end_of_file, "EOF while skipping whitespace"});
+                    return;
+                }
+            }
+
+            m_success = s.good();
+        }
+
+        instream_sentry(const instream_sentry&) = delete;
+        instream_sentry& operator=(const instream_sentry&) = delete;
+        instream_sentry(instream_sentry&&) = delete;
+        instream_sentry& operator=(instream_sentry&&) = delete;
+        ~instream_sentry() = default;
+
+        explicit operator bool() const
+        {
+            return m_success;
+        }
+
+    private:
+        basic_stream& m_stream;
+        bool m_success{false};
+    };
+    class outstream_sentry {
+    public:
+        outstream_sentry(basic_stream& s) : m_stream(s)
+        {
+            if (!s.good()) {
+                s._set_error(iostate::fail,
+                             failure{invalid_operation, "Stream is not good"});
+                return;
+            }
+
+            if (s.tie()) {
+                s.tie()->flush();
+            }
+
+            m_success = s.good();
+        }
+
+        outstream_sentry(const outstream_sentry&) = delete;
+        outstream_sentry& operator=(const outstream_sentry&) = delete;
+        outstream_sentry(outstream_sentry&&) = delete;
+        outstream_sentry& operator=(outstream_sentry&&) = delete;
+        ~outstream_sentry() = default;
+
+        explicit operator bool() const
+        {
+            return m_success;
+        }
+
+    private:
+        basic_stream& m_stream;
+        bool m_success{false};
+    };
+
+    friend class instream_sentry;
+    friend class outstream_sentry;
 
 public:
-    using device_type = typename base::device_type;
-    using char_type = typename base::char_type;
-    using category = typename base::category;
-    using formatter_type = typename base::formatter_type;
-    using scanner_type = typename base::scanner_type;
-    using sink_buffer_type = typename base::sink_buffer_type;
-    using source_buffer_type = typename base::source_buffer_type;
-    using traits = typename base::traits;
-    using int_type = typename base::int_type;
-
-    using tied_type = typename base::tied_type;
+    using device_type = Device;
+    using char_type = typename device_type::char_type;
+    using category = typename device_type::category;
+    using formatter_type = Formatter;
+    using scanner_type = Scanner;
+    using sink_buffer_type = SinkBuffer;
+    using source_buffer_type = SourceBuffer;
+    using traits = Traits;
+    using int_type = typename traits::int_type;
+    using pos_type = typename traits::pos_type;
+    using tied_type = basic_stream_ref<char_type, make_category<output>>;
 
     basic_stream() = default;
-    basic_stream(device_type d) : base(std::move(d)) {}
+    basic_stream(device_type d) : m_dev(std::move(d)) {}
     basic_stream(device_type d,
                  std::unique_ptr<SinkBuffer> sinkbuf,
                  std::unique_ptr<SourceBuffer> sourcebuf)
-        : base(std::move(d), std::move(sinkbuf), std::move(sourcebuf))
+        : m_dev(std::move(d)),
+          m_sink(_init_sink_members(std::move(sinkbuf))),
+          m_source(_init_source_members(std::move(sourcebuf)))
     {
+    }
+
+    ~basic_stream()
+    {
+        _flush_destruct();
     }
 
     template <typename C = category>
@@ -520,17 +372,18 @@ public:
         -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
     {
         try {
-            base::_check_error();
-            if (base::eof()) {
-                throw failure(end_of_file);
+            instream_sentry sen(*this, true);
+            if (!sen) {
+                _set_error(iostate::bad, failure{sentry_error});
             }
+
             auto ret = _buffered_read(s);
             if (ret == -1) {
-                base::setstate(iostate::eof);
+                setstate(iostate::eof);
             }
         }
         catch (const failure& f) {
-            base::_handle_exception(f);
+            _handle_exception(f);
         }
         return *this;
     }
@@ -539,14 +392,17 @@ public:
         -> std::enable_if_t<is_category<C, output>::value, basic_stream&>
     {
         try {
-            base::_check_error();
+            outstream_sentry sen(*this);
+            if (!sen) {
+                _set_error(iostate::bad, failure{sentry_error});
+            }
             auto ret = _buffered_write(s);
             if (ret != s.size()) {
-                throw failure(unknown_io_error);
+                _set_error(iostate::bad, failure{unknown_io_error});
             }
         }
         catch (const failure& f) {
-            base::_handle_exception(f);
+            _handle_exception(f);
         }
         return *this;
     }
@@ -562,39 +418,53 @@ public:
     auto readword(span<char_type> s)
         -> std::enable_if_t<is_category<C, input>::value, streamsize>
     {
-        auto opt = scan_options<char_type>{can_overread(base::get_device())};
-        streamsize i = 1;
-        for (auto& ch : s) {
-            auto tmp = get();
-            if (base::fail()) {
-                break;
+        try {
+            instream_sentry sen(*this);
+            if (!sen) {
+                _set_error(iostate::bad, failure{sentry_error});
             }
-            if (opt.is_space(tmp)) {
-                putback(tmp);
-                break;
+            auto opt = scan_options<char_type>{can_overread(get_device())};
+            streamsize i = 1;
+            for (auto& ch : s) {
+                auto tmp = get();
+                if (fail()) {
+                    break;
+                }
+                if (opt.is_space(tmp)) {
+                    putback(tmp);
+                    break;
+                }
+                if (eof()) {
+                    break;
+                }
+                ch = tmp;
+                ++i;
             }
-            if (base::eof()) {
-                break;
-            }
-            ch = tmp;
-            ++i;
+            return i;
         }
-        return i;
+        catch (const failure& f) {
+            _handle_exception(f);
+        }
+        return -1;
     }
     template <typename C = category>
     auto readsome(span<char_type> s)
         -> std::enable_if_t<is_category<C, input>::value, streamsize>
     {
         try {
-            base::_check_error();
+            instream_sentry sen(*this);
+            if (!sen) {
+                _set_error(iostate::bad, failure{sentry_error});
+            }
+
             auto n = std::min(
-                static_cast<std::ptrdiff_t>(base::get_source_buffer().size()),
+                static_cast<std::ptrdiff_t>(get_source_buffer().size()),
                 s.size());
-            base::get_source_buffer().read(s.first(n));
+            get_source_buffer().read(s.first(n));
             return n;
         }
         catch (const failure& f) {
-            base::_handle_exception(f);
+            _handle_exception(f);
             return 0;
         }
     }
@@ -604,12 +474,16 @@ public:
         -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
     {
         try {
-            base::_check_error();
+            instream_sentry sen(*this);
+            if (!sen) {
+                _set_error(iostate::bad, failure{sentry_error});
+            }
+
             auto it = s.begin();
             bool found_delim = false;
             while (it != s.end()) {
                 auto ch = get();
-                if (base::fail() || base::eof()) {
+                if (fail() || eof()) {
                     break;
                 }
                 if (Traits::eq(ch, delim)) {
@@ -619,18 +493,18 @@ public:
                 *it = ch;
                 ++it;
             }
-            if (!found_delim && !(base::fail() || base::eof())) {
+            if (!found_delim && !(fail() || eof())) {
                 auto ch = get();
                 if (!Traits::eq(ch, delim)) {
                     putback(ch);
                 }
             }
-            if (!found_delim && it == s.end() && !base::eof()) {
-                throw failure{out_of_range, "Out of range"};
+            if (!found_delim && it == s.end() && !eof()) {
+                _set_error(iostate::fail, failure{out_of_range});
             }
         }
         catch (const failure& f) {
-            base::_handle_exception(f);
+            _handle_exception(f);
         }
         return *this;
     }
@@ -639,8 +513,8 @@ public:
     auto putback(span<const char_type> s)
         -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
     {
-        base::clear_eof();
-        base::get_source_buffer().push(s);
+        clear_eof();
+        get_source_buffer().push(s);
         return *this;
     }
     template <typename C = category>
@@ -663,7 +537,7 @@ public:
     {
         for (std::size_t i = 0; i < count; ++i) {
             if (Traits::eq_int_type(Traits::to_int_type(get()), delim) ||
-                base::eof() || !*this) {
+                eof() || !*this) {
                 break;
             }
         }
@@ -680,18 +554,168 @@ public:
     auto seek(typename Traits::off_type off,
               seekdir dir,
               int which = openmode::in | openmode::out)
-        -> std::enable_if_t<is_category<C, detail::random_access>::value,
+        -> std::enable_if_t<is_category<C, detail::random_access>::value &&
+                                !is_category<C, direct_tag>::value,
                             typename Traits::pos_type>
     {
         try {
-            base::_check_error();
-            return base::get_device().seek(off, dir, which);
+            return get_device().seek(off, dir, which);
         }
         catch (const failure& f) {
-            base::_handle_exception(f);
+            _handle_exception(f);
         }
         return static_cast<typename Traits::off_type>(-1);
     }
+    template <typename C = category>
+    auto seek(typename Traits::off_type off,
+              seekdir dir,
+              int which = openmode::in | openmode::out)
+        -> std::enable_if_t<is_category<C, detail::random_access>::value &&
+                                is_category<C, direct_tag>::value,
+                            typename Traits::pos_type>
+    {
+        if (is_category<C, input>::value && is_category<C, output>::value &&
+            (which & openmode::in) != 0 && (which & openmode::out) != 0 &&
+            get_input_pos() != get_output_pos()) {
+            return -1;
+        }
+
+        auto _seek = [&](pos_type& a, pos_type max, seekdir d,
+                         typename traits::off_type n) {
+            if (d == seekdir::beg) {
+                if (max < n || n < 0) {
+                    _set_error(
+                        iostate::fail,
+                        failure{make_error_code(std::errc::invalid_argument),
+                                "basic_stream<direct_tag>::seek: offset is "
+                                "out of range"});
+                }
+                a = n;
+                return pos_type(n);
+            }
+            if (d == seekdir::cur) {
+                if (n == 0) {
+                    return a;
+                }
+                if (n < 0) {
+                    if (a < -n) {
+                        _set_error(
+                            iostate::fail,
+                            failure{
+                                make_error_code(std::errc::invalid_argument),
+                                "basic_stream<direct_tag>::seek: offset is "
+                                "out of range"});
+                    }
+                    a -= n;
+                    return a;
+                }
+                if (a < n) {
+                    _set_error(
+                        iostate::fail,
+                        failure{make_error_code(std::errc::invalid_argument),
+                                "basic_stream<direct_tag>::seek: offset is "
+                                "out of range"});
+                }
+                a += n;
+                return a;
+            }
+
+            if (max < -n || n > 0) {
+                _set_error(iostate::fail,
+                           failure{make_error_code(std::errc::invalid_argument),
+                                   "basic_stream<direct_tag>::seek: offset is "
+                                   "out of range"});
+            }
+            a = max + off;
+            return a;
+        };
+        pos_type ret(-1);
+        if ((which & openmode::in) != 0 && is_category<C, input>::value) {
+            ret = _seek(get_input_pos(), _input_range_size(), dir, off);
+        }
+        if ((which & openmode::out) != 0 && is_category<C, output>::value) {
+            auto tmp = _seek(get_output_pos(), _output_range_size(), dir, off);
+            assert(ret == -1 || tmp == ret);
+            ret = tmp;
+        }
+        return ret;
+    }
+
+    device_type& get_device()
+    {
+        return m_dev;
+    }
+    const device_type& get_device() const
+    {
+        return m_dev;
+    }
+
+    template <typename... Args>
+    auto open(Args&&... a) -> std::enable_if_t<
+        detail::is_openable_device<device_type, Args...>::value,
+        basic_stream&>
+    {
+        try {
+            m_dev.open(std::forward<Args>(a)...);
+        }
+        catch (const failure& f) {
+            _handle_exception(f);
+        }
+        return *this;
+    }
+    template <typename C = category>
+    auto is_open() const
+        -> std::enable_if_t<is_category<C, closable_tag>::value, bool>
+    {
+        return m_dev.is_open();
+    }
+
+    template <typename C = category>
+    auto close()
+        -> std::enable_if_t<is_category<C, closable_tag>::value, basic_stream&>
+    {
+        try {
+            m_dev.close();
+        }
+        catch (const failure& f) {
+            _handle_exception(f);
+        }
+        return *this;
+    }
+
+    template <typename C = category>
+    auto flush()
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                !is_category<C, no_output_buffer_tag>::value,
+                            basic_stream&>
+    {
+        try {
+            auto b = get_sink_buffer().get_flushable_data();
+            auto n = m_dev.write(b);
+            get_sink_buffer().flag_flushed(n);
+        }
+        catch (const failure& f) {
+            _handle_exception(f);
+        }
+        return *this;
+    }
+
+    template <typename C = category>
+    auto sync() -> std::enable_if_t<is_category<C, output>::value &&
+                                        is_category<C, syncable_tag>::value,
+                                    basic_stream&>
+    {
+        try {
+            m_dev.sync();
+        }
+        catch (const failure& f) {
+            _handle_exception(f);
+        }
+        return *this;
+    }
+
+    tied_type* tie() const;
+    tied_type* tie(tied_type* s);
 
     template <typename C = category, typename... Args>
     auto print(const char_type* f, const Args&... a)
@@ -701,52 +725,404 @@ public:
     auto scan(const char_type* f, Args&... a)
         -> std::enable_if_t<is_category<C, input>::value, basic_stream&>;
 
-private:
     template <typename C = category>
-    auto _buffered_read(span<char_type> s)
-        -> std::enable_if_t<is_category<C, input>::value, streamsize>
+    auto get_formatter()
+        -> std::enable_if_t<is_category<C, output>::value, formatter_type&>
     {
-        base::_handle_tied();
-        auto bufsiz =
-            static_cast<std::ptrdiff_t>(base::get_source_buffer().size());
+        return m_sink->get_fmt();
+    }
+    template <typename C = category>
+    auto get_scanner()
+        -> std::enable_if_t<is_category<C, input>::value, scanner_type&>
+    {
+        return m_source->get_scanner();
+    }
+
+    template <typename C = category>
+    auto get_sink_buffer()
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                !is_category<C, no_output_buffer_tag>::value,
+                            sink_buffer_type&>
+    {
+        return *m_sink->get_sink_buffer();
+    }
+    template <typename C = category>
+    auto get_source_buffer()
+        -> std::enable_if_t<is_category<C, input>::value, source_buffer_type&>
+    {
+        return *m_source->get_source_buffer();
+    }
+
+    template <typename C = category>
+    auto unchecked_read(span<char_type> s)
+        -> std::enable_if_t<is_category<C, input>::value &&
+                                is_category<C, direct_tag>::value,
+                            streamsize>
+    {
+        auto _read_nocheck = [&](span<char_type> data) {
+            auto res = get_device().input().subspan(get_input_pos());
+            std::copy(res.begin(), res.begin() + data.size(), data.begin());
+            get_input_pos() += data.size();
+            return data.size();
+        };
+
+        auto bufsiz = static_cast<std::ptrdiff_t>(get_source_buffer().size());
         if (bufsiz >= s.size()) {
-            base::get_source_buffer().read(s);
-            return s.size();
+            return _read_nocheck(s);
         }
-        auto r = base::get_device().read(s.last(s.size() - bufsiz));
+
+        auto r = _read_nocheck(s.last(s.size() - bufsiz));
         if (r == -1) {
             return -1;
         }
-        base::get_source_buffer().read(s.first(bufsiz));
+        get_source_buffer().read(s.first(bufsiz));
+        return bufsiz + r;
+    }
+    template <typename C = category>
+    auto unchecked_write(span<const char_type> s)
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                is_category<C, no_output_buffer_tag>::value &&
+                                is_category<C, direct_tag>::value,
+                            streamsize>
+    {
+        prepare_direct();
+        auto res = get_device().output().subspan(get_output_pos());
+        std::copy(s.begin(), s.begin() + s.size(), res.begin());
+        get_output_pos() += s.size();
+        return s.size();
+    }
+    template <typename C = category>
+    auto unchecked_write(span<const char_type> s)
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                !is_category<C, no_output_buffer_tag>::value &&
+                                is_category<C, direct_tag>::value,
+                            streamsize>
+    {
+        prepare_direct();
+        auto _write_nocheck = [&](span<const char_type> data) {
+            auto res = get_device().output().subspan(get_output_pos());
+            std::copy(data.begin(), data.begin() + data.size(), res.begin());
+            get_output_pos() += data.size();
+            return data.size();
+        };
+        if (!get_sink_buffer().is_writable_mode()) {
+            return _write_nocheck(s);
+        }
+        else {
+            return get_sink_buffer().write(s, [&](span<const char_type> data) {
+                return _write_nocheck(data);
+            });
+        }
+    }
+
+    template <typename C = category>
+    auto input_range()
+        -> std::enable_if_t<is_category<C, input>::value &&
+                                is_category<C, direct_tag>::value,
+                            span<const char_type>>
+    {
+        return get_device().input();
+    }
+    template <typename C = category>
+    auto output_range()
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                is_category<C, direct_tag>::value,
+                            span<char_type>>
+    {
+        return get_device().output();
+    }
+
+    template <typename C = category>
+    auto prepare_direct()
+        -> std::enable_if_t<is_category<C, direct_tag>::value, span<char_type>>
+    {
+        instream_sentry sen(*this);
+        if (!sen) {
+            _set_error(iostate::bad, failure{sentry_error});
+        }
+    }
+
+protected:
+    void _handle_exception(const failure& f)
+    {
+        _set_error(iostate::fail, f);
+    }
+
+    template <typename C = category>
+    auto _flush_destruct_flush()
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                !is_category<C, no_output_buffer_tag>::value,
+                            void>
+    {
+        try {
+            flush();
+        }
+        catch (...) {
+        }
+    }
+    template <typename C = category>
+    auto _flush_destruct_flush()
+        -> std::enable_if_t<!(is_category<C, output>::value &&
+                              !is_category<C, no_output_buffer_tag>::value),
+                            void>
+    {
+    }
+
+    template <typename C = category>
+    auto _flush_destruct_sync()
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                is_category<C, syncable_tag>::value,
+                            void>
+    {
+        try {
+            sync();
+        }
+        catch (...) {
+        }
+    }
+    template <typename C = category>
+    auto _flush_destruct_sync()
+        -> std::enable_if_t<!(is_category<C, output>::value &&
+                              is_category<C, syncable_tag>::value),
+                            void>
+    {
+    }
+
+    void _flush_destruct()
+    {
+        _flush_destruct_flush();
+        _flush_destruct_sync();
+    }
+
+    void _handle_tied();
+
+    template <typename C = category>
+    static auto _init_sink_members(
+        std::unique_ptr<SinkBuffer> buf = std::make_unique<SinkBuffer>())
+        -> std::enable_if_t<is_category<C, output>::value, sink_members_ptr>
+    {
+        return std::make_unique<sink_members>(std::move(buf));
+    }
+    template <typename C = category>
+    static auto _init_sink_members(std::unique_ptr<SinkBuffer> buf = nullptr)
+        -> std::enable_if_t<!is_category<C, output>::value, sink_members_ptr>
+    {
+        SPIO_UNUSED(buf);
+        return nullptr;
+    }
+
+    template <typename C = category>
+    static auto _init_source_members(
+        std::unique_ptr<SourceBuffer> buf = std::make_unique<SourceBuffer>())
+        -> std::enable_if_t<is_category<C, input>::value, source_members_ptr>
+    {
+        return std::make_unique<source_members>(std::move(buf));
+    }
+    template <typename C = category>
+    static auto _init_source_members(
+        std::unique_ptr<SourceBuffer> buf = nullptr)
+        -> std::enable_if_t<!is_category<C, input>::value, source_members_ptr>
+    {
+        SPIO_UNUSED(buf);
+        return nullptr;
+    }
+
+    template <typename C = category>
+    auto _input_range_size()
+        -> std::enable_if_t<is_category<C, input>::value &&
+                                is_category<C, direct_tag>::value,
+                            streamsize>
+    {
+        return input_range().size();
+    }
+    template <typename C = category>
+    auto _input_range_size()
+        -> std::enable_if_t<!is_category<C, input>::value &&
+                                is_category<C, direct_tag>::value,
+                            streamsize>
+    {
+        return -1;
+    }
+
+    template <typename C = category>
+    auto _output_range_size()
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                is_category<C, direct_tag>::value,
+                            streamsize>
+    {
+        return output_range().size();
+    }
+    template <typename C = category>
+    auto _output_range_size()
+        -> std::enable_if_t<!is_category<C, output>::value &&
+                                is_category<C, direct_tag>::value,
+                            streamsize>
+    {
+        return -1;
+    }
+
+    template <typename C = category>
+    auto _direct_read(span<char_type> s)
+        -> std::enable_if_t<is_category<C, input>::value &&
+                                is_category<C, direct_tag>::value,
+                            streamsize>
+    {
+        auto res = get_device().input().size() > get_input_pos()
+                       ? get_device().input().subspan(get_input_pos())
+                       : span<char_type>{};
+        if (res.size() >= s.size()) {
+            std::copy(res.begin(), res.begin() + s.size(), s.begin());
+            get_input_pos() += s.size();
+            return s.size();
+        }
+        else {
+            return -1;
+        }
+    }
+    template <typename C = category>
+    auto _buffered_read(span<char_type> s)
+        -> std::enable_if_t<is_category<C, input>::value &&
+                                !is_category<C, direct_tag>::value,
+                            streamsize>
+    {
+        auto bufsiz = static_cast<std::ptrdiff_t>(get_source_buffer().size());
+        if (bufsiz >= s.size()) {
+            get_source_buffer().read(s);
+            return s.size();
+        }
+        auto r = get_device().read(s.last(s.size() - bufsiz));
+        if (r == -1) {
+            return -1;
+        }
+        get_source_buffer().read(s.first(bufsiz));
+        return bufsiz + r;
+    }
+    template <typename C = category>
+    auto _buffered_read(span<char_type> s)
+        -> std::enable_if_t<is_category<C, input>::value &&
+                                is_category<C, direct_tag>::value,
+                            streamsize>
+    {
+        auto bufsiz = static_cast<std::ptrdiff_t>(get_source_buffer().size());
+        if (bufsiz >= s.size()) {
+            return _direct_read(s);
+        }
+
+        auto r = _direct_read(s.last(s.size() - bufsiz));
+        if (r == -1) {
+            return -1;
+        }
+        get_source_buffer().read(s.first(bufsiz));
         return bufsiz + r;
     }
 
     template <typename C = category>
-    auto _buffered_write(span<const char_type> s)
-        -> std::enable_if_t<is_category<C, output>::value &&
-                                is_category<C, no_output_buffer_tag>::value,
+    auto _direct_write(span<const char_type> s)
+        -> std::enable_if_t<is_category<C, input>::value &&
+                                is_category<C, direct_tag>::value,
                             streamsize>
     {
-        base::_handle_tied();
-        return base::get_device().write(s);
+        auto res = get_device().output().subspan(get_output_pos());
+        if (res.size() <= s.size()) {
+            std::copy(s.begin(), s.begin() + s.size(), res.begin());
+            get_output_pos() += s.size();
+            return s.size();
+        }
+        else {
+            _set_error(iostate::fail, failure{out_of_range});
+        }
     }
     template <typename C = category>
     auto _buffered_write(span<const char_type> s)
         -> std::enable_if_t<is_category<C, output>::value &&
-                                !is_category<C, no_output_buffer_tag>::value,
+                                is_category<C, no_output_buffer_tag>::value &&
+                                !is_category<C, direct_tag>::value,
                             streamsize>
     {
-        base::_handle_tied();
-        if (!base::get_sink_buffer().is_writable_mode()) {
-            return base::get_device().write(s);
+        return get_device().write(s);
+    }
+    template <typename C = category>
+    auto _buffered_write(span<const char_type> s)
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                !is_category<C, no_output_buffer_tag>::value &&
+                                !is_category<C, direct_tag>::value,
+                            streamsize>
+    {
+        if (!get_sink_buffer().is_writable_mode()) {
+            return get_device().write(s);
         }
         else {
-            return base::get_sink_buffer().write(
-                s, [&](span<const char_type> data) {
-                    return base::get_device().write(data);
-                });
+            return get_sink_buffer().write(s, [&](span<const char_type> data) {
+                return get_device().write(data);
+            });
         }
     }
+    template <typename C = category>
+    auto _buffered_write(span<const char_type> s)
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                is_category<C, no_output_buffer_tag>::value &&
+                                is_category<C, direct_tag>::value,
+                            streamsize>
+    {
+        return _direct_write(s);
+    }
+    template <typename C = category>
+    auto _buffered_write(span<const char_type> s)
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                !is_category<C, no_output_buffer_tag>::value &&
+                                is_category<C, direct_tag>::value,
+                            streamsize>
+    {
+        if (!get_sink_buffer().is_writable_mode()) {
+            return _direct_write(s);
+        }
+        else {
+            return get_sink_buffer().write(s, [&](span<const char_type> data) {
+                return _direct_write(data);
+            });
+        }
+    }
+
+    template <typename C = category>
+    auto get_input_pos()
+        -> std::enable_if_t<is_category<C, input>::value &&
+                                is_category<C, direct_tag>::value,
+                            pos_type&>
+    {
+        return m_source->get_pos();
+    }
+    template <typename C = category>
+    auto get_input_pos()
+        -> std::enable_if_t<!is_category<C, input>::value &&
+                                is_category<C, direct_tag>::value,
+                            pos_type&>
+    {
+        static pos_type n{0};
+        return n;
+    }
+    template <typename C = category>
+    auto get_output_pos()
+        -> std::enable_if_t<is_category<C, output>::value &&
+                                is_category<C, direct_tag>::value,
+                            pos_type&>
+    {
+        return m_sink->get_pos();
+    }
+    template <typename C = category>
+    auto get_output_pos()
+        -> std::enable_if_t<!is_category<C, output>::value &&
+                                is_category<C, direct_tag>::value,
+                            pos_type&>
+    {
+        static pos_type n{0};
+        return n;
+    }
+
+private:
+    device_type m_dev{};
+    tied_type* m_tied{nullptr};
+    sink_members_ptr m_sink{_init_sink_members()};
+    source_members_ptr m_source{_init_source_members()};
 };
 
 template <typename Stream,
