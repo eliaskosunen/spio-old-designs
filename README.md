@@ -51,41 +51,40 @@ If you think your compiler version should be supported, please file an issue.
 int main()
 {
     // Write to standard streams
-    // sout stands for Standard OUT
-    io::sout().write("Hello world!\n");
-    io::serr().write("Hello stderr!\n");
+    spio::out().print("Hello world!\n");
+    spio::err().print("Hello stderr!\n");
 
     // Read from standard streams
-    // sin = Standard IN
-    io::sout().write("Give me an integer: ");
+    spio::out().print("Give me an integer: ");
     int num{};
-    io::sin().read(num);
+    spio::in().scan("{}", num);
 
     // Formatted output
-    io::sout().println("Your integer was {}", num);
+    spio::out().print("Your integer was {}", num).nl();
 
-    io::sout().write("Do you happen to have something to say?\n");
+    spio::out().print("Do you happen to have something to say?\n");
     std::string say{};
-    io::sin().getline(say);
+    spio::getline(spio::in(), say);
 
     // Buffer IO
-    io::buffer_instream in{{say}};
+    spio::memory_instream in{spio::make_span(say)};
     std::vector<std::string> words;
-    while (in) {
+    while (in && !in.eof()) {
         std::string tmp;
-        in.read(tmp);
+        in.scan("{}", tmp);
         words.push_back(std::move(tmp));
     }
 
     // Write words to buffer_outstream in reverse order
-    io::buffer_outstream out{};
+    std::vector<char> out_buf;
+    spio::vector_outstream out{out_buf};
     for (auto it = words.rbegin(); it != words.rend(); ++it) {
         out.write(*it);
         if (it + 1 != words.rend()) {
             out.put(' ');
         }
     }
-    io::sout().write(out.get_buffer()).nl();
+    spio::out().write(out_buf).nl();
 }
 ```
 
