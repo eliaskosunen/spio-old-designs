@@ -24,22 +24,18 @@
 #include "examples.h"
 #include "spio/spio.h"
 
-/*
 void bufferio()
 {
-    io::sout().println(" *** Buffer IO *** ");
+    spio::out().print(" *** Buffer IO *** ").nl();
 
-    io::buffer_outstream out{};
-    out.write("Word 123");
+    std::string str;
+    spio::string_outstream out{str};
+    out.print("Word 123");
 
-    auto& w = out.get_writable();
-    auto& buf = w.get_buffer();
-    auto s = io::make_span(buf.begin(), buf.end());
-    io::buffer_instream in{s};
+    spio::string_instream in{str};
     std::string word;
     int num;
     in.scan("{} {}", word, num);
 
-    io::sout().println("'{}', '{}'", word, num);
+    spio::out().print("'{}', '{}'", word, num).nl();
 }
-*/

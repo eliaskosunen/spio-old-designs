@@ -22,6 +22,6 @@
 
 int main() {
     readme();
-    /* stdio(); */
-    /* bufferio(); */
+    stdio();
+    bufferio();
 }
