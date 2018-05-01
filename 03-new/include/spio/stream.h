@@ -260,13 +260,14 @@ class basic_stream : public stream_base {
     using sink_members_ptr = std::unique_ptr<sink_members>;
     using source_members_ptr = std::unique_ptr<source_members>;
 
+public:
     class instream_sentry {
     public:
         instream_sentry(basic_stream& s, bool noskipws = false) : m_stream(s)
         {
             if (!s.good()) {
-                s._set_error(iostate::fail,
-                             failure{invalid_operation, "Stream is not good"});
+                s.set_error(iostate::fail,
+                            failure{invalid_operation, "Stream is not good"});
                 return;
             }
 
@@ -277,7 +278,7 @@ class basic_stream : public stream_base {
             if (!noskipws) {
                 if (!s.get_scanner().skip_ws(s)) {
                     s.setstate(iostate::eof);
-                    s._set_error(
+                    s.set_error(
                         iostate::fail,
                         failure{end_of_file, "EOF while skipping whitespace"});
                     return;
@@ -307,8 +308,8 @@ class basic_stream : public stream_base {
         outstream_sentry(basic_stream& s) : m_stream(s)
         {
             if (!s.good()) {
-                s._set_error(iostate::fail,
-                             failure{invalid_operation, "Stream is not good"});
+                s.set_error(iostate::fail,
+                            failure{invalid_operation, "Stream is not good"});
                 return;
             }
 
@@ -338,7 +339,6 @@ class basic_stream : public stream_base {
     friend class instream_sentry;
     friend class outstream_sentry;
 
-public:
     using device_type = Device;
     using char_type = typename device_type::char_type;
     using category = typename device_type::category;
@@ -374,7 +374,7 @@ public:
         try {
             instream_sentry sen(*this, true);
             if (!sen) {
-                _set_error(iostate::bad, failure{sentry_error});
+                set_error(iostate::bad, failure{sentry_error});
             }
 
             auto ret = _buffered_read(s);
@@ -394,11 +394,11 @@ public:
         try {
             outstream_sentry sen(*this);
             if (!sen) {
-                _set_error(iostate::bad, failure{sentry_error});
+                set_error(iostate::bad, failure{sentry_error});
             }
             auto ret = _buffered_write(s);
             if (ret != s.size()) {
-                _set_error(iostate::bad, failure{unknown_io_error});
+                set_error(iostate::bad, failure{unknown_io_error});
             }
         }
         catch (const failure& f) {
@@ -421,7 +421,7 @@ public:
         try {
             instream_sentry sen(*this);
             if (!sen) {
-                _set_error(iostate::bad, failure{sentry_error});
+                set_error(iostate::bad, failure{sentry_error});
             }
             auto opt = scan_options<char_type>{can_overread(get_device())};
             streamsize i = 1;
@@ -454,7 +454,7 @@ public:
         try {
             instream_sentry sen(*this);
             if (!sen) {
-                _set_error(iostate::bad, failure{sentry_error});
+                set_error(iostate::bad, failure{sentry_error});
             }
 
             auto n = std::min(
@@ -471,42 +471,51 @@ public:
 
     template <typename C = category>
     auto getline(span<char_type> s, char_type delim = char_type{'\n'})
-        -> std::enable_if_t<is_category<C, input>::value, basic_stream&>
+        -> std::enable_if_t<is_category<C, input>::value, streamsize>
     {
         try {
             instream_sentry sen(*this);
             if (!sen) {
-                _set_error(iostate::bad, failure{sentry_error});
+                set_error(iostate::bad, failure{sentry_error});
             }
 
             auto it = s.begin();
-            bool found_delim = false;
-            while (it != s.end()) {
+            bool at_end = false;
+            while (true) {
                 auto ch = get();
-                if (fail() || eof()) {
-                    break;
+                if (eof()) {
+                    setstate(iostate::eof);
+                    return std::distance(s.begin(), it);
                 }
                 if (Traits::eq(ch, delim)) {
-                    found_delim = true;
-                    break;
+                    return std::distance(s.begin(), it);
+                }
+                if (it == s.end()) {
+                    if (!at_end) {
+                        at_end = true;
+                        continue;
+                    }
+                    set_error(iostate::fail, failure{out_of_range});
+                    return std::distance(s.begin(), it);
                 }
                 *it = ch;
                 ++it;
             }
-            if (!found_delim && !(fail() || eof())) {
-                auto ch = get();
-                if (!Traits::eq(ch, delim)) {
+            if (it == s.end()) {
+                if (!eof()) {
+                    auto ch = get();
+                    if (eof() || Traits::eq(ch, delim)) {
+                        return std::distance(s.begin(), it);
+                    }
                     putback(ch);
                 }
-            }
-            if (!found_delim && it == s.end() && !eof()) {
-                _set_error(iostate::fail, failure{out_of_range});
+                set_error(iostate::fail, failure{out_of_range});
             }
         }
         catch (const failure& f) {
             _handle_exception(f);
         }
-        return *this;
+        return -1;
     }
 
     template <typename C = category>
@@ -584,7 +593,7 @@ public:
                          typename traits::off_type n) {
             if (d == seekdir::beg) {
                 if (max < n || n < 0) {
-                    _set_error(
+                    set_error(
                         iostate::fail,
                         failure{make_error_code(std::errc::invalid_argument),
                                 "basic_stream<direct_tag>::seek: offset is "
@@ -599,7 +608,7 @@ public:
                 }
                 if (n < 0) {
                     if (a < -n) {
-                        _set_error(
+                        set_error(
                             iostate::fail,
                             failure{
                                 make_error_code(std::errc::invalid_argument),
@@ -610,7 +619,7 @@ public:
                     return a;
                 }
                 if (a < n) {
-                    _set_error(
+                    set_error(
                         iostate::fail,
                         failure{make_error_code(std::errc::invalid_argument),
                                 "basic_stream<direct_tag>::seek: offset is "
@@ -621,10 +630,10 @@ public:
             }
 
             if (max < -n || n > 0) {
-                _set_error(iostate::fail,
-                           failure{make_error_code(std::errc::invalid_argument),
-                                   "basic_stream<direct_tag>::seek: offset is "
-                                   "out of range"});
+                set_error(iostate::fail,
+                          failure{make_error_code(std::errc::invalid_argument),
+                                  "basic_stream<direct_tag>::seek: offset is "
+                                  "out of range"});
             }
             a = max + off;
             return a;
@@ -838,14 +847,14 @@ public:
     {
         instream_sentry sen(*this);
         if (!sen) {
-            _set_error(iostate::bad, failure{sentry_error});
+            set_error(iostate::bad, failure{sentry_error});
         }
     }
 
 protected:
     void _handle_exception(const failure& f)
     {
-        _set_error(iostate::fail, f);
+        set_error(iostate::fail, f);
     }
 
     template <typename C = category>
@@ -1029,7 +1038,7 @@ protected:
             return s.size();
         }
         else {
-            _set_error(iostate::fail, failure{out_of_range});
+            set_error(iostate::fail, failure{out_of_range});
         }
     }
     template <typename C = category>
@@ -1131,50 +1140,48 @@ template <typename Stream,
           typename Traits = typename Stream::traits>
 auto getline(Stream& in, Container& out, CharT delim) -> Stream&
 {
+    typename Stream::instream_sentry sen(in);
+    if (!sen) {
+        in.set_error(iostate::bad, failure{sentry_error});
+    }
+
     out.erase();
-    if (out.empty()) {
-        // Commonly maximum size of SSO
-        out.resize(15);
-    }
-
-    in.get_scanner().skip_ws(in);
-
-    if (!in || in.eof()) {
-        return in;
-    }
+    // Maximum size of SSO on MSVC
+    // GCC and clang have it bigger
+    out.resize(15);
 
     auto it = out.begin();
     while (true) {
         auto ch = in.get();
-        if (!Traits::eq(ch, delim)) {
-            if (it == out.end()) {
-                auto s = out.size();
-                auto newsize = s + std::max(64 - s, s);
-                if (newsize > out.max_size()) {
-                    if (s + 1 >= out.max_size()) {
-                        in.setstate(iostate::fail);
-                    }
-                    else {
-                        newsize = out.max_size();
-                    }
+        if (in.eof()) {
+            out.erase(it, out.end());
+            out.shrink_to_fit();
+            return in;
+        }
+        if (Traits::eq(ch, delim)) {
+            out.erase(it, out.end());
+            out.shrink_to_fit();
+            return in;
+        }
+        if (it == out.end()) {
+            auto s = out.size();
+            auto newsize = s + std::max(64 - s, s);
+            if (newsize > out.max_size()) {
+                if (s + 1 >= out.max_size()) {
+                    in.set_error(iostate::fail, failure{out_of_range});
+                    out.erase(it, out.end());
+                    out.shrink_to_fit();
+                    return in;
                 }
-                out.resize(newsize);
-                it = out.begin() +
-                     static_cast<typename Container::difference_type>(s);
+                else {
+                    newsize = out.max_size();
+                }
             }
-            *it = ch;
+            out.resize(newsize);
+            it = out.begin() +
+                 static_cast<typename Container::difference_type>(s);
         }
-        else {
-            in.get_source_buffer().push(make_span(&ch, 1));
-            out.erase(it, out.end());
-            out.shrink_to_fit();
-            return in;
-        }
-        if (!in || in.eof()) {
-            out.erase(it, out.end());
-            out.shrink_to_fit();
-            return in;
-        }
+        *it = ch;
         ++it;
     }
 }
