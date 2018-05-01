@@ -1014,7 +1014,8 @@ protected:
     {
         auto bufsiz = static_cast<std::ptrdiff_t>(get_source_buffer().size());
         if (bufsiz >= s.size()) {
-            return _direct_read(s);
+            get_source_buffer().read(s);
+            return s.size();
         }
 
         auto r = _direct_read(s.last(s.size() - bufsiz));

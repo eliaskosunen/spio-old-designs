@@ -27,26 +27,24 @@
 
 #define PI 3.14159265358979323846L
 
-/*
 void stdio()
 {
-    io::sout().println(" *** Standard streams IO *** ");
+    spio::out().print(" *** Standard streams IO *** ").nl();
 
-    io::sout().write("Hello world!\n");
+    spio::out().print("Hello world!\n");
 
-    io::sout().write("What's your name and age? ");
+    spio::out().print("What's your name and age? ");
     std::string str;
     int age;
-    auto& in = io::sin();
-    in.scan("{} {}", str, age);
+    spio::in().scan("{} {}", str, age);
 
-    io::sout().println("Hi, {}, {}", str, age);
+    spio::out().print("Hi, {}, {}", str, age).nl();
 
-    io::sout().write("How well do you remember pi? ");
+    spio::out().print("How well do you remember pi? ");
     long double pi;
-    in.read(pi);
+    spio::in().scan("{}", pi);
 
-    io::sout().println("You were {}% off from {}!", std::fabs((PI - pi) / PI),
-                       PI);
+    spio::out()
+        .print("You were {}% off from {}!", std::fabs((PI - pi) / PI), PI)
+        .nl();
 }
-*/
