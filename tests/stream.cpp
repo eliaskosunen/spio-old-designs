@@ -21,6 +21,45 @@
 #include <doctest.h>
 #include <spio/spio.h>
 
+TEST_CASE("state")
+{
+    spio::basic_stream<spio::null_device> s;
+
+    CHECK(s.rdstate() == spio::iostate::good);
+    CHECK(s.rdstate() == 0);
+    CHECK(s.good());
+    CHECK(!s.bad());
+    CHECK(!s.fail());
+    CHECK(!s.eof());
+    CHECK(s);
+
+    s.clear(spio::iostate::fail);
+    CHECK(s.rdstate() == spio::iostate::fail);
+    CHECK(!s.good());
+    CHECK(!s.bad());
+    CHECK(s.fail());
+    CHECK(!s.eof());
+    CHECK(!s);
+
+    s.setstate(spio::iostate::eof);
+    CHECK_EQ(s.rdstate(), spio::iostate::fail | spio::iostate::eof);
+    CHECK(!s.good());
+    CHECK(!s.bad());
+    CHECK(s.fail());
+    CHECK(s.eof());
+    CHECK(!s);
+
+    s.clear_eof();
+    CHECK(s.rdstate() == spio::iostate::fail);
+    CHECK(s.fail());
+    CHECK(!s.eof());
+
+    s.clear();
+    CHECK(s.rdstate() == spio::iostate::good);
+    CHECK(s.good());
+    CHECK(s);
+}
+
 struct user_type {
     int num;
 };
@@ -214,11 +253,13 @@ TEST_CASE("getline")
     SUBCASE("fixed")
     {
         std::string c(12, 0);
-        s.getline(c);
+        auto n = s.getline(c);
+        CHECK(n == 12);
         CHECK(c == "Hello world!");
 
         c = std::string(19, 0);
-        s.getline(c);
+        n = s.getline(c);
+        CHECK(n == 19);
         CHECK(c == "Hello another line!");
     }
 
@@ -234,21 +275,6 @@ TEST_CASE("getline")
         CHECK(std::equal(hellow_another,
                          hellow_another + std::strlen(hellow_another),
                          std::begin(c)));
-    }
-
-    SUBCASE("fixed undersized")
-    {
-        std::string c(10, 0);
-        s.getline(c);
-        CHECK(c == "Hello worl");
-
-        c = std::string(2, 0);
-        s.getline(c);
-        CHECK(c == "d!");
-
-        c = std::string(19, 0);
-        s.getline(c);
-        CHECK(c == "Hello another line!");
     }
 
     SUBCASE("fixed oversized delim")
@@ -281,8 +307,7 @@ TEST_CASE("getline")
         spio::getline(s, c, ' ');
         CHECK(c == "Hello");
 
-        c.clear();
         spio::getline(s, c, ' ');
-        CHECK(c == "world!");
+        CHECK(c == "world!\nHello");
     }
 }

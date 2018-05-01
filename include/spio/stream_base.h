@@ -158,6 +158,12 @@ public:
         return m_error;
     }
 
+    void set_error(int state, const failure& f)
+    {
+        setstate(state);
+        _handle_error(f);
+    }
+
 protected:
     stream_base() = default;
 
@@ -168,11 +174,6 @@ protected:
                 break;
             }
         }
-    }
-    void _set_error(int state, const failure& f)
-    {
-        setstate(state);
-        _handle_error(f);
     }
 
 private:
