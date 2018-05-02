@@ -72,7 +72,7 @@ namespace detail {
 
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(ignore : 4702)
+#pragma warning(ignored : 4702)
 #endif
 
     template <typename Category, typename = void>
