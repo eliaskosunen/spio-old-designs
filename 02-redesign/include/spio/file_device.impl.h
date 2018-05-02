@@ -25,6 +25,11 @@
 #include "file_device.h"
 #include "util.h"
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4702)
+#endif
+
 namespace spio {
 template <typename CharT, typename Category, typename Traits>
 void basic_filehandle_device<CharT, Category, Traits>::sync()
@@ -127,6 +132,10 @@ basic_filehandle_device<CharT, Category, Traits>::seek(
     }
     return p;
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 template <typename CharT, typename Traits>
 basic_file_device<CharT, Traits>::basic_file_device(const std::string& path,
