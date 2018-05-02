@@ -30,13 +30,6 @@ TEST_CASE("standard streams")
         auto n = dev.write(s);
         CHECK(n == s.size());
     }
-    SUBCASE("native stdout")
-    {
-        spio::native_filehandle_device dev{1};
-        auto s = std::string{"Hello world!\n"};
-        auto n = dev.write(s);
-        CHECK(n == s.size());
-    }
     SUBCASE("out")
     {
         spio::out().print("Hello world!\n");

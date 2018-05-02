@@ -67,7 +67,7 @@
 #define SPIO_MSC_VER 0
 #endif
 
-#if !SPIO_POSIX && !SPIO_WIN32
+#if !SPIO_POSIX
 #define SPIO_HAS_NATIVE_FILEIO 0
 #else
 #define SPIO_HAS_NATIVE_FILEIO 1

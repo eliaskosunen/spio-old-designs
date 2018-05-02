@@ -259,9 +259,9 @@ public:
     };
 
     using base::close;
-    using base::sync;
     using base::is_open;
     using base::seek;
+    using base::sync;
     using base::write;
 
     basic_native_file_sink(const std::string& path, int mode = openmode::out)
@@ -278,10 +278,6 @@ using native_file_sink = basic_native_file_sink<char>;
 using wnative_file_sink = basic_native_file_sink<wchar_t>;
 }  // namespace spio
 
-#if SPIO_POSIX
 #include "native_file_device_posix.impl.h"
-#elif SPIO_WIN32
-#include "native_file_device_win32.impl.h"
-#endif
 
 #endif
