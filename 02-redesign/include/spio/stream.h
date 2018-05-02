@@ -644,7 +644,7 @@ public:
         }
         if ((which & openmode::out) != 0 && is_category<C, output>::value) {
             auto tmp = _seek(get_output_pos(), _output_range_size(), dir, off);
-            assert(ret == -1 || tmp == ret);
+            assert(ret == std::streamoff(-1) || tmp == ret);
             ret = tmp;
         }
         return ret;
