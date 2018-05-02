@@ -25,9 +25,6 @@
 
 #include "file_device.h"
 #include "stream.h"
-#if SPIO_HAS_NATIVE_FILEIO
-#include "native_file_device.h"
-#endif
 
 namespace spio {
 namespace detail {
@@ -141,21 +138,6 @@ template <typename CharT>
 using basic_stdio_file_outstream = basic_stream<basic_file_sink<CharT>>;
 template <typename CharT>
 using basic_stdio_file_iostream = basic_stream<basic_file_device<CharT>>;
-
-// native file
-#if SPIO_HAS_NATIVE_FILEIO
-template <typename CharT, typename Category>
-using basic_native_filehandle_stream =
-    basic_stream<basic_native_filehandle_device<CharT, Category>>;
-template <typename CharT>
-using basic_native_file_instream =
-    basic_stream<basic_native_file_source<CharT>>;
-template <typename CharT>
-using basic_native_file_outstream = basic_stream<basic_native_file_sink<CharT>>;
-template <typename CharT>
-using basic_native_file_iostream =
-    basic_stream<basic_native_file_device<CharT>>;
-#endif
 
 // file
 template <typename CharT, typename Category>
