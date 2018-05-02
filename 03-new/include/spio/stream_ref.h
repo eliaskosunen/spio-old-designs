@@ -70,6 +70,11 @@ namespace detail {
         virtual ~erased_stream_storage_base() = default;
     };
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4702)
+#endif
+
     template <typename Category, typename = void>
     struct do_read {
         template <typename Stream>
@@ -342,6 +347,10 @@ namespace detail {
             return s.get_sink_buffer();
         }
     };
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
     template <typename Stream>
     class erased_stream_storage

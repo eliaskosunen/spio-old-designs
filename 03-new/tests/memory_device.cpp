@@ -102,20 +102,20 @@ TEST_CASE("container_sink")
         std::string str{};
         spio::string_sink dev{str};
 
-        CHECK(dev.seek(0, spio::seekdir::cur) == 0);
-        CHECK(dev.seek(0, spio::seekdir::beg) == 0);
+        CHECK(dev.seek(0, spio::seekdir::cur) == std::streamoff(0));
+        CHECK(dev.seek(0, spio::seekdir::beg) == std::streamoff(0));
 
         CHECK(dev.write(spio::make_span("String", 6)) == 6);
         CHECK(str == "String");
 
-        CHECK(dev.seek(0, spio::seekdir::cur) == 6);
-        CHECK(dev.seek(0, spio::seekdir::beg) == 0);
+        CHECK(dev.seek(0, spio::seekdir::cur) == std::streamoff(6));
+        CHECK(dev.seek(0, spio::seekdir::beg) == std::streamoff(0));
 
         CHECK(dev.write(spio::make_span("String", 6)) == 6);
         CHECK(str == "StringString");
 
-        CHECK(dev.seek(0, spio::seekdir::cur) == 6);
-        CHECK(dev.seek(0, spio::seekdir::end) == 12);
+        CHECK(dev.seek(0, spio::seekdir::cur) == std::streamoff(6));
+        CHECK(dev.seek(0, spio::seekdir::end) == std::streamoff(12));
 
         CHECK(dev.write(spio::make_span("String", 6)) == 6);
         CHECK(str == "StringStringString");
