@@ -152,15 +152,23 @@ public:
 #define SPIO_ASSERT(cond, msg) assert((cond) && msg)
 #endif
 
+#ifdef _MSC_VER
+#define SPIO_DEBUG_UNREACHABLE                                            \
+    __pragma(warning(suppress : 4702)) throw failure(::spio::unreachable, \
+                                                     "Unreachable");      \
+    __pragma(warning(suppress : 4702)) std::terminate()
+#else
 #define SPIO_DEBUG_UNREACHABLE                         \
     throw failure(::spio::unreachable, "Unreachable"); \
     std::terminate()
+#endif
+
 #ifdef NDEBUG
 
 #ifdef __GNUC__
 #define SPIO_UNREACHABLE __builtin_unreachable()
 #elif defined(_MSC_VER)
-#define SPIO_UNREACHABLE __assume(false)
+#define SPIO_UNREACHABLE __pragma(warning(suppress : 4702)) __assume(false)
 #else
 #define SPIO_UNREACHABLE SPIO_DEBUG_UNREACHABLE
 #endif  // __GNUC__
@@ -169,9 +177,17 @@ public:
 #define SPIO_UNREACHABLE SPIO_DEBUG_UNREACHABLE
 #endif  // NDEBUG
 
+#ifdef _MSC_VER
+#define SPIO_UNIMPLEMENTED_DEBUG                                            \
+    __pragma(warning(suppress : 4702)) throw failure(::spio::unimplemented, \
+                                                     "Unimplemented");      \
+    __pragma(warning(suppress : 4702)) std::terminate()
+#else
 #define SPIO_UNIMPLEMENTED_DEBUG                           \
     throw failure(::spio::unimplemented, "Unimplemented"); \
     std::terminate()
+#endif
+
 #ifdef NDEBUG
 #define SPIO_UNIMPLEMENTED SPIO_UNREACHABLE
 #else
