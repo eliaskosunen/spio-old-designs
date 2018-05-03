@@ -56,7 +56,7 @@ static std::vector<std::string> generate_data(size_t len)
 static void writestring_spio(benchmark::State& state)
 {
     try {
-        auto bytes = 0;
+        std::size_t bytes = 0;
         for (auto _ : state) {
             state.PauseTiming();
             auto data = generate_data(static_cast<size_t>(state.range(0)));
@@ -72,7 +72,7 @@ static void writestring_spio(benchmark::State& state)
                 benchmark::DoNotOptimize(data);
             }
         }
-        state.SetBytesProcessed(bytes);
+        state.SetBytesProcessed(static_cast<int64_t>(bytes));
     }
     catch (const spio::failure& f) {
         state.SkipWithError(f.what());
@@ -109,7 +109,7 @@ static void writestring_spio(benchmark::State& state)
 static void writestring_spio_stream(benchmark::State& state)
 {
     try {
-        auto bytes = 0;
+        std::size_t bytes = 0;
         for (auto _ : state) {
             state.PauseTiming();
             auto data = generate_data(static_cast<size_t>(state.range(0)));
@@ -125,7 +125,7 @@ static void writestring_spio_stream(benchmark::State& state)
                 benchmark::DoNotOptimize(data);
             }
         }
-        state.SetBytesProcessed(bytes);
+        state.SetBytesProcessed(static_cast<int64_t>(bytes));
     }
     catch (const spio::failure& f) {
         state.SkipWithError(f.what());
@@ -135,7 +135,7 @@ static void writestring_spio_stream(benchmark::State& state)
 static void writestring_spio_stream_print(benchmark::State& state)
 {
     try {
-        auto bytes = 0;
+        std::size_t bytes = 0;
         for (auto _ : state) {
             state.PauseTiming();
             auto data = generate_data(static_cast<size_t>(state.range(0)));
@@ -151,7 +151,7 @@ static void writestring_spio_stream_print(benchmark::State& state)
                 benchmark::DoNotOptimize(data);
             }
         }
-        state.SetBytesProcessed(bytes);
+        state.SetBytesProcessed(static_cast<int64_t>(bytes));
     }
     catch (const spio::failure& f) {
         state.SkipWithError(f.what());
@@ -160,7 +160,7 @@ static void writestring_spio_stream_print(benchmark::State& state)
 
 static void writestring_ios(benchmark::State& state)
 {
-    auto bytes = 0;
+    std::size_t bytes = 0;
     for (auto _ : state) {
         state.PauseTiming();
         auto data = generate_data(static_cast<size_t>(state.range(0)));
@@ -174,12 +174,12 @@ static void writestring_ios(benchmark::State& state)
             benchmark::DoNotOptimize(data);
         }
     }
-    state.SetBytesProcessed(bytes);
+    state.SetBytesProcessed(static_cast<int64_t>(bytes));
 }
 
 static void writestring_streambuf(benchmark::State& state)
 {
-    auto bytes = 0;
+    std::size_t bytes = 0;
     for (auto _ : state) {
         state.PauseTiming();
         auto data = generate_data(static_cast<size_t>(state.range(0)));
@@ -194,12 +194,12 @@ static void writestring_streambuf(benchmark::State& state)
             benchmark::DoNotOptimize(data);
         }
     }
-    state.SetBytesProcessed(bytes);
+    state.SetBytesProcessed(static_cast<int64_t>(bytes));
 }
 
 static void writestring_std_string(benchmark::State& state)
 {
-    auto bytes = 0;
+    std::size_t bytes = 0;
     for (auto _ : state) {
         state.PauseTiming();
         auto data = generate_data(static_cast<size_t>(state.range(0)));
@@ -213,12 +213,12 @@ static void writestring_std_string(benchmark::State& state)
             benchmark::DoNotOptimize(data);
         }
     }
-    state.SetBytesProcessed(bytes);
+    state.SetBytesProcessed(static_cast<int64_t>(bytes));
 }
 
 static void writestring_std_vector(benchmark::State& state)
 {
-    auto bytes = 0;
+    std::size_t bytes = 0;
     for (auto _ : state) {
         state.PauseTiming();
         auto data = generate_data(static_cast<size_t>(state.range(0)));
@@ -232,7 +232,7 @@ static void writestring_std_vector(benchmark::State& state)
             benchmark::DoNotOptimize(data);
         }
     }
-    state.SetBytesProcessed(bytes);
+    state.SetBytesProcessed(static_cast<int64_t>(bytes));
 }
 
 BENCHMARK(writestring_spio)->Range(8, 8 << 8);

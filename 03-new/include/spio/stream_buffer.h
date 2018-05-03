@@ -64,31 +64,31 @@ public:
 
     value_type* get_buffer()
     {
-        SPIO_ASSERT(size() != 0 && is_writable_mode(),
+        SPIO_ASSERT(get_size() != 0 && is_writable_mode(),
                     "basic_device_buffer<>::get_buffer: requires `size() != 0 "
                     "&& is_writable_mode()`");
         return m_buffer.data();
     }
     const value_type* get_buffer() const
     {
-        SPIO_ASSERT(size() != 0 && is_writable_mode(),
+        SPIO_ASSERT(get_size() != 0 && is_writable_mode(),
                     "basic_device_buffer<>::get_buffer: requires `size() != 0 "
                     "&& is_writable_mode()`");
         return m_buffer.data();
     }
 
-    auto size() const
+    auto get_size() const
     {
         return m_buffer.size();
     }
-    constexpr auto mode() const
+    constexpr auto get_mode() const
     {
         return m_mode;
     }
 
     constexpr bool is_writable_mode() const
     {
-        return mode() != mode::external && mode() != mode::none;
+        return get_mode() != mode::external && get_mode() != mode::none;
     }
 
     template <typename FlushFn>
