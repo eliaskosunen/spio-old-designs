@@ -75,8 +75,8 @@ auto basic_stream<Device,
                   Traits>::print(const char_type* f, const Args&... a)
     -> std::enable_if_t<is_category<C, output>::value, basic_stream&>
 {
-    detail::print<char_type>(get_formatter(), [&](auto s) { write(s); }, f,
-                             a...);
+    detail::print<char_type>(get_formatter(), [&](auto s) { this->write(s); },
+                             f, a...);
     return *this;
 }
 
