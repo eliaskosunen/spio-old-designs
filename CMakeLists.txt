@@ -112,6 +112,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compiler_flags(-Wno-padded)
     add_compiler_flags(-Wno-gnu-statement-expression) # assert uses these
     add_compiler_flags(-Wno-global-constructors)
+    add_compiler_flags(-Wno-disabled-macro-expansion)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")

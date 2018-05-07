@@ -24,7 +24,6 @@
 #include "fwd.h"
 
 #include "error.h"
-#include "indirect_device.h"
 #include "span.h"
 #include "traits.h"
 
@@ -128,25 +127,6 @@ public:
 
 using memory_sink = basic_memory_sink<char>;
 using wmemory_sink = basic_memory_sink<wchar_t>;
-
-template <typename CharT, typename Traits = std::char_traits<CharT>>
-using basic_indirect_memory_device =
-    basic_indirect_device<seekable_device_tag, CharT, Traits>;
-template <typename CharT, typename Traits = std::char_traits<CharT>>
-using basic_indirect_memory_source =
-    basic_indirect_source<seekable_source_tag, CharT, Traits>;
-template <typename CharT, typename Traits = std::char_traits<CharT>>
-using basic_indirect_memory_sink =
-    basic_indirect_sink<seekable_sink_tag, CharT, Traits>;
-
-using indirect_memory_device = basic_indirect_memory_device<char>;
-using windirect_memory_device = basic_indirect_memory_device<wchar_t>;
-
-using indirect_memory_source = basic_indirect_memory_source<char>;
-using windirect_memory_source = basic_indirect_memory_source<wchar_t>;
-
-using indirect_memory_sink = basic_indirect_memory_sink<char>;
-using windirect_memory_sink = basic_indirect_memory_sink<wchar_t>;
 }  // namespace spio
 
 #endif
