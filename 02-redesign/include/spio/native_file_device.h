@@ -114,6 +114,11 @@ public:
         : m_handle(h)
     {
     }
+    constexpr basic_native_filehandle_device(
+        detail::os_file_descriptor::handle_type h)
+        : m_handle(h)
+    {
+    }
 
     void open(detail::os_file_descriptor h)
     {
@@ -147,15 +152,15 @@ public:
         return m_handle.get() == detail::os_file_descriptor::stdin_handle();
     }
 
-    static detail::os_file_descriptor get_stdin_handle()
+    static auto get_stdin_handle()
     {
         return detail::os_file_descriptor::stdin_handle();
     }
-    static detail::os_file_descriptor get_stdout_handle()
+    static auto get_stdout_handle()
     {
         return detail::os_file_descriptor::stdout_handle();
     }
-    static detail::os_file_descriptor get_stderr_handle()
+    static auto get_stderr_handle()
     {
         return detail::os_file_descriptor::stderr_handle();
     }
@@ -230,7 +235,6 @@ public:
     using base::can_overread;
     using base::close;
     using base::is_open;
-    using base::putback;
     using base::read;
     using base::seek;
 

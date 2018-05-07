@@ -34,7 +34,6 @@
 
 #include "container_device.h"
 #include "file_device.h"
-#include "indirect_device.h"
 #include "memory_device.h"
 #include "null_device.h"
 

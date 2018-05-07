@@ -30,7 +30,7 @@ public:
     using char_type = CharT;
     using traits = Traits;
 
-    struct category : bidirectional_device_tag {
+    struct category : bidirectional_seekable_device_tag {
     };
 
     basic_null_device() = default;

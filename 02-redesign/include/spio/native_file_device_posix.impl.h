@@ -104,7 +104,7 @@ basic_native_filehandle_device<CharT, Category, Traits>::seek(
         }
         return SEEK_END;
     }();
-    auto ret = ::lseek(m_handle, off, origin);
+    auto ret = ::lseek(m_handle.get(), off, origin);
     if (ret == -1) {
         throw failure{SPIO_MAKE_ERRNO};
     }
@@ -168,7 +168,7 @@ void basic_native_file_device<CharT, Traits>::open(const std::string& path,
     if (h == detail::os_file_descriptor::invalid()) {
         throw failure{SPIO_MAKE_ERRNO};
     }
-    base::m_handle = h;
+    base::m_handle.get() = h;
 }
 
 template <typename CharT, typename Traits>
@@ -178,8 +178,8 @@ void basic_native_file_device<CharT, Traits>::close()
                 "basic_native_file_device::close: Cannot close a Device which "
                 "is not open!");
 
-    ::close(base::m_handle);
-    base::m_handle = nullptr;
+    ::close(base::m_handle.get());
+    base::m_handle.get() = base::m_handle.invalid();
 }
 }  // namespace spio
 
