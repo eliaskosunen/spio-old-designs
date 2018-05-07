@@ -127,7 +127,7 @@ basic_filehandle_device<CharT, Category, Traits>::seek(
     }
 
     auto p = std::ftell(m_handle);
-    if (p != 0) {
+    if (p == -1) {
         throw failure{SPIO_MAKE_ERRNO};
     }
     return p;
@@ -184,6 +184,12 @@ void basic_file_device<CharT, Traits>::open(const std::string& path,
     auto h = std::fopen(path.c_str(), str.data());
     if (!h) {
         throw failure{SPIO_MAKE_ERRNO};
+    }
+
+    if (o) {
+        if (std::setvbuf(h, nullptr, _IONBF, 0) != 0) {
+            throw failure{SPIO_MAKE_ERRNO};
+        }
     }
     base::m_handle = h;
 }

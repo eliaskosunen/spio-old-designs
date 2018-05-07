@@ -105,7 +105,7 @@ public:
     using char_type = CharT;
     using traits = Traits;
 
-    struct category : base::category, closable_tag {
+    struct category : base::category, closable_tag, no_output_buffer_tag {
     };
 
     basic_file_device(const std::string& path,
@@ -173,13 +173,16 @@ public:
     using char_type = CharT;
     using traits = Traits;
 
-    struct category : seekable_sink_tag, closable_tag, syncable_tag {
+    struct category : seekable_sink_tag,
+                      closable_tag,
+                      syncable_tag,
+                      no_output_buffer_tag {
     };
 
     using base::close;
-    using base::sync;
     using base::is_open;
     using base::seek;
+    using base::sync;
     using base::write;
 
     basic_file_sink(const std::string& path, int mode = openmode::out)
