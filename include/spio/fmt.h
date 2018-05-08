@@ -37,9 +37,10 @@
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wdeprecated"
 #pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wundef"
 
 #if (defined(__GNUC__) && !defined(__clang__)) || \
-    (defined(__clang__) && __clang_major__ >= 4)
+    (defined(__clang__) && __clang_major__ > 4)
 #pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
 #endif
 #if defined(__clang__) && __clang_major__ >= 4

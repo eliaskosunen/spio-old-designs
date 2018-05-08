@@ -14,6 +14,7 @@ endif()
 add_test(NAME spio COMMAND tests)
 
 if(COVERALLS)
-    file(GLOB coveralls_sources "${PROJECT_SOURCE_DIR}/include/spio/*.h")
+    file(GLOB coveralls_sources
+       "${PROJECT_SOURCE_DIR}/include/spio/*.h" "${PROJECT_SOURCE_DIR}/tests/*.cpp")
     coveralls_setup("${coveralls_sources}" ON "${PROJECT_SOURCE_DIR}/tests/coveralls-cmake/cmake")
 endif()
