@@ -10,3 +10,6 @@
 [submodule "tests/coveralls-cmake"]
 	path = tests/coveralls-cmake
 	url = https://github.com/JoakimSoderberg/coveralls-cmake.git
+[submodule "include/spio/span"]
+	path = include/spio/span
+	url = https://github.com/eliaskosunen/span

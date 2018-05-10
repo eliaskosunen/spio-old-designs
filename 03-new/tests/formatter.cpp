@@ -25,7 +25,7 @@ TEST_CASE("formatter")
 {
     SUBCASE("char")
     {
-        spio::basic_fmt_formatter<char> fmt;
+        spio::basic_formatter<char> fmt;
         CHECK(fmt.to_string("str") == fmt::format("str"));
         CHECK(fmt.to_string(0) == fmt::format("{}", 0));
         CHECK(fmt.to_string(0x8000) == fmt::format("{}", 0x8000));
@@ -36,7 +36,7 @@ TEST_CASE("formatter")
     }
     SUBCASE("wchar_t")
     {
-        spio::basic_fmt_formatter<wchar_t> fmt;
+        spio::basic_formatter<wchar_t> fmt;
         spio::codeconv<char, wchar_t> conv;
 
         CHECK(fmt.to_string(L"str") == conv(fmt::format("str")));
