@@ -52,7 +52,7 @@ namespace detail {
 }  // namespace detail
 
 template <typename CharT>
-class basic_fmt_formatter {
+class basic_formatter {
 public:
     using char_type = CharT;
     using string_type = std::basic_string<char_type>;

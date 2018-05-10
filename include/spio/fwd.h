@@ -29,9 +29,7 @@
 
 namespace spio {
 template <typename CharT>
-class basic_builtin_scanner;
-template <typename CharT>
-using basic_default_scanner = basic_builtin_scanner<CharT>;
+class basic_scanner;
 
 template <typename Container,
           typename Traits = std::char_traits<typename Container::value_type>>
@@ -45,13 +43,13 @@ class basic_container_source;
 
 template <typename Buffer>
 class basic_sink_buffer;
-template <typename T, typename Alloc = std::allocator<T>>
-using basic_default_sink_buffer = basic_sink_buffer<std::vector<T, Alloc>>;
+template <typename CharT, typename Allocator = std::allocator<CharT>>
+using sink_buffer_type = basic_sink_buffer<std::vector<CharT, Allocator>>;
 
 template <typename Buffer>
 class basic_source_buffer;
-template <typename T, typename Alloc = std::allocator<T>>
-using basic_default_source_buffer = basic_source_buffer<std::deque<T, Alloc>>;
+template <typename CharT, typename Allocator = std::allocator<CharT>>
+using source_buffer_type = basic_source_buffer<std::deque<CharT, Allocator>>;
 
 namespace detail {
     struct filehandle_device_default_category : seekable_device_tag,
@@ -72,9 +70,7 @@ template <typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_file_source;
 
 template <typename CharT>
-class basic_fmt_formatter;
-template <typename CharT>
-using basic_default_formatter = basic_fmt_formatter<CharT>;
+class basic_formatter;
 
 template <typename Category,
           typename Device,
@@ -155,36 +151,18 @@ class outstream_iterator;
 
 class stream_base;
 
-template <
-    typename Device,
-    typename Formatter = basic_default_formatter<typename Device::char_type>,
-    typename Scanner = basic_default_scanner<typename Device::char_type>,
-    typename SinkBuffer = basic_default_sink_buffer<typename Device::char_type>,
-    typename SourceBuffer =
-        basic_default_source_buffer<typename Device::char_type>,
-    typename Traits = std::char_traits<typename Device::char_type>>
+template <typename Device,
+          typename Traits = std::char_traits<typename Device::char_type>>
 class basic_stream;
 
 namespace detail {
     template <typename Device,
-              typename Formatter =
-                  basic_default_formatter<typename Device::char_type>,
-              typename Scanner =
-                  basic_default_scanner<typename Device::char_type>,
-              typename SinkBuffer =
-                  basic_default_sink_buffer<typename Device::char_type>,
-              typename SourceBuffer =
-                  basic_default_source_buffer<typename Device::char_type>,
               typename Traits = std::char_traits<typename Device::char_type>>
     class basic_container_stream;
 }
 
 template <typename CharT,
           typename Category,
-          typename Formatter = basic_default_formatter<CharT>,
-          typename Scanner = basic_default_scanner<CharT>,
-          typename SinkBuffer = basic_default_sink_buffer<CharT>,
-          typename SourceBuffer = basic_default_source_buffer<CharT>,
           typename Traits = std::char_traits<CharT>>
 class basic_stream_ref;
 

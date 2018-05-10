@@ -25,12 +25,12 @@ TEST_CASE("source buffer")
 {
     SUBCASE("construct")
     {
-        spio::basic_default_source_buffer<char> buf{};
+        spio::source_buffer_type<char> buf{};
         CHECK(buf.size() == 0);
     }
 
     {
-        spio::basic_default_source_buffer<char> buf{};
+        spio::source_buffer_type<char> buf{};
         std::vector<char> data{'1', '2', '3', '4', '5'};
         std::vector<char> in(5, 0);
 

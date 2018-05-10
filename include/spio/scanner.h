@@ -119,7 +119,7 @@ namespace detail {
     using scan_stream_traits = typename scan_stream<CharT>::traits;
 
     template <typename CharT, typename T, typename = void>
-    struct builtin_scan {
+    struct do_scan {
         static scan_stream<CharT>& scan(scan_stream<CharT>& s,
                                         const CharT*& format,
                                         const scan_options<CharT>& opt,
@@ -134,7 +134,7 @@ namespace detail {
     };
 
     template <typename CharT, typename T>
-    struct builtin_scan<
+    struct do_scan<
         CharT,
         T,
         std::enable_if_t<std::is_same<std::decay_t<T>, CharT>::value>> {
@@ -153,7 +153,7 @@ namespace detail {
     };
 
     template <typename CharT, typename T>
-    struct builtin_scan<
+    struct do_scan<
         CharT,
         span<T>,
         std::enable_if_t<std::is_same<std::decay_t<T>, CharT>::value>> {
@@ -198,7 +198,7 @@ namespace detail {
     };
 
     template <typename CharT, typename T>
-    struct builtin_scan<
+    struct do_scan<
         CharT,
         T,
         std::enable_if_t<std::is_integral<T>::value &&
@@ -321,9 +321,9 @@ namespace detail {
     };
 
     template <typename CharT, typename T>
-    struct builtin_scan<CharT,
-                        T,
-                        std::enable_if_t<std::is_floating_point<T>::value>> {
+    struct do_scan<CharT,
+                   T,
+                   std::enable_if_t<std::is_floating_point<T>::value>> {
         static scan_stream<CharT>& scan(scan_stream<CharT>& s,
                                         const CharT*& format,
                                         const scan_options<CharT>& opt,
@@ -376,7 +376,7 @@ namespace detail {
     };
 
     template <typename CharT>
-    struct builtin_scan<CharT, bool> {
+    struct do_scan<CharT, bool> {
         static scan_stream<CharT>& scan(scan_stream<CharT>& s,
                                         const CharT*& format,
                                         const scan_options<CharT>& opt,
@@ -389,8 +389,8 @@ namespace detail {
             if (is_digit(ch)) {
                 int_fast16_t n;
                 auto fmt = "}";
-                builtin_scan<CharT, int_fast16_t>::scan(s, fmt, opt,
-                                                        std::addressof(n));
+                do_scan<CharT, int_fast16_t>::scan(s, fmt, opt,
+                                                   std::addressof(n));
                 if (!s) {
                     return s;
                 }
@@ -461,19 +461,19 @@ auto make_args(Args&... a)
     typename T::storage_type vec{
         typename T::arg_type{basic_arg<typename T::char_type>{
             reinterpret_cast<void*>(std::addressof(a)),
-            &detail::builtin_scan<typename T::char_type,
-                                  std::decay_t<Args>>::scan}}...};
+            &detail::do_scan<typename T::char_type,
+                             std::decay_t<Args>>::scan}}...};
     return T(std::move(vec));
 }
 
 template <typename CharT>
-class basic_builtin_scanner {
+class basic_scanner {
 public:
     using char_type = CharT;
     using arg_list = basic_arg_list<char_type>;
     using stream_type = basic_stream_ref<char_type, input>;
 
-    basic_builtin_scanner() = default;
+    basic_scanner() = default;
 
     void imbue(const std::locale& l)
     {

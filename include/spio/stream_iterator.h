@@ -151,7 +151,8 @@ public:
         return *m_in;
     }
 
-    static instream_iterator get_end() {
+    static instream_iterator get_end()
+    {
         return instream_iterator{};
     }
 
@@ -175,7 +176,7 @@ public:
     using char_type = T;
     using instream_type = basic_stream_ref<T, input>;
 
-    friend class basic_builtin_scanner<T>;
+    friend class basic_scanner<T>;
 
     using value_type = T;
     using difference_type = std::ptrdiff_t;
@@ -218,7 +219,8 @@ public:
 
     void read_into(span<T> s);
 
-    static instream_iterator get_end() {
+    static instream_iterator get_end()
+    {
         return instream_iterator{};
     }
 

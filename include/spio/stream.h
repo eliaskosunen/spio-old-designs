@@ -42,18 +42,18 @@ namespace detail {
         Args...> : std::true_type {
     };
 
-    template <typename CharT,
-              typename Category,
-              typename Formatter,
-              typename Buffer,
-              typename Traits>
+    template <typename T, typename Allocator = std::allocator<T>>
+    using sink_buffer_type = basic_sink_buffer<std::vector<T, Allocator>>;
+
+    template <typename CharT, typename Category, typename Traits>
     struct basic_sink_members_base {
         basic_sink_members_base() = default;
-        basic_sink_members_base(std::unique_ptr<Buffer> b) : m_buf(std::move(b))
+        basic_sink_members_base(std::unique_ptr<sink_buffer_type<CharT>> b)
+            : m_buf(std::move(b))
         {
         }
 
-        Buffer* get_sink_buffer()
+        sink_buffer_type<CharT>* get_sink_buffer()
         {
             return m_buf.get();
         }
@@ -62,7 +62,7 @@ namespace detail {
             return m_buf;
         }
 
-        Formatter& get_fmt()
+        basic_formatter<CharT>& get_fmt()
         {
             return m_fmt;
         }
@@ -87,61 +87,46 @@ namespace detail {
         template <typename C = Category>
         static auto _init_buf()
             -> std::enable_if_t<!is_category<no_output_buffer_tag, C>::value,
-                                std::unique_ptr<Buffer>>
+                                std::unique_ptr<sink_buffer_type<CharT>>>
         {
-            return std::make_unique<Buffer>();
+            return std::make_unique<sink_buffer_type<CharT>>();
         }
 
-        Formatter m_fmt{};
-        std::unique_ptr<Buffer> m_buf{_init_buf()};
+        basic_formatter<CharT> m_fmt{};
+        std::unique_ptr<sink_buffer_type<CharT>> m_buf{_init_buf()};
         typename Traits::pos_type m_pos{0};
     };
     template <typename CharT,
               typename Category,
-              typename Formatter,
-              typename Buffer,
               typename Traits,
               typename = void>
     struct basic_sink_members {
-        Formatter& get_fmt() = delete;
-        Buffer* get_sink_buffer() = delete;
+        basic_formatter<CharT>& get_fmt() = delete;
+        sink_buffer_type<CharT>* get_sink_buffer() = delete;
         bool has_sink_buffer() const = delete;
         typename Traits::pos_type& get_pos() = delete;
         const typename Traits::pos_type& get_pos() const = delete;
     };
-    template <typename CharT,
-              typename Category,
-              typename Formatter,
-              typename Buffer,
-              typename Traits>
+    template <typename CharT, typename Category, typename Traits>
     struct basic_sink_members<
         CharT,
         Category,
-        Formatter,
-        Buffer,
         Traits,
         std::enable_if_t<is_category<Category, output>::value>>
-        : basic_sink_members_base<CharT, Category, Formatter, Buffer, Traits> {
-        using basic_sink_members_base<CharT,
-                                      Category,
-                                      Formatter,
-                                      Buffer,
-                                      Traits>::basic_sink_members_base;
+        : basic_sink_members_base<CharT, Category, Traits> {
+        using basic_sink_members_base<CharT, Category, Traits>::
+            basic_sink_members_base;
     };
 
-    template <typename CharT,
-              typename Category,
-              typename Scanner,
-              typename Buffer,
-              typename Traits>
+    template <typename CharT, typename Category, typename Traits>
     struct basic_source_members_base {
         basic_source_members_base() = default;
-        basic_source_members_base(std::unique_ptr<Buffer> b)
+        basic_source_members_base(std::unique_ptr<source_buffer_type<CharT>> b)
             : m_buf(std::move(b))
         {
         }
 
-        Buffer* get_source_buffer()
+        source_buffer_type<CharT>* get_source_buffer()
         {
             return m_buf.get();
         }
@@ -150,7 +135,7 @@ namespace detail {
             return m_buf;
         }
 
-        Scanner& get_scanner()
+        basic_scanner<CharT>& get_scanner()
         {
             return m_scan;
         }
@@ -165,48 +150,38 @@ namespace detail {
         }
 
     private:
-        Scanner m_scan{};
-        std::unique_ptr<Buffer> m_buf{std::make_unique<Buffer>()};
+        basic_scanner<CharT> m_scan{};
+        std::unique_ptr<source_buffer_type<CharT>> m_buf{
+            std::make_unique<source_buffer_type<CharT>>()};
         typename Traits::pos_type m_pos{0};
     };
     template <typename CharT,
               typename Category,
-              typename Scanner,
-              typename Buffer,
               typename Traits,
               typename = void>
     struct basic_source_members {
-        Scanner& get_scanner() = delete;
-        Buffer* get_source_buffer() = delete;
+        basic_scanner<CharT>& get_scanner() = delete;
+        source_buffer_type<CharT>* get_source_buffer() = delete;
         bool has_source_buffer() = delete;
         typename Traits::pos_type& get_pos() = delete;
         const typename Traits::pos_type& get_pos() const = delete;
     };
-    template <typename CharT,
-              typename Category,
-              typename Scanner,
-              typename Buffer,
-              typename Traits>
+    template <typename CharT, typename Category, typename Traits>
     struct basic_source_members<
         CharT,
         Category,
-        Scanner,
-        Buffer,
         Traits,
         std::enable_if_t<is_category<Category, input>::value>>
-        : basic_source_members_base<CharT, Category, Scanner, Buffer, Traits> {
-        using basic_source_members_base<CharT,
-                                        Category,
-                                        Scanner,
-                                        Buffer,
-                                        Traits>::basic_source_members_base;
+        : basic_source_members_base<CharT, Category, Traits> {
+        using basic_source_members_base<CharT, Category, Traits>::
+            basic_source_members_base;
     };
 
-    template <typename CharT,
-              typename Formatter,
-              typename Write,
-              typename... Args>
-    void print(Formatter& f, Write&& w, const CharT* fmt, const Args&... a)
+    template <typename CharT, typename Write, typename... Args>
+    void print(basic_formatter<CharT>& f,
+               Write&& w,
+               const CharT* fmt,
+               const Args&... a)
     {
         using context = typename fmt::buffer_context<CharT>::type;
         auto str = f(fmt, fmt::basic_format_args<context>(
@@ -214,11 +189,8 @@ namespace detail {
         w(make_span(str));
     }
 
-    template <typename CharT,
-              typename Scanner,
-              typename Stream,
-              typename... Args>
-    void scan(Scanner& s,
+    template <typename CharT, typename Stream, typename... Args>
+    void scan(basic_scanner<CharT>& s,
               Stream& stream,
               bool overread,
               const CharT* fmt,
@@ -227,8 +199,8 @@ namespace detail {
         auto ref = basic_stream_ref<CharT, input>(stream);
         s(ref, fmt, overread, a...);
     }
-    template <typename CharT, typename Scanner, typename... Args>
-    void scan(Scanner& s,
+    template <typename CharT, typename... Args>
+    void scan(basic_scanner<CharT>& s,
               basic_stream_ref<CharT, input>& ref,
               bool overread,
               const CharT* fmt,
@@ -238,23 +210,14 @@ namespace detail {
     }
 }  // namespace detail
 
-template <typename Device,
-          typename Formatter,
-          typename Scanner,
-          typename SinkBuffer,
-          typename SourceBuffer,
-          typename Traits>
+template <typename Device, typename Traits>
 class basic_stream : public stream_base {
     using sink_members = detail::basic_sink_members<typename Device::char_type,
                                                     typename Device::category,
-                                                    Formatter,
-                                                    SinkBuffer,
                                                     Traits>;
     using source_members =
         detail::basic_source_members<typename Device::char_type,
                                      typename Device::category,
-                                     Scanner,
-                                     SourceBuffer,
                                      Traits>;
 
     using sink_members_ptr = std::unique_ptr<sink_members>;
@@ -342,10 +305,10 @@ public:
     using device_type = Device;
     using char_type = typename device_type::char_type;
     using category = typename device_type::category;
-    using formatter_type = Formatter;
-    using scanner_type = Scanner;
-    using sink_buffer_type = SinkBuffer;
-    using source_buffer_type = SourceBuffer;
+    using formatter_type = basic_formatter<char_type>;
+    using scanner_type = basic_scanner<char_type>;
+    using sink_buffer_type = sink_buffer_type<char_type>;
+    using source_buffer_type = source_buffer_type<char_type>;
     using traits = Traits;
     using int_type = typename traits::int_type;
     using pos_type = typename traits::pos_type;
@@ -354,8 +317,8 @@ public:
     basic_stream() = default;
     basic_stream(device_type d) : m_dev(std::move(d)) {}
     basic_stream(device_type d,
-                 std::unique_ptr<SinkBuffer> sinkbuf,
-                 std::unique_ptr<SourceBuffer> sourcebuf)
+                 std::unique_ptr<sink_buffer_type> sinkbuf,
+                 std::unique_ptr<source_buffer_type> sourcebuf)
         : m_dev(std::move(d)),
           m_sink(_init_sink_members(std::move(sinkbuf))),
           m_source(_init_source_members(std::move(sourcebuf)))
@@ -906,14 +869,15 @@ protected:
     void _handle_tied();
 
     template <typename C = category>
-    static auto _init_sink_members(
-        std::unique_ptr<SinkBuffer> buf = std::make_unique<SinkBuffer>())
+    static auto _init_sink_members(std::unique_ptr<sink_buffer_type> buf =
+                                       std::make_unique<sink_buffer_type>())
         -> std::enable_if_t<is_category<C, output>::value, sink_members_ptr>
     {
         return std::make_unique<sink_members>(std::move(buf));
     }
     template <typename C = category>
-    static auto _init_sink_members(std::unique_ptr<SinkBuffer> buf = nullptr)
+    static auto _init_sink_members(
+        std::unique_ptr<sink_buffer_type> buf = nullptr)
         -> std::enable_if_t<!is_category<C, output>::value, sink_members_ptr>
     {
         SPIO_UNUSED(buf);
@@ -921,15 +885,15 @@ protected:
     }
 
     template <typename C = category>
-    static auto _init_source_members(
-        std::unique_ptr<SourceBuffer> buf = std::make_unique<SourceBuffer>())
+    static auto _init_source_members(std::unique_ptr<source_buffer_type> buf =
+                                         std::make_unique<source_buffer_type>())
         -> std::enable_if_t<is_category<C, input>::value, source_members_ptr>
     {
         return std::make_unique<source_members>(std::move(buf));
     }
     template <typename C = category>
     static auto _init_source_members(
-        std::unique_ptr<SourceBuffer> buf = nullptr)
+        std::unique_ptr<source_buffer_type> buf = nullptr)
         -> std::enable_if_t<!is_category<C, input>::value, source_members_ptr>
     {
         SPIO_UNUSED(buf);

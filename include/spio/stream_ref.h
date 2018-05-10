@@ -28,12 +28,7 @@
 
 namespace spio {
 namespace detail {
-    template <typename CharT,
-              typename Formatter,
-              typename Scanner,
-              typename SinkBuffer,
-              typename SourceBuffer,
-              typename Traits>
+    template <typename CharT, typename Traits>
     struct erased_stream_storage_base {
         virtual void read(span<CharT>) = 0;
         virtual void write(span<const CharT>) = 0;
@@ -57,13 +52,13 @@ namespace detail {
 
         virtual bool _can_overread() = 0;
 
-        virtual Formatter& get_formatter() = 0;
-        virtual Scanner& get_scanner() = 0;
+        virtual basic_formatter<CharT>& get_formatter() = 0;
+        virtual basic_scanner<CharT>& get_scanner() = 0;
         virtual stream_base& get_base() = 0;
         virtual const stream_base& get_base() const = 0;
 
-        virtual SinkBuffer& get_sink_buffer() = 0;
-        virtual SourceBuffer& get_source_buffer() = 0;
+        virtual sink_buffer_type<CharT>& get_sink_buffer() = 0;
+        virtual source_buffer_type<CharT>& get_source_buffer() = 0;
 
         virtual explicit operator bool() const = 0;
 
@@ -355,15 +350,15 @@ namespace detail {
     template <typename Stream>
     class erased_stream_storage
         : public erased_stream_storage_base<typename Stream::char_type,
-                                            typename Stream::formatter_type,
-                                            typename Stream::scanner_type,
-                                            typename Stream::sink_buffer_type,
-                                            typename Stream::source_buffer_type,
                                             typename Stream::traits> {
     public:
         using stream_type = Stream;
         using char_type = typename stream_type::char_type;
         using category = typename stream_type::category;
+        using formatter_type = typename stream_type::formatter_type;
+        using scanner_type = typename stream_type::scanner_type;
+        using sink_buffer_type = typename stream_type::sink_buffer_type;
+        using source_buffer_type = typename stream_type::source_buffer_type;
 
         erased_stream_storage(stream_type& s) : m_stream(std::addressof(s)) {}
 
@@ -446,11 +441,11 @@ namespace detail {
             return *m_stream;
         }
 
-        typename Stream::formatter_type& get_formatter() override
+        formatter_type& get_formatter() override
         {
             return do_write<category>::get_formatter(*m_stream);
         }
-        typename Stream::scanner_type& get_scanner() override
+        scanner_type& get_scanner() override
         {
             return do_read<category>::get_scanner(*m_stream);
         }
@@ -463,11 +458,11 @@ namespace detail {
             return static_cast<const stream_base&>(*m_stream);
         }
 
-        typename Stream::source_buffer_type& get_source_buffer() override
+        source_buffer_type& get_source_buffer() override
         {
             return do_sourcebuffer<category>::get_source_buffer(*m_stream);
         }
-        typename Stream::sink_buffer_type& get_sink_buffer() override
+        sink_buffer_type& get_sink_buffer() override
         {
             return do_sinkbuffer<category>::get_sink_buffer(*m_stream);
         }
@@ -541,20 +536,10 @@ namespace detail {
         : std::true_type {
     };
 
-    template <typename CharT,
-              typename Formatter,
-              typename Scanner,
-              typename SinkBuffer,
-              typename SourceBuffer,
-              typename Traits>
+    template <typename CharT, typename Traits>
     class basic_erased_stream {
         template <typename Device>
-        using stream_type = basic_stream<Device,
-                                         Formatter,
-                                         Scanner,
-                                         SinkBuffer,
-                                         SourceBuffer,
-                                         Traits>;
+        using stream_type = basic_stream<Device, Traits>;
 
         template <typename T>
         static void _delete(void* ptr)
@@ -563,12 +548,7 @@ namespace detail {
         }
 
     public:
-        using base_type = detail::erased_stream_storage_base<CharT,
-                                                             Formatter,
-                                                             Scanner,
-                                                             SinkBuffer,
-                                                             SourceBuffer,
-                                                             Traits>;
+        using base_type = detail::erased_stream_storage_base<CharT, Traits>;
         using storage = typename std::aligned_storage<4 * sizeof(void*),
                                                       alignof(void*)>::type;
         using pointer = std::unique_ptr<base_type, void (*)(void*)>;
@@ -650,28 +630,17 @@ namespace detail {
     };
 }  // namespace detail
 
-template <typename CharT,
-          typename Category,
-          typename Formatter,
-          typename Scanner,
-          typename SinkBuffer,
-          typename SourceBuffer,
-          typename Traits>
+template <typename CharT, typename Category, typename Traits>
 class basic_stream_ref {
-    using erased_stream = detail::basic_erased_stream<CharT,
-                                                      Formatter,
-                                                      Scanner,
-                                                      SinkBuffer,
-                                                      SourceBuffer,
-                                                      Traits>;
+    using erased_stream = detail::basic_erased_stream<CharT, Traits>;
 
 public:
     using char_type = CharT;
     using category = Category;
-    using formatter_type = Formatter;
-    using scanner_type = Scanner;
-    using sink_buffer_type = SinkBuffer;
-    using source_buffer_type = SourceBuffer;
+    using formatter_type = basic_formatter<char_type>;
+    using scanner_type = basic_scanner<char_type>;
+    using sink_buffer_type = sink_buffer_type<char_type>;
+    using source_buffer_type = source_buffer_type<char_type>;
     using traits = Traits;
 
     basic_stream_ref() = default;
@@ -694,14 +663,7 @@ public:
         m_stream.set(s);
     }
 
-    template <typename C,
-              typename Ret = basic_stream_ref<CharT,
-                                              C,
-                                              Formatter,
-                                              Scanner,
-                                              SinkBuffer,
-                                              SourceBuffer,
-                                              Traits>>
+    template <typename C, typename Ret = basic_stream_ref<CharT, C, Traits>>
     auto as() -> std::enable_if_t<
         detail::is_allowed_category_conversion<Category, C>::value,
         Ret>
@@ -885,7 +847,7 @@ public:
     auto get_source_buffer()
         -> std::enable_if_t<is_category<C, input>::value &&
                                 !is_category<C, no_output_buffer_tag>::value,
-                            SourceBuffer&>
+                            source_buffer_type&>
     {
         return m_stream->get_source_buffer();
     }
@@ -893,7 +855,7 @@ public:
     auto get_sink_buffer()
         -> std::enable_if_t<is_category<C, output>::value &&
                                 !is_category<C, no_output_buffer_tag>::value,
-                            SourceBuffer&>
+                            sink_buffer_type&>
     {
         return m_stream->get_sink_buffer();
     }
