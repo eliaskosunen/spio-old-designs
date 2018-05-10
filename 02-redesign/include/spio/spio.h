@@ -21,6 +21,11 @@
 #ifndef SPIO_SPIO_H
 #define SPIO_SPIO_H
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
+
 #include "config.h"
 #include "fwd.h"
 #include "traits.h"
@@ -51,5 +56,9 @@
 #include "stream_buffer.h"
 #include "stream_iterator.h"
 #include "stream_ref.h"
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 #endif

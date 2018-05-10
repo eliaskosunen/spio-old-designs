@@ -28,14 +28,14 @@
 namespace spio {
 template <typename CharT>
 template <typename T>
-auto basic_fmt_formatter<CharT>::to_string(const T& a) const -> string_type
+auto basic_formatter<CharT>::to_string(const T& a) const -> string_type
 {
     return detail::fmt_to_string<CharT>::str(a);
 }
 
 template <typename CharT>
 template <typename Args>
-auto basic_fmt_formatter<CharT>::operator()(const char_type* f, Args a) const
+auto basic_formatter<CharT>::operator()(const char_type* f, Args a) const
     -> std::basic_string<char_type>
 {
     using buffer = fmt::basic_memory_buffer<CharT>;

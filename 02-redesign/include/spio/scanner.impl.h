@@ -28,10 +28,10 @@
 
 namespace spio {
 template <typename CharT>
-void basic_builtin_scanner<CharT>::vscan(stream_type& s,
-                                         const CharT* format,
-                                         bool readall,
-                                         arg_list args)
+void basic_scanner<CharT>::vscan(stream_type& s,
+                                 const CharT* format,
+                                 bool readall,
+                                 arg_list args)
 {
     auto& arg_vec = args.get();
     auto arg = arg_vec.begin();

@@ -28,24 +28,9 @@
 
 namespace spio {
 namespace detail {
-    template <typename Device,
-              typename Formatter,
-              typename Scanner,
-              typename SinkBuffer,
-              typename SourceBuffer,
-              typename Traits>
-    class basic_container_stream : public basic_stream<Device,
-                                                       Formatter,
-                                                       Scanner,
-                                                       SinkBuffer,
-                                                       SourceBuffer,
-                                                       Traits> {
-        using base = basic_stream<Device,
-                                  Formatter,
-                                  Scanner,
-                                  SinkBuffer,
-                                  SourceBuffer,
-                                  Traits>;
+    template <typename Device, typename Traits>
+    class basic_container_stream : public basic_stream<Device, Traits> {
+        using base = basic_stream<Device, Traits>;
 
     public:
         using device_type = typename base::device_type;

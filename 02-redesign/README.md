@@ -88,6 +88,16 @@ int main()
 }
 ```
 
+## Dependencies
+
+This library uses [fmtlib](https://github.com/fmtlib/fmt) extensively for output formatting. Currently, it is supplied with the repository as a git submodule in the directory
+`include/spio/fmt`. The submodule tracks the unstable fmt master branch to best prepare for the next major release.
+
+For testing [doctest](https://github.com/onqtam/doctest) and for benchmarking [Google Benchmark](https://github.com/google/benchmark) are used. These are supplied as git submodules as
+well, but are not required to use the actual library.
+
+Some kind of [afio](https://github.com/ned14/afio) integration is planned.
+
 ## Benchmarks
 
 The benchmark source code can be found from the `benchmark/` directory.
