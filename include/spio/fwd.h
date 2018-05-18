@@ -44,12 +44,12 @@ class basic_container_source;
 template <typename Buffer>
 class basic_sink_buffer;
 template <typename CharT, typename Allocator = std::allocator<CharT>>
-using sink_buffer_type = basic_sink_buffer<std::vector<CharT, Allocator>>;
+using sink_buffer = basic_sink_buffer<std::vector<CharT, Allocator>>;
 
 template <typename Buffer>
 class basic_source_buffer;
 template <typename CharT, typename Allocator = std::allocator<CharT>>
-using source_buffer_type = basic_source_buffer<std::deque<CharT, Allocator>>;
+using source_buffer = basic_source_buffer<std::deque<CharT, Allocator>>;
 
 namespace detail {
     struct filehandle_device_default_category : seekable_device_tag,

@@ -116,7 +116,7 @@ static void writestring_spio_stream(benchmark::State& state)
             std::vector<char> str;
             state.ResumeTiming();
 
-            spio::basic_stream<spio::basic_vector_sink<char>> p{str};
+            spio::vector_outstream p{str};
             for (auto& n : data) {
                 p.write(spio::make_span(n));
                 bytes += n.length();
@@ -142,7 +142,7 @@ static void writestring_spio_stream_print(benchmark::State& state)
             std::vector<char> str;
             state.ResumeTiming();
 
-            spio::basic_stream<spio::basic_vector_sink<char>> p{str};
+            spio::vector_outstream p{str};
             for (auto& n : data) {
                 p.print("{}", n);
                 bytes += n.length();

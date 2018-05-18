@@ -387,7 +387,7 @@ namespace detail {
             auto ch = s.get();
             s.putback(ch);
             if (is_digit(ch)) {
-                int_fast16_t n;
+                int_fast16_t n{};
                 auto fmt = "}";
                 do_scan<CharT, int_fast16_t>::scan(s, fmt, opt,
                                                    std::addressof(n));
@@ -497,6 +497,7 @@ public:
                const char_type* format,
                bool readall,
                arg_list args);
+    void vscan(stream_type& s, bool readall, arg_list args);
 
     template <typename Stream>
     bool skip_ws(Stream& s)

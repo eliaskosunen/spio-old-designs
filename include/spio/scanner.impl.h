@@ -73,6 +73,20 @@ void basic_scanner<CharT>::vscan(stream_type& s,
         }
     }
 }
+
+template <typename CharT>
+void basic_scanner<CharT>::vscan(stream_type& s, bool readall, arg_list args)
+{
+    auto opt = make_scan_options(readall);
+    auto format = "}";
+    for (auto& arg : args.get()) {
+        skip_ws(s);
+        if (!arg.scan(s, format, opt, arg.value)) {
+            throw failure(make_error_code(unknown_io_error),
+                          "Unknown error in scanning");
+        }
+    }
+}
 }  // namespace spio
 
 #endif

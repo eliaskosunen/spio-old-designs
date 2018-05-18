@@ -55,6 +55,7 @@
 #pragma GCC diagnostic ignored "-Wextra-semi"
 #else
 #pragma GCC diagnostic ignored "-Wctor-dtor-privacy"
+#pragma GCC diagnostic ignored "-Wuseless-cast"
 #endif
 #endif  // defined(__GNUC__) || defined(__clang__)
 

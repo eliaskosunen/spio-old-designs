@@ -59,6 +59,20 @@ auto basic_stream<Device, Traits>::scan(const char_type* f, Args&... a)
                             a...);
     return *this;
 }
+template <typename Device, typename Traits>
+template <typename C, typename Arg, typename... Args>
+auto basic_stream<Device, Traits>::scan(Arg& first, Args&... a)
+    -> std::enable_if_t<is_category<C, input>::value &&
+                            !std::is_const<Arg>::value &&
+                            !std::is_same<std::decay_t<Arg>, char_type>::value,
+                        basic_stream&>
+{
+    auto ref = basic_stream_ref<char_type, input>(*this);
+    get_scanner().vscan(
+        ref, can_overread(get_device()),
+        make_args<typename scanner_type::arg_list>(first, a...));
+    return *this;
+}
 }  // namespace spio
 
 #endif
