@@ -57,8 +57,8 @@ namespace detail {
         virtual stream_base& get_base() = 0;
         virtual const stream_base& get_base() const = 0;
 
-        virtual sink_buffer_type<CharT>& get_sink_buffer() = 0;
-        virtual source_buffer_type<CharT>& get_source_buffer() = 0;
+        virtual sink_buffer<CharT>& get_sink_buffer() = 0;
+        virtual source_buffer<CharT>& get_source_buffer() = 0;
 
         virtual explicit operator bool() const = 0;
 
@@ -639,8 +639,8 @@ public:
     using category = Category;
     using formatter_type = basic_formatter<char_type>;
     using scanner_type = basic_scanner<char_type>;
-    using sink_buffer_type = sink_buffer_type<char_type>;
-    using source_buffer_type = source_buffer_type<char_type>;
+    using sink_buffer_type = sink_buffer<char_type>;
+    using source_buffer_type = source_buffer<char_type>;
     using traits = Traits;
 
     basic_stream_ref() = default;
@@ -840,6 +840,17 @@ public:
     {
         detail::scan<char_type>(m_stream->get_scanner(), *this, _can_overread(),
                                 f, a...);
+        return *this;
+    }
+    template <typename C = category, typename Arg, typename... Args>
+    auto scan(Arg& first, Args&... a) -> std::enable_if_t<
+        is_category<C, input>::value && !std::is_const<Arg>::value &&
+            !std::is_same<std::decay_t<Arg>, char_type>::value,
+        basic_stream_ref&>
+    {
+        m_stream->get_scanner().vscan(
+            *this, _can_overread(),
+            make_args<scanner_type::arg_list>(first, a...));
         return *this;
     }
 

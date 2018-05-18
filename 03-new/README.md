@@ -114,8 +114,8 @@ All times are nanoseconds of CPU time.
 n                                        | 8    | 64    | 512   | 2048
  :-------------------------------------- | :--: | :---: | :---: | :-:
 `spio::basic_vector_sink<char>::write`   | 412  | 704   | 1986  | 6413
-`spio::basic_stream<vector_sink>::write` | 636  | 1001  | 2536  | 7769
-`spio::basic_stream<vector_sink>::print` | 739  | 1758  | 8607  | 32765
+`spio::vector_outstream::write`          | 636  | 1001  | 2536  | 7769
+`spio::vector_outstream::print`          | 739  | 1758  | 8607  | 32765
 `std::stringbuf::sputn`                  | 726  | 912   | 1695  | 4694
 `std::stringstream::operator<<`          | 762  | 1049  | 2307  | 7487
 `std::string::append`                    | 382  | 547   | 1399  | 3903
