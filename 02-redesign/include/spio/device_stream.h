@@ -135,6 +135,14 @@ using basic_file_outstream = basic_stream<basic_default_file_sink<CharT>>;
 template <typename CharT>
 using basic_file_iostream = basic_stream<basic_default_file_device<CharT>>;
 
+using file_instream = basic_file_instream<char>;
+using file_outstream = basic_file_outstream<char>;
+using file_iostream = basic_file_iostream<char>;
+
+using wfile_instream = basic_file_instream<wchar_t>;
+using wfile_outstream = basic_file_outstream<wchar_t>;
+using wfile_iostream = basic_file_iostream<wchar_t>;
+
 // memory
 template <typename CharT, typename Traits = std::char_traits<CharT>>
 using basic_memory_instream = basic_stream<basic_memory_source<CharT, Traits>>;

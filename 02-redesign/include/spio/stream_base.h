@@ -38,7 +38,14 @@ namespace detail {
     public:
         using error_function_type = std::function<bool(const failure&)>;
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnoexcept"
+#endif
         stream_error_handler() = default;
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
         void push(error_function_type f)
         {

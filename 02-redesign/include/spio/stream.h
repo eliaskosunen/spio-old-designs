@@ -42,18 +42,15 @@ namespace detail {
         Args...> : std::true_type {
     };
 
-    template <typename T, typename Allocator = std::allocator<T>>
-    using sink_buffer_type = basic_sink_buffer<std::vector<T, Allocator>>;
-
     template <typename CharT, typename Category, typename Traits>
     struct basic_sink_members_base {
         basic_sink_members_base() = default;
-        basic_sink_members_base(std::unique_ptr<sink_buffer_type<CharT>> b)
+        basic_sink_members_base(std::unique_ptr<sink_buffer<CharT>> b)
             : m_buf(std::move(b))
         {
         }
 
-        sink_buffer_type<CharT>* get_sink_buffer()
+        sink_buffer<CharT>* get_sink_buffer()
         {
             return m_buf.get();
         }
@@ -87,13 +84,13 @@ namespace detail {
         template <typename C = Category>
         static auto _init_buf()
             -> std::enable_if_t<!is_category<no_output_buffer_tag, C>::value,
-                                std::unique_ptr<sink_buffer_type<CharT>>>
+                                std::unique_ptr<sink_buffer<CharT>>>
         {
-            return std::make_unique<sink_buffer_type<CharT>>();
+            return std::make_unique<sink_buffer<CharT>>();
         }
 
         basic_formatter<CharT> m_fmt{};
-        std::unique_ptr<sink_buffer_type<CharT>> m_buf{_init_buf()};
+        std::unique_ptr<sink_buffer<CharT>> m_buf{_init_buf()};
         typename Traits::pos_type m_pos{0};
     };
     template <typename CharT,
@@ -102,7 +99,7 @@ namespace detail {
               typename = void>
     struct basic_sink_members {
         basic_formatter<CharT>& get_fmt() = delete;
-        sink_buffer_type<CharT>* get_sink_buffer() = delete;
+        sink_buffer<CharT>* get_sink_buffer() = delete;
         bool has_sink_buffer() const = delete;
         typename Traits::pos_type& get_pos() = delete;
         const typename Traits::pos_type& get_pos() const = delete;
@@ -121,12 +118,12 @@ namespace detail {
     template <typename CharT, typename Category, typename Traits>
     struct basic_source_members_base {
         basic_source_members_base() = default;
-        basic_source_members_base(std::unique_ptr<source_buffer_type<CharT>> b)
+        basic_source_members_base(std::unique_ptr<source_buffer<CharT>> b)
             : m_buf(std::move(b))
         {
         }
 
-        source_buffer_type<CharT>* get_source_buffer()
+        source_buffer<CharT>* get_source_buffer()
         {
             return m_buf.get();
         }
@@ -151,8 +148,8 @@ namespace detail {
 
     private:
         basic_scanner<CharT> m_scan{};
-        std::unique_ptr<source_buffer_type<CharT>> m_buf{
-            std::make_unique<source_buffer_type<CharT>>()};
+        std::unique_ptr<source_buffer<CharT>> m_buf{
+            std::make_unique<source_buffer<CharT>>()};
         typename Traits::pos_type m_pos{0};
     };
     template <typename CharT,
@@ -161,7 +158,7 @@ namespace detail {
               typename = void>
     struct basic_source_members {
         basic_scanner<CharT>& get_scanner() = delete;
-        source_buffer_type<CharT>* get_source_buffer() = delete;
+        source_buffer<CharT>* get_source_buffer() = delete;
         bool has_source_buffer() = delete;
         typename Traits::pos_type& get_pos() = delete;
         const typename Traits::pos_type& get_pos() const = delete;
@@ -307,15 +304,20 @@ public:
     using category = typename device_type::category;
     using formatter_type = basic_formatter<char_type>;
     using scanner_type = basic_scanner<char_type>;
-    using sink_buffer_type = sink_buffer_type<char_type>;
-    using source_buffer_type = source_buffer_type<char_type>;
+    using sink_buffer_type = sink_buffer<char_type>;
+    using source_buffer_type = source_buffer<char_type>;
     using traits = Traits;
     using int_type = typename traits::int_type;
     using pos_type = typename traits::pos_type;
     using tied_type = basic_stream_ref<char_type, make_category<output>>;
 
     basic_stream() = default;
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnoexcept"
+#endif
     basic_stream(device_type d) : m_dev(std::move(d)) {}
+
     basic_stream(device_type d,
                  std::unique_ptr<sink_buffer_type> sinkbuf,
                  std::unique_ptr<source_buffer_type> sourcebuf)
@@ -324,6 +326,14 @@ public:
           m_source(_init_source_members(std::move(sourcebuf)))
     {
     }
+
+    template <typename... Args>
+    basic_stream(Args&&... a) : m_dev(device_type(std::forward<Args>(a)...))
+    {
+    }
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
     ~basic_stream()
     {
@@ -696,6 +706,11 @@ public:
     template <typename C = category, typename... Args>
     auto scan(const char_type* f, Args&... a)
         -> std::enable_if_t<is_category<C, input>::value, basic_stream&>;
+    template <typename C = category, typename Arg, typename... Args>
+    auto scan(Arg& first, Args&... a) -> std::enable_if_t<
+        is_category<C, input>::value && !std::is_const<Arg>::value &&
+            !std::is_same<std::decay_t<Arg>, char_type>::value,
+        basic_stream&>;
 
     template <typename C = category>
     auto get_formatter()
