@@ -21,44 +21,10 @@
 #ifndef SPIO_SPIO_H
 #define SPIO_SPIO_H
 
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wsign-conversion"
-#endif
-
 #include "config.h"
-#include "fwd.h"
-#include "traits.h"
+#include "filter.h"
+#include "locale/locale.h"
+#include "outstream.h"
+#include "string_view.h"
 
-#include "codeconv.h"
-#include "error.h"
-#include "fmt.h"
-#include "locale.h"
-#include "span.h"
-#include "util.h"
-
-#include "container_device.h"
-#include "file_device.h"
-#include "memory_device.h"
-#include "null_device.h"
-
-#if SPIO_HAS_NATIVE_FILEIO
-#include "native_file_device.h"
-#endif
-
-#include "formatter.h"
-#include "scanner.h"
-
-#include "stream.h"
-#include "stream_base.h"
-
-#include "device_stream.h"
-#include "stream_buffer.h"
-#include "stream_iterator.h"
-#include "stream_ref.h"
-
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
-
-#endif
+#endif  // SPIO_SPIO_H

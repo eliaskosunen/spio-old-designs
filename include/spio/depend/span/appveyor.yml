@@ -1,0 +1,32 @@
+version: 0.1.{build}
+
+image:
+    - Visual Studio 2017
+
+configuration: Debug
+
+environment:
+    MSVC_DEFAULT_OPTIONS: ON
+    matrix:
+        - VS_VERSION: "Visual Studio 15"
+        - VS_VERSION: "Visual Studio 14"
+
+clone_depth: 5
+clone_folder: C:\projects\span
+
+install:
+    - git submodule update --init --recursive
+
+before_build:
+    - cd %APPVEYOR_BUILD_FOLDER%
+    - mkdir build
+    - cd build
+    - cmake .. -G "%VS_VERSION%"
+
+build:
+    project: C:\projects\span\build\span.sln
+    parallel: true
+    verbosity: normal
+
+test_script:
+    - ..\build\Debug\span_tests.exe

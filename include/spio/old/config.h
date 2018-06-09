@@ -25,52 +25,20 @@
 // Options
 //
 
-#ifndef SPIO_USE_STREAMS
-#define SPIO_USE_STREAMS 1
-#endif
-
-#ifndef SPIO_USE_STL
-#define SPIO_USE_STL 1
-#endif
-
 #ifndef SPIO_USE_THREADING
 #define SPIO_USE_THREADING 1
-#endif
-
-#ifndef SPIO_USE_FMT
-#define SPIO_USE_FMT 1
 #endif
 
 #ifndef SPIO_USE_FMT_OSTREAM
 #define SPIO_USE_FMT_OSTREAM 1
 #endif
 
-#ifndef SPIO_USE_EXCEPTIONS
-#define SPIO_USE_EXCEPTIONS 1
-#endif
-
 #ifndef SPIO_FAILURE_USE_STRING
 #define SPIO_FAILURE_USE_STRING 1
 #endif
 
-#ifndef SPIO_FAILURE_STATIC_STORAGE
-#define SPIO_FAILURE_STATIC_STORAGE 256
-#endif
-
 #ifndef SPIO_THROW_ON_ASSERT
 #define SPIO_THROW_ON_ASSERT 0
-#endif
-
-#if !SPIO_USE_STL && SPIO_USE_FMT
-#error fmtlib (SPIO_USE_FMT) requires STL (SPIO_USE_STL)
-#endif
-
-#if !SPIO_USE_FMT && SPIO_USE_FMT_OSTREAM
-#error SPIO_USE_FMT required for SPIO_USE_FMT_OSTREAM
-#endif
-
-#if SPIO_FAILURE_USE_STRING && !SPIO_USE_STL
-#error SPIO_FAILURE_USE_STRING requires SPIO_USE_STL
 #endif
 
 //
@@ -99,7 +67,7 @@
 #define SPIO_MSC_VER 0
 #endif
 
-#if !SPIO_POSIX && !SPIO_WIN32
+#if !SPIO_POSIX
 #define SPIO_HAS_NATIVE_FILEIO 0
 #else
 #define SPIO_HAS_NATIVE_FILEIO 1
@@ -164,37 +132,5 @@
 #define SPIO_LINE SPIO_STRINGIZE(__LINE__)
 
 #define SPIO_UNUSED(x) (static_cast<void>(sizeof(x)))
-
-#include <type_traits>
-
-namespace io {
-#if SPIO_HAS_LOGICAL_TRAITS
-template <typename... B>
-using disjunction = std::disjunction<B...>;
-#else
-template <typename...>
-struct disjunction : std::false_type {
-};
-template <typename B1>
-struct disjunction<B1> : B1 {
-};
-template <typename B1, typename... Bn>
-struct disjunction<B1, Bn...>
-    : std::conditional_t<bool(B1::value), B1, disjunction<Bn...>> {
-};
-#endif
-
-template <typename T, typename... Ts>
-struct contains : disjunction<std::is_same<T, Ts>...> {
-};
-
-#if !SPIO_HAS_VOID_T
-template <typename...>
-using void_t = void;
-#else
-template <typename... T>
-using void_t = std::void_t<T...>;
-#endif
-}  // namespace io
 
 #endif  // SPIO_CONFIG_H

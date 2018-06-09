@@ -21,8 +21,7 @@
 #ifndef SPIO_ERROR_H
 #define SPIO_ERROR_H
 
-#include "config.h"
-#include "fmt.h"
+#include "fwd.h"
 
 #include <cassert>
 #include <cerrno>
@@ -30,13 +29,18 @@
 #include <stdexcept>
 #include <string>
 #include <system_error>
+#include "fmt.h"
 
-namespace io {
+namespace spio {
 enum error {
     invalid_input,
     invalid_operation,
     assertion_failure,
     end_of_file,
+    unknown_io_error,
+    bad_variant_access,
+    out_of_range,
+    sentry_error,
     unimplemented,
     unreachable,
     undefined_error
@@ -45,11 +49,11 @@ enum error {
 
 namespace std {
 template <>
-struct is_error_condition_enum<io::error> : true_type {
+struct is_error_code_enum<spio::error> : true_type {
 };
 }  // namespace std
 
-namespace io {
+namespace spio {
 struct error_category : public std::error_category {
     const char* name() const noexcept override
     {
@@ -67,6 +71,14 @@ struct error_category : public std::error_category {
                 return "Assertion failure";
             case end_of_file:
                 return "EOF";
+            case unknown_io_error:
+                return "Unknown IO error";
+            case bad_variant_access:
+                return "Bad variant access";
+            case out_of_range:
+                return "Out of range";
+            case sentry_error:
+                return "Sentry error";
             case unimplemented:
                 return "Unimplemented";
             case unreachable:
@@ -75,7 +87,7 @@ struct error_category : public std::error_category {
                 return "[undefined error]";
         }
         assert(false);
-		std::terminate();
+        std::terminate();
     }
 };
 
@@ -94,14 +106,14 @@ namespace detail {
 #endif
 }  // namespace detail
 
-inline std::error_code make_error_condition(error e)
+inline std::error_code make_error_code(error e)
 {
     return {static_cast<int>(e), detail::get_error_category()};
 }
 
 inline bool is_eof(const std::error_code& e)
 {
-    return e == make_error_condition(end_of_file);
+    return e == make_error_code(end_of_file);
 }
 
 #if SPIO_WIN32
@@ -129,51 +141,58 @@ public:
     }
 };
 
-#if SPIO_USE_EXCEPTIONS
-#define SPIO_THROW_MSG(msg) throw ::io::failure(::io::default_error, msg)
-#define SPIO_THROW_EC(ec) throw ::io::failure(ec)
-#define SPIO_THROW_ERRNO throw ::io::failure(SPIO_MAKE_ERRNO)
-#define SPIO_THROW(ec, msg) throw ::io::failure(ec, msg)
-#define SPIO_THROW_FAILURE(f) throw f
-#define SPIO_RETHROW throw
-#else
-class failure {
-};
-#define SPIO_THROW_MSG(msg) \
-    assert(false && (msg)); \
-    std::terminate()
-#define SPIO_THROW_EC(ec) \
-    assert(false && ec);  \
-    std::terminate()
-#define SPIO_THROW_ERRNO    \
-    assert(false && errno); \
-    std::terminate()
-#define SPIO_THROW(ec, msg) \
-    SPIO_UNUSED(ec);        \
-    assert(false && (msg)); \
-    std::terminate()
-#define SPIO_THROW_FAILURE(f) \
-    SPIO_UNUSED(f);           \
-    assert(false);            \
-    std::terminate()
-#define SPIO_RETHROW                                   \
-    assert(false && "Rethrowing caught exception..."); \
-    std::terminate()
-#endif
-
 #if SPIO_THROW_ON_ASSERT
-#define SPIO_ASSERT(cond, msg)                        \
-    do {                                              \
-        if (!(cond)) {                                \
-            SPIO_THROW(::io::assertion_failure, msg); \
-        }                                             \
+#define SPIO_ASSERT(cond, msg)                             \
+    do {                                                   \
+        if (!(cond)) {                                     \
+            throw failure(::spio::assertion_failure, msg); \
+        }                                                  \
     } while (false)
 #else
 #define SPIO_ASSERT(cond, msg) assert((cond) && msg)
 #endif
 
-#define SPIO_UNIMPLEMENTED SPIO_THROW(::io::unimplemented, "Unimplemented")
-#define SPIO_UNREACHABLE SPIO_THROW(::io::unreachable, "Unreachable")
-}  // namespace io
+#ifdef _MSC_VER
+#define SPIO_DEBUG_UNREACHABLE                                            \
+    __pragma(warning(suppress : 4702)) throw failure(::spio::unreachable, \
+                                                     "Unreachable");      \
+    __pragma(warning(suppress : 4702)) std::terminate()
+#else
+#define SPIO_DEBUG_UNREACHABLE                         \
+    throw failure(::spio::unreachable, "Unreachable"); \
+    std::terminate()
+#endif
+
+#ifdef NDEBUG
+
+#ifdef __GNUC__
+#define SPIO_UNREACHABLE __builtin_unreachable()
+#elif defined(_MSC_VER)
+#define SPIO_UNREACHABLE __pragma(warning(suppress : 4702)) __assume(false)
+#else
+#define SPIO_UNREACHABLE SPIO_DEBUG_UNREACHABLE
+#endif  // __GNUC__
+
+#else
+#define SPIO_UNREACHABLE SPIO_DEBUG_UNREACHABLE
+#endif  // NDEBUG
+
+#ifdef _MSC_VER
+#define SPIO_UNIMPLEMENTED_DEBUG                                            \
+    __pragma(warning(suppress : 4702)) throw failure(::spio::unimplemented, \
+                                                     "Unimplemented");      \
+    __pragma(warning(suppress : 4702)) std::terminate()
+#else
+#define SPIO_UNIMPLEMENTED_DEBUG                           \
+    throw failure(::spio::unimplemented, "Unimplemented"); \
+    std::terminate()
+#endif
+
+#ifdef NDEBUG
+#define SPIO_UNIMPLEMENTED SPIO_UNREACHABLE
+#else
+#define SPIO_UNIMPLEMENTED SPIO_UNIMPLEMENTED_DEBUG
+#endif  // NDEBUG
+}  // namespace spio
 
 #endif  // SPIO_ERROR_H

@@ -21,15 +21,7 @@
 #ifndef SPIO_ERROR_H
 #define SPIO_ERROR_H
 
-#include "fwd.h"
-
-#include <cassert>
-#include <cerrno>
-#include <exception>
-#include <stdexcept>
-#include <string>
 #include <system_error>
-#include "fmt.h"
 
 namespace spio {
 enum error {
@@ -55,7 +47,7 @@ struct is_error_code_enum<spio::error> : true_type {
 
 namespace spio {
 struct error_category : public std::error_category {
-    const char* name() const noexcept override
+    const char* name() const SPIO_NOEXCEPT override
     {
         return "spio";
     }
@@ -92,17 +84,17 @@ struct error_category : public std::error_category {
 };
 
 namespace detail {
-#ifdef __clang__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wexit-time-destructors"
+#if SPIO_CLANG
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wexit-time-destructors"
 #endif
     inline const error_category& get_error_category()
     {
         static error_category inst;
         return inst;
     }
-#ifdef __clang__
-#pragma GCC diagnostic pop
+#if SPIO_CLANG
+#pragma clang diagnostic pop
 #endif
 }  // namespace detail
 
@@ -116,7 +108,7 @@ inline bool is_eof(const std::error_code& e)
     return e == make_error_code(end_of_file);
 }
 
-#if SPIO_WIN32
+#if SPIO_WINDOWN
 #define SPIO_MAKE_ERRNO ::std::error_code(errno, ::std::generic_category())
 #define SPIO_MAKE_WIN32_ERROR \
     ::std::error_code(::GetLastError(), ::std::system_category())
@@ -152,47 +144,17 @@ public:
 #define SPIO_ASSERT(cond, msg) assert((cond) && msg)
 #endif
 
-#ifdef _MSC_VER
-#define SPIO_DEBUG_UNREACHABLE                                            \
-    __pragma(warning(suppress : 4702)) throw failure(::spio::unreachable, \
-                                                     "Unreachable");      \
-    __pragma(warning(suppress : 4702)) std::terminate()
-#else
-#define SPIO_DEBUG_UNREACHABLE                         \
-    throw failure(::spio::unreachable, "Unreachable"); \
-    std::terminate()
-#endif
-
-#ifdef NDEBUG
-
-#ifdef __GNUC__
-#define SPIO_UNREACHABLE __builtin_unreachable()
-#elif defined(_MSC_VER)
-#define SPIO_UNREACHABLE __pragma(warning(suppress : 4702)) __assume(false)
-#else
-#define SPIO_UNREACHABLE SPIO_DEBUG_UNREACHABLE
-#endif  // __GNUC__
-
-#else
-#define SPIO_UNREACHABLE SPIO_DEBUG_UNREACHABLE
-#endif  // NDEBUG
-
-#ifdef _MSC_VER
-#define SPIO_UNIMPLEMENTED_DEBUG                                            \
-    __pragma(warning(suppress : 4702)) throw failure(::spio::unimplemented, \
-                                                     "Unimplemented");      \
-    __pragma(warning(suppress : 4702)) std::terminate()
-#else
-#define SPIO_UNIMPLEMENTED_DEBUG                           \
-    throw failure(::spio::unimplemented, "Unimplemented"); \
-    std::terminate()
-#endif
+#define SPIO_UNIMPLEMENTED_DEBUG                               \
+    do {                                                       \
+        throw failure(::spio::unimplemented, "Unimplemented"); \
+        std::terminate();                                      \
+    } while (false)
 
 #ifdef NDEBUG
 #define SPIO_UNIMPLEMENTED SPIO_UNREACHABLE
 #else
 #define SPIO_UNIMPLEMENTED SPIO_UNIMPLEMENTED_DEBUG
-#endif  // NDEBUG
+#endif
 }  // namespace spio
 
 #endif  // SPIO_ERROR_H

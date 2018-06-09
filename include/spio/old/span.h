@@ -22,14 +22,10 @@
 #ifndef SPIO_SPAN_H
 #define SPIO_SPAN_H
 
-#if !SPIO_USE_EXCEPTIONS
-#define SPAN_NOTHROW
-#endif
-
 #define SPAN_BYTE_USE_UCHAR 1
 #include "span/span/span.h"
 
-namespace io {
+namespace spio {
 using ::span::as_bytes;
 using ::span::as_writable_bytes;
 using ::span::const_byte_span;
@@ -37,7 +33,8 @@ using ::span::dynamic_extent;
 using ::span::extent_t;
 using ::span::make_span;
 using ::span::span;
+using ::span::byte_type;
 using ::span::writable_byte_span;
-}  // namespace io
+}  // namespace spio
 
 #endif  // SPIO_SPAN_H
