@@ -21,172 +21,173 @@
 #ifndef SPIO_STREAM_BASE_H
 #define SPIO_STREAM_BASE_H
 
-#include "fwd.h"
-
+#include <functional>
+#include <vector>
+#include "config.h"
 #include "error.h"
-#include "locale.h"
-#include "span.h"
-#include "traits.h"
 
 namespace spio {
-struct iostate {
-    enum : char { good = 0, bad = 1, fail = 2, eof = 4 };
+using streamsize = std::ptrdiff_t;
+using streamoff = std::ptrdiff_t;
+
+class fpos {
+public:
+    SPIO_CONSTEXPR_STRICT fpos(int n) SPIO_NOEXCEPT
+        : fpos(static_cast<streamoff>(n))
+    {
+    }
+    SPIO_CONSTEXPR_STRICT fpos(streamoff n) SPIO_NOEXCEPT : m_pos(n) {}
+
+    SPIO_CONSTEXPR_STRICT operator streamoff() const SPIO_NOEXCEPT
+    {
+        return m_pos;
+    }
+
+    bool operator==(const fpos& p) const
+    {
+        return m_pos == p.m_pos;
+    }
+    bool operator!=(const fpos& p) const
+    {
+        return !(*this == p);
+    }
+
+    fpos& operator+=(streamoff n)
+    {
+        m_pos += n;
+        return *this;
+    }
+    fpos& operator-=(streamoff n)
+    {
+        return (*this += -n);
+    }
+
+    streamoff operator-(const fpos& p) const
+    {
+        return m_pos - p.m_pos;
+    }
+
+private:
+    streamoff m_pos;
 };
 
-namespace detail {
-    class stream_error_handler {
-    public:
-        using error_function_type = std::function<bool(const failure&)>;
+inline fpos operator+(fpos l, fpos r)
+{
+    l += r;
+    return l;
+}
+inline fpos operator-(fpos l, fpos r)
+{
+    l -= r;
+    return l;
+}
 
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wnoexcept"
-#endif
-        stream_error_handler() = default;
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
+class error_handler {
+public:
+    using callback = std::function<bool(const failure&)>;
+    using storage = std::vector<callback>;
+    using iterator = typename storage::iterator;
+    using const_iterator = typename storage::const_iterator;
+    using size_type = typename storage::size_type;
 
-        void push(error_function_type f)
-        {
-            m_error_handlers.push_back(std::move(f));
-        }
-        void pop()
-        {
-            m_error_handlers.pop_back();
-        }
-        auto size()
-        {
-            return m_error_handlers.size();
-        }
-        void restore()
-        {
-            m_error_handlers.clear();
-            push(_default_error_handler());
-        }
+    error_handler(callback f = _default_callback()) : m_callbacks{f} {}
 
-        auto begin()
-        {
-            return m_error_handlers.begin();
-        }
-        auto end()
-        {
-            return m_error_handlers.end();
-        }
+    void push(callback f)
+    {
+        m_callbacks.push_back(std::move(f));
+    }
+    void pop()
+    {
+        m_callbacks.pop_back();
+    }
+    size_type size() const SPIO_NOEXCEPT
+    {
+        return m_callbacks.size();
+    }
+    void restore(callback f = _default_callback())
+    {
+        m_callbacks.clear();
+        push(std::move(f));
+    }
 
-        auto begin() const
-        {
-            return m_error_handlers.begin();
-        }
-        auto end() const
-        {
-            return m_error_handlers.end();
-        }
+    iterator begin()
+    {
+        return m_callbacks.begin();
+    }
+    iterator end()
+    {
+        return m_callbacks.end();
+    }
+    const_iterator begin() const
+    {
+        return m_callbacks.begin();
+    }
+    const_iterator end() const
+    {
+        return m_callbacks.end();
+    }
 
-    private:
-        static error_function_type _default_error_handler()
-        {
-            return [](const failure& e) {
-                if (e.code()) {
-                    throw e;
-                }
-                return true;
-            };
-        }
-        static std::vector<error_function_type> _init_error_handlers()
-        {
-            return {_default_error_handler()};
-        }
+private:
+    static callback _default_callback()
+    {
+        return [](const failure& e) {
+            if (e.code()) {
+                throw e;
+            }
+            return true;
+        };
+    }
 
-        std::vector<error_function_type> m_error_handlers{
-            _init_error_handlers()};
-    };
-}  // namespace detail
+    std::vector<callback> m_callbacks;
+};
 
 class stream_base {
 public:
     stream_base(const stream_base&) = delete;
     stream_base& operator=(const stream_base&) = delete;
-    stream_base(stream_base&&) noexcept = default;
-    stream_base& operator=(stream_base&&) noexcept = default;
+    stream_base(stream_base&&) SPIO_NOEXCEPT = default;
+    stream_base& operator=(stream_base&&) SPIO_NOEXCEPT = default;
 
-    virtual ~stream_base() noexcept = default;
+    virtual ~stream_base() SPIO_NOEXCEPT = default;
 
-    int rdstate() const
+    bool bad() const SPIO_NOEXCEPT
     {
-        return m_state;
+        return m_bad;
     }
-    void clear(int s = iostate::good)
+    virtual explicit operator bool() const SPIO_NOEXCEPT
     {
-        m_state = s;
+        return bad();
     }
-    void setstate(int s)
-    {
-        clear(rdstate() | s);
-    }
-    void clear_eof()
-    {
-        clear((bad() ? iostate::bad : iostate::good) |
-              (fail() ? iostate::fail : iostate::good));
-    }
-
-    bool good() const
-    {
-        return rdstate() == iostate::good;
-    }
-    bool bad() const
-    {
-        return (rdstate() & iostate::bad) != 0;
-    }
-    bool fail() const
-    {
-        return (rdstate() & iostate::fail) != 0 || bad();
-    }
-    bool eof() const
-    {
-        return (rdstate() & iostate::eof) != 0;
-    }
-
-    explicit operator bool() const
-    {
-        return !fail();
-    }
-    bool operator!() const
+    bool operator!() const SPIO_NOEXCEPT
     {
         return !(operator bool());
-    }
-
-    auto& error()
-    {
-        return m_error;
-    }
-    auto& error() const
-    {
-        return m_error;
-    }
-
-    void set_error(int state, const failure& f)
-    {
-        setstate(state);
-        _handle_error(f);
     }
 
 protected:
     stream_base() = default;
 
-    void _handle_error(const failure& e)
+    void _raise(const failure& e)
     {
         for (auto& h : m_error) {
             if (!h(e)) {
-                break;
+                _set_bad();
             }
         }
     }
 
+    void _set_bad() SPIO_NOEXCEPT
+    {
+        m_bad = true;
+    }
+    void _clear_bad() SPIO_NOEXCEPT
+    {
+        m_bad = false;
+    }
+
 private:
-    int m_state{iostate::good};
-    detail::stream_error_handler m_error{};
+    error_handler m_error{};
+    bool m_bad{false};
 };
 }  // namespace spio
 
-#endif
+#endif  // SPIO_STREAM_BASE_H

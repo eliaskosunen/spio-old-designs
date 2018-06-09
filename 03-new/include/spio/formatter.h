@@ -21,87 +21,19 @@
 #ifndef SPIO_FORMATTER_H
 #define SPIO_FORMATTER_H
 
-#include "fwd.h"
-
-#include "codeconv.h"
-#include "fmt.h"
-#include "locale.h"
-#include "util.h"
+#include "depend/fmt.h"
+#include "string_view.h"
 
 namespace spio {
-namespace detail {
-    template <typename CharT>
-    struct fmt_to_string;
-
-    template <>
-    struct fmt_to_string<char> {
-        template <typename T>
-        static std::string str(const T& a)
-        {
-            return fmt::to_string(a);
-        }
-    };
-    template <>
-    struct fmt_to_string<wchar_t> {
-        template <typename T>
-        static std::wstring str(const T& a)
-        {
-            return fmt::to_wstring(a);
-        }
-    };
-}  // namespace detail
-
 template <typename CharT>
-class basic_formatter {
-public:
-    using char_type = CharT;
-    using string_type = std::basic_string<char_type>;
-
-    template <typename Args>
-    string_type operator()(const char_type* f, Args a) const;
-
+struct basic_formatter {
     template <typename... Args>
-    string_type format(const char_type* f, const Args&... a) const
+    std::basic_string<CharT> format(basic_string_view<CharT> f,
+                                    const Args&... a)
     {
-        using context = typename fmt::buffer_context<char_type>::type;
-        return operator()(f, fmt::basic_format_args<context>(
-                                 fmt::make_format_args<context>(a...)));
+        return fmt::format({f.data(), f.size()}, a...);
     }
-
-    template <typename T>
-    string_type to_string(const T& a) const;
 };
-
-#if 0
-class basic_fmt_formatter {
-public:
-    using char_type = CharT;
-    using result = std::basic_string<char_type>;
-
-    template <typename T>
-    result operator()(const T& a)
-    {
-        return m_conv(m_fmt(a));
-    }
-    result operator()(const char_type* s)
-    {
-        return m_conv(m_fmt(m_conv.reverse(s)));
-    }
-
-    template <typename... Args>
-    result format(const char_type* f, const Args&... a)
-    {
-        auto fmt = m_conv.reverse(f);
-        return m_conv(m_fmt.format(fmt.c_str(), a...));
-    }
-
-private:
-    codeconv<char, char_type> m_conv;
-    basic_fmt_formatter<char> m_fmt;
-};
-#endif
 }  // namespace spio
 
-#include "formatter.impl.h"
-
-#endif
+#endif  // SPIO_FORMATTER_H

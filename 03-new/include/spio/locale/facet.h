@@ -17,24 +17,21 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-//
 
-#ifndef SPIO_SPAN_H
-#define SPIO_SPAN_H
-
-#define SPAN_BYTE_USE_UCHAR 1
-#include "span/span/span.h"
+#ifndef SPIO_LOCALE_FACET_H
+#define SPIO_LOCALE_FACET_H
 
 namespace spio {
-using ::span::as_bytes;
-using ::span::as_writable_bytes;
-using ::span::const_byte_span;
-using ::span::dynamic_extent;
-using ::span::extent_t;
-using ::span::make_span;
-using ::span::span;
-using ::span::byte_type;
-using ::span::writable_byte_span;
-}  // namespace spio
+namespace detail {
+    struct facet {
+        facet() = default;
+        facet(const facet&) = delete;
+        facet& operator=(const facet&) = delete;
+        facet(facet&&) = default;
+        facet& operator=(facet&&) = default;
+        virtual ~facet() = default;
+    };
+}  // namespace detail
+}
 
-#endif  // SPIO_SPAN_H
+#endif // SPIO_LOCALE_FACET_H

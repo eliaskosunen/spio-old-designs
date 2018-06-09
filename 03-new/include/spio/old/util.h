@@ -21,530 +21,1043 @@
 #ifndef SPIO_UTIL_H
 #define SPIO_UTIL_H
 
-#include <cstdio>
+#include "fwd.h"
+
+#include <algorithm>
+#include <cassert>
 #include <cstring>
-#include <limits>
-#include <mutex>
-#include "config.h"
-#include "error.h"
-#include "span.h"
+#include <memory>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
-namespace io {
-template <typename Base>
-class erased_type {
-public:
-    using base_type = Base;
-    using Pointer = std::unique_ptr<Base>;
+namespace spio {
+#if SPIO_HAS_LOGICAL_TRAITS
+template <typename... B>
+using disjunction = std::disjunction<B...>;
+#else
+template <typename...>
+struct disjunction : std::false_type {
+};
+template <typename B1>
+struct disjunction<B1> : B1 {
+};
+template <typename B1, typename... Bn>
+struct disjunction<B1, Bn...>
+    : std::conditional_t<bool(B1::value), B1, disjunction<Bn...>> {
+};
+#endif
 
-    template <typename T, typename Enable = void>
-    class inner;
-
-    erased_type() = default;
-    erased_type(const erased_type& o) : m_inner(o.inner_clone()) {}
-    erased_type& operator=(const erased_type& o)
-    {
-        erased_type tmp(o);
-        std::swap(tmp, *this);
-        return *this;
-    }
-    erased_type(erased_type&&) = default;
-    erased_type& operator=(erased_type&&) = default;
-    ~erased_type() = default;
-
-    template <typename T>
-    erased_type(T&& src)
-        : m_inner{std::make_unique<inner<std::remove_reference_t<T>>>(
-              std::forward<T>(src))}
-    {
-    }
-
-    template <typename T>
-    erased_type& operator=(T&& o)
-    {
-        m_inner = std::make_unique<inner<std::remove_reference_t<T>>>(
-            std::forward<T>(o));
-        return *this;
-    }
-
-    Pointer inner_clone() const
-    {
-        if (m_inner) {
-            return m_inner->clone();
-        }
-        return nullptr;
-    }
-
-    template <typename T>
-    T* cast()
-    {
-        assert(valid());
-        return dynamic_cast<inner<T>*>(m_inner.get());
-    }
-    template <typename T>
-    const T* cast() const
-    {
-        return *dynamic_cast<inner<T>&>(*m_inner);
-    }
-
-    auto& get()
-    {
-        assert(valid());
-        return *(m_inner.get());
-    }
-    const auto& get() const
-    {
-        assert(valid());
-        return *(m_inner.get());
-    }
-
-    auto& operator*()
-    {
-        return get();
-    }
-    const auto& operator*() const
-    {
-        return get();
-    }
-
-    auto* operator-> ()
-    {
-        return m_inner.operator->();
-    }
-    const auto* operator-> () const
-    {
-        return m_inner.operator->();
-    }
-
-    bool valid() const
-    {
-        return m_inner.operator bool();
-    }
-    operator bool() const
-    {
-        return valid();
-    }
-
-protected:
-    template <typename T>
-    T& _static_cast()
-    {
-        assert(valid());
-        auto ptr = static_cast<inner<T>*>(m_inner.get());
-        assert(ptr);
-        return *ptr;
-    }
-
-    template <typename T>
-    const T& _static_cast() const
-    {
-        assert(valid());
-        auto ptr = static_cast<inner<T>*>(m_inner.get());
-        assert(ptr);
-        return *ptr;
-    }
-
-private:
-    Pointer m_inner{};
+template <typename T, typename... Ts>
+struct contains : disjunction<std::is_same<T, Ts>...> {
 };
 
-#if SPIO_USE_THREADING
-template <typename T>
-class basic_lockable_stream {
-public:
-    using lock_type = std::unique_lock<std::mutex>;
+#if !SPIO_HAS_VOID_T
+template <typename...>
+using void_t = void;
+#else
+template <typename... T>
+using void_t = std::void_t<T...>;
+#endif
 
-    class locked_stream {
-    public:
-        friend class basic_lockable_stream<T>;
+template <typename Dest, typename Source>
+Dest bit_cast(const Source& s)
+{
+    static_assert(sizeof(Dest) == sizeof(Source),
+                  "bit_cast<>: sizeof Dest and Source must be equal");
+    static_assert(std::is_trivially_copyable<Dest>::value,
+                  "bit_cast<>: Dest must be TriviallyCopyable");
+    static_assert(std::is_trivially_copyable<Source>::value,
+                  "bit_cast<>: Source must be TriviallyCopyable");
 
-        T& get()
-        {
-            assert(owns_lock());
-            return m_stream;
-        }
-        const T& get() const
-        {
-            assert(owns_lock());
-            return m_stream;
-        }
+    Dest d;
+    std::memcpy(&d, &s, sizeof(Dest));
+    return d;
+}
 
-        T& operator*()
-        {
-            assert(owns_lock());
-            return get();
-        }
-        const T& operator*() const
-        {
-            assert(owns_lock());
-            return get();
-        }
+struct nonesuch {
+    nonesuch() = delete;
+    ~nonesuch() = delete;
+    nonesuch(const nonesuch&) = delete;
+    void operator=(const nonesuch&) = delete;
+};
 
-        T* operator->()
-        {
-            if (!owns_lock()) {
-                return nullptr;
-            }
-            return &get();
-        }
-        const T* operator->() const
-        {
-            if (!owns_lock()) {
-                return nullptr;
-            }
-            return &get();
-        }
-
-        const lock_type& get_lock() const
-        {
-            return m_lock;
-        }
-
-        void unlock()
-        {
-            m_lock.unlock();
-        }
-
-        bool owns_lock() const
-        {
-            return m_lock.owns_lock();
-        }
-        operator bool() const
-        {
-            return owns_lock();
-        }
-
-    private:
-        locked_stream(T& s, lock_type l = {})
-            : m_stream(s), m_lock(std::move(l))
-        {
-        }
-
-        void set_lock(lock_type lock)
-        {
-            m_lock = std::move(lock);
-        }
-        lock_type& get_lock()
-        {
-            return m_lock;
-        }
-
-        T& m_stream;
-        lock_type m_lock{};
+namespace detail {
+    template <class Default,
+              class AlwaysVoid,
+              template <class...> class Op,
+              class... Args>
+    struct detector {
+        using value_t = std::false_type;
+        using type = Default;
     };
 
-    basic_lockable_stream(T&& stream) : m_stream{std::move(stream)} {}
+    template <class Default, template <class...> class Op, class... Args>
+    struct detector<Default, void_t<Op<Args...>>, Op, Args...> {
+        using value_t = std::true_type;
+        using type = Op<Args...>;
+    };
 
-    locked_stream lock()
-    {
-        return _do_lock([](locked_stream& s) { s.get_lock().lock(); });
+}  // namespace detail
+
+template <template <class...> class Op, class... Args>
+using is_detected =
+    typename detail::detector<nonesuch, void, Op, Args...>::value_t;
+
+template <template <class...> class Op, class... Args>
+using detected_t = typename detail::detector<nonesuch, void, Op, Args...>::type;
+
+template <class Default, template <class...> class Op, class... Args>
+using detected_or = detail::detector<Default, void, Op, Args...>;
+
+namespace detail {
+    template <typename Device>
+    using overread_t = decltype(std::declval<Device&>().can_overread());
+
+    template <typename Device, typename = void>
+    struct can_overread_impl {
+        static bool value(Device&)
+        {
+            return true;
+        }
+    };
+
+    template <typename Device>
+    struct can_overread_impl<
+        Device,
+        std::enable_if_t<is_detected<overread_t, Device>::value>> {
+        static bool value(Device& d)
+        {
+            return d.can_overread();
+        }
+    };
+}  // namespace detail
+
+template <typename Device>
+bool can_overread(Device& d)
+{
+    return detail::can_overread_impl<Device>::value(d);
+}
+
+template <typename IntT>
+constexpr int max_digits() noexcept
+{
+    auto i = std::numeric_limits<IntT>::max();
+
+    int digits = 0;
+    while (i) {
+        i /= 10;
+        digits++;
     }
-    locked_stream try_lock(bool& success)
+#if SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V
+    if constexpr (std::is_signed_v<IntT>) {
+#else
+    if (std::is_signed<IntT>::value) {
+#endif
+        return digits + 1;
+    }
+    else {
+        return digits;
+    }
+}
+
+template <typename CharT>
+constexpr bool is_digit(CharT c, int base = 10)
+{
+    assert(base >= 2 && base <= 36);
+    if (base <= 10) {
+        return c >= '0' && c <= '0' + (base - 1);
+    }
+    return is_digit(c, 10) || (c >= 'a' && c <= 'a' + (base - 1)) ||
+           (c >= 'A' && c <= 'A' + (base - 1));
+}
+
+template <typename IntT, typename CharT>
+constexpr IntT char_to_int(CharT c, int base)
+{
+    assert(base >= 2 && base <= 36);
+    assert(is_digit(c, base));
+    if (base <= 10) {
+        assert(c <= '0' + (base - 1));
+        return static_cast<IntT>(c - '0');
+    }
+    if (c <= '9') {
+        return static_cast<IntT>(c - '0');
+    }
+    if (c >= 'a' && c <= 'z') {
+        return 10 + static_cast<IntT>(c - 'a');
+    }
+    auto ret = 10 + static_cast<IntT>(c - 'A');
+    return ret;
+}
+
+namespace detail {
+    struct placement_deleter {
+        template <typename T>
+        void operator()(T* ptr) const
+        {
+            return ptr->~T();
+        }
+    };
+
+    template <typename T, typename... Args>
+    std::unique_ptr<T, placement_deleter> make_in_place(void* place,
+                                                        Args&&... args)
     {
-        return _do_lock(
-            [&](locked_stream& s) { success = s.get_lock().try_lock(); });
+        return std::unique_ptr<T, placement_deleter>{
+            ::new (place) T(std::forward<Args>(args)...)};
     }
 
-    template <typename Rep, typename Period>
-    locked_stream try_lock_for(bool& success,
-                               const std::chrono::duration<Rep, Period>& dur)
+    template <typename... Ts>
+    struct variant_helper;
+
+    template <typename Union, typename T, typename... Ts>
+    struct variant_helper<Union, T, Ts...> {
+        static void destroy(std::size_t i, Union* data)
+        {
+            if (i == 0) {
+                reinterpret_cast<T*>(data)->~T();
+            }
+            else {
+                variant_helper<Union, Ts...>::destroy(--i, data);
+            }
+        }
+        static void move(std::size_t i, Union* src, Union* dest)
+        {
+            if (i == 0) {
+                new (dest) T(std::move(*reinterpret_cast<T*>(src)));
+            }
+            else {
+                variant_helper<Union, Ts...>::move(--i, src, dest);
+            }
+        }
+        static void copy(std::size_t i, const Union* src, Union* dest)
+        {
+            if (i == 0) {
+                new (dest) T(*reinterpret_cast<const T*>(src));
+            }
+            else {
+                variant_helper<Union, Ts...>::copy(--i, src, dest);
+            }
+        }
+    };
+
+    template <typename Union>
+    struct variant_helper<Union> {
+        static void destroy(std::size_t, Union*) {}
+        static void move(std::size_t, Union*, Union*) {}
+        static void copy(std::size_t, const Union*, Union*) {}
+    };
+
+    template <typename T, typename... Ts>
+    struct type_index;
+
+    template <typename T, typename... Ts>
+    struct type_index<T, T, Ts...> : std::integral_constant<std::size_t, 0> {
+    };
+
+    template <typename T, typename U, typename... Ts>
+    struct type_index<T, U, Ts...>
+        : std::integral_constant<std::size_t, 1 + type_index<T, Ts...>::value> {
+    };
+
+    struct dummy_visit {
+    };
+    template <typename F, typename Union, typename... Args>
+    struct do_visit_impl;
+    template <typename F, typename Union, typename T>
+    struct do_visit_impl<F, Union, T> {
+        constexpr static decltype(auto) visit(F&& f,
+                                              Union& u,
+                                              std::size_t i,
+                                              std::size_t c = 0)
+        {
+            if (i != c) {
+                throw failure(bad_variant_access);
+            }
+            return f(*reinterpret_cast<T*>(&u));
+        }
+    };
+    template <typename F, typename Union, typename T, typename... Args>
+    struct do_visit_impl<F, Union, T, Args...> {
+        constexpr static decltype(auto) visit(F&& f,
+                                              Union& u,
+                                              std::size_t i,
+                                              std::size_t c = 0)
+        {
+            if (i == c) {
+                return f(*reinterpret_cast<T*>(&u));
+            }
+            return do_visit_impl<F, Union, Args...>::visit(std::forward<F>(f),
+                                                           u, i, ++c);
+        }
+    };
+
+    template <typename F, typename Union, typename... Args>
+    constexpr decltype(auto) do_visit(F&& f,
+                                      Union& u,
+                                      std::size_t i,
+                                      std::size_t c = 0)
     {
-        return _do_lock([&](locked_stream& s) {
-            success = s.get_lock().try_lock_for(dur);
-        });
+        return do_visit_impl<F, Union, Args...>::visit(std::forward<F>(f), u, i,
+                                                       c);
     }
-    template <typename Clock, typename Duration>
-    locked_stream try_lock_until(
-        bool& success,
-        const std::chrono::time_point<Clock, Duration>& timeout)
+}  // namespace detail
+
+template <typename... Types>
+class variant {
+    using storage_type = std::aligned_union_t<sizeof(char), Types...>;
+    using helper_type = detail::variant_helper<storage_type, Types...>;
+
+    static_assert(sizeof...(Types) > 1,
+                  "Variant must have at least 2 different types");
+
+    struct default_state {
+        int m{0};
+    };
+
+public:
+    template <typename T,
+              typename = std::enable_if_t<contains<T, Types...>::value>>
+    variant(T&& val) noexcept(noexcept(T(std::forward<T>(val))))
+        : m_index(detail::type_index<T, Types...>::value)
     {
-        return _do_lock([&](locked_stream& s) {
-            success = s.get_lock().try_lock_until(timeout);
-        });
+        _construct<T>(std::forward<T>(val));
+    }
+    variant(const variant& o) : m_index(o.m_index)
+    {
+        helper_type::copy(m_index, &o.m_storage, &m_storage);
+    }
+    variant& operator=(const variant& o)
+    {
+        _destruct();
+        m_index = o.m_index;
+        helper_type::copy(m_index, &o.m_storage, &m_storage);
+        return *this;
+    }
+    variant(variant&& o) : m_index(std::move(o.m_index))
+    {
+        helper_type::move(m_index, &o.m_storage, &m_storage);
+    }
+    variant& operator=(variant&& o)
+    {
+        _destruct();
+        m_index = o.m_index;
+        helper_type::move(m_index, &o.m_storage, &m_storage);
+        return *this;
+    }
+    ~variant()
+    {
+        _destruct();
     }
 
-    const std::mutex& mutex() const
+    template <typename T,
+              typename = std::enable_if_t<contains<T, Types...>::value>>
+    bool is() const
     {
-        return m_mutex;
+        return m_index == detail::type_index<T, Types...>();
     }
-    const T& stream() const
+    std::size_t index() const
     {
-        return m_stream;
+        return m_index;
     }
 
-private:
-    locked_stream _get_locked()
+    template <typename T,
+              typename = std::enable_if_t<contains<T, Types...>::value>,
+              typename... Args>
+    void set(Args&&... args)
     {
-        lock_type l{m_mutex, std::defer_lock};
-        locked_stream s{m_stream, std::move(l)};
-        return s;
+        _destruct();
+        _construct<T>(std::forward<Args>(args)...);
+    }
+
+    template <typename T,
+              typename = std::enable_if_t<contains<T, Types...>::value>,
+              typename... Args>
+    static variant create(Args&&... args)
+    {
+        variant<Args...> v(default_state{});
+        v.template _construct<T>(std::forward<Args>(args)...);
+        return v;
+    }
+
+    template <typename T,
+              typename = std::enable_if_t<contains<T, Types...>::value>>
+    T& get()
+    {
+        if (m_index == detail::type_index<T, Types...>::value) {
+            return *reinterpret_cast<T*>(&m_storage);
+        }
+        throw failure(bad_variant_access);
+    }
+    template <typename T,
+              typename = std::enable_if_t<contains<T, Types...>::value>>
+    const T& get() const
+    {
+        if (m_index == detail::type_index<T, Types...>::value) {
+            return *reinterpret_cast<const T*>(&m_storage);
+        }
+        throw failure(bad_variant_access);
     }
 
     template <typename F>
-    locked_stream _do_lock(F&& fn)
+    constexpr decltype(auto) visit(F&& f)
     {
-        auto _do = [&]() {
-            auto s = _get_locked();
-            fn(s);
-            return s;
-        };
-#if SPIO_USE_EXCEPTIONS
-        try {
-            return _do();
+        return detail::do_visit<F, storage_type, Types...>(std::forward<F>(f),
+                                                           m_storage, m_index);
+    }
+    template <typename F>
+    constexpr decltype(auto) visit(F&& f) const
+    {
+        return detail::do_visit<F, const storage_type,
+                                std::add_const_t<Types>...>(std::forward<F>(f),
+                                                            m_storage, m_index);
+    }
+
+private:
+    variant(default_state) {}
+
+    storage_type m_storage{};
+    std::size_t m_index{0};
+
+    template <typename T, typename... Args>
+    void _construct(Args&&... args) noexcept(
+        noexcept(T(std::forward<Args>(args)...)))
+    {
+        ::new (&m_storage) T(std::forward<Args>(args)...);
+        m_index = detail::type_index<T, Types...>::value;
+    }
+    void _destruct()
+    {
+        helper_type::destroy(m_index, &m_storage);
+    }
+};
+
+namespace detail {
+    template <typename F, typename Tuple, std::size_t... I>
+    decltype(auto) apply_impl(F&& f, Tuple&& t, std::index_sequence<I...>)
+    {
+        return f(t.operator[](I)...);
+    }
+}  // namespace detail
+
+template <std::size_t N, typename F, typename Tuple>
+decltype(auto) apply_n(F&& f, Tuple&& t)
+{
+    return detail::apply_impl(std::forward<F>(f), std::forward<Tuple>(t),
+                              std::make_index_sequence<N>{});
+}
+
+namespace detail {
+    template <typename T, std::size_t Size>
+    class small_vector_storage {
+        using array_type = std::array<T, Size>;
+
+    public:
+        static constexpr auto MaxSize = Size;
+
+        using value_type = T;
+        using size_type = std::size_t;
+        using difference_type = std::ptrdiff_t;
+        using reference = value_type&;
+        using const_reference = const value_type&;
+        using pointer = value_type*;
+        using const_pointer = const value_type*;
+        using iterator = pointer;
+        using const_iterator = const_pointer;
+        using reverse_iterator = std::reverse_iterator<iterator>;
+        using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+        small_vector_storage() = default;
+        small_vector_storage(size_type count, const T& value)
+            : m_end(m_storage.data() + count)
+        {
+            std::fill(m_storage.begin(), m_storage.begin() + count, value);
         }
-        catch (std::system_error& e) {
-            assert(e.code() != std::errc::operation_not_permitted);
-            assert(e.code() != std::errc::resource_deadlock_would_occur);
-            SPIO_RETHROW;
+        explicit small_vector_storage(size_type count)
+            : m_end(m_storage.data() + count)
+        {
         }
-        catch (...) {
-            SPIO_RETHROW;
+        template <typename InputIt,
+                  typename = std::enable_if_t<
+                      std::is_base_of<std::input_iterator_tag,
+                                      typename std::iterator_traits<
+                                          InputIt>::iterator_category>::value>>
+        small_vector_storage(InputIt first, InputIt last)
+        {
+            std::copy(first, last, m_storage.begin());
+            m_end = m_storage.data() + std::distance(first, last);
         }
-        SPIO_UNREACHABLE;
+        small_vector_storage(std::initializer_list<T> init)
+        {
+            std::copy(init.begin(), init.end(), m_storage.begin());
+            m_end = m_storage.data() + init.size();
+        }
+
+        small_vector_storage(const small_vector_storage& other)
+        {
+            std::copy(other.begin(), other.begin(), m_storage.begin());
+            m_end = m_storage.data() + other.size();
+        }
+        small_vector_storage& operator=(const small_vector_storage& other)
+        {
+            if (this != &other) {
+                array_type tmp;
+                std::copy(other.begin(), other.end(), tmp.begin());
+
+                m_storage.swap(tmp);
+                m_end = m_storage.data() + other.size();
+            }
+            return *this;
+        }
+        small_vector_storage(small_vector_storage&& other) noexcept
+            : m_storage(std::move(other.m_storage)),
+              m_end(m_storage.data() + other.size())
+        {
+        }
+        small_vector_storage& operator=(small_vector_storage&& other) noexcept
+        {
+            auto size = other.size();
+            m_storage.swap(other.m_storage);
+            m_end = m_storage.data() + size();
+        }
+        ~small_vector_storage() noexcept = default;
+
+        constexpr iterator begin()
+        {
+            return m_storage.data();
+        }
+        constexpr const_iterator begin() const
+        {
+            return m_storage.data();
+        }
+
+        constexpr iterator end()
+        {
+            return m_end;
+        }
+        constexpr const_iterator end() const
+        {
+            return m_end;
+        }
+
+        constexpr size_type size() const noexcept
+        {
+            return static_cast<size_type>(std::distance(begin(), end()));
+        }
+        static constexpr size_type max_size() noexcept
+        {
+            return Size;
+        }
+
+        void push_back(const T& val)
+        {
+            _check_space();
+            *m_end = val;
+            ++m_end;
+        }
+        void push_back(T&& val)
+        {
+            _check_space();
+            *m_end = std::move(val);
+            ++m_end;
+        }
+
+        constexpr pointer data()
+        {
+            return m_end;
+        }
+        constexpr const_pointer data() const
+        {
+            return m_end;
+        }
+
+        constexpr reference operator[](size_type i)
+        {
+            return m_storage[i];
+        }
+        constexpr const_reference operator[](size_type i) const
+        {
+            return m_storage[i];
+        }
+
+    private:
+        void _check_space(std::size_t n)
+        {
+            if (n > max_size() - size()) {
+                throw failure{out_of_range};
+            }
+        }
+
+        std::array<T, Size> m_storage{};
+        T* m_end{m_storage.data()};
+    };
+
+    template <typename T>
+    struct empty_small_vector_storage {
+        std::size_t size() const
+        {
+            return 0;
+        }
+
+        [[noreturn]] T& operator[](std::size_t)
+        {
+            SPIO_UNREACHABLE;
+        }
+        [[noreturn]] const T& operator[](std::size_t) const
+        {
+            SPIO_UNREACHABLE;
+        }
+
+        [[noreturn]] T* data()
+        {
+            SPIO_UNREACHABLE;
+        }
+        [[noreturn]] const T* data() const
+        {
+            SPIO_UNREACHABLE;
+        }
+    };
+}  // namespace detail
+template <typename T, typename Allocator, std::size_t Size>
+class small_vector {
+    using empty_vector_type = detail::empty_small_vector_storage<T>;
+    using stack_vector_type = detail::small_vector_storage<T, Size>;
+    using heap_vector_type = std::vector<T, Allocator>;
+    using variant_type =
+        variant<empty_vector_type, stack_vector_type, heap_vector_type>;
+
+public:
+    static constexpr auto max_packed_size = Size;
+
+    using value_type = T;
+    using allocator_type = Allocator;
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+    using reference = value_type&;
+    using const_reference = const value_type&;
+    using pointer = value_type*;
+    using const_pointer = const value_type*;
+    using iterator = pointer;
+    using const_iterator = const_pointer;
+    using reverse_iterator = std::reverse_iterator<iterator>;
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+    small_vector() noexcept = default;
+
+    small_vector(size_type count,
+                 const T& value,
+                 const Allocator& alloc = Allocator())
+        : m_vec(_construct(count, value, alloc))
+    {
+    }
+    explicit small_vector(size_type count, const Allocator& alloc = Allocator())
+        : m_vec(_construct(count, alloc))
+    {
+    }
+    small_vector(std::initializer_list<T> init,
+                 const Allocator& alloc = Allocator())
+        : m_vec(_construct(init, alloc))
+    {
+    }
+
+    constexpr size_type size() const
+    {
+        return m_vec.visit([](const auto& vec) { return vec.size(); });
+    }
+
+    constexpr iterator begin()
+    {
+        return m_vec.visit([](auto& vec) { return vec.data(); });
+    }
+    constexpr const_iterator begin() const
+    {
+        return m_vec.visit([](const auto& vec) { return vec.data(); });
+    }
+
+    constexpr iterator end()
+    {
+        return m_vec.visit([](auto& vec) { return vec.data() + vec.size(); });
+    }
+    constexpr const_iterator end() const
+    {
+        return m_vec.visit(
+            [](const auto& vec) { return vec.data() + vec.size(); });
+    }
+
+    constexpr pointer data()
+    {
+        return m_vec.visit([](auto& vec) { return vec.data(); });
+    }
+    constexpr const_pointer data() const
+    {
+        return m_vec.visit([](const auto& vec) { return vec.data(); });
+    }
+
+    constexpr reference operator[](size_type i)
+    {
+        return m_vec.visit([i](auto& vec) -> reference { return vec[i]; });
+    }
+    constexpr const_reference operator[](size_type i) const
+    {
+        return m_vec.visit(
+            [i](const auto& vec) -> const_reference { return vec[i]; });
+    }
+
+    constexpr variant_type& get()
+    {
+        return m_vec;
+    }
+    constexpr const variant_type& get() const
+    {
+        return m_vec;
+    }
+
+private:
+    static variant_type _construct(size_type count,
+                                   const T& value,
+                                   const Allocator& alloc)
+    {
+        if (count == 0) {
+            return variant_type(empty_vector_type{});
+        }
+        else if (count <= Size) {
+            return variant_type(stack_vector_type(count, value));
+        }
+        else {
+            return variant_type(heap_vector_type(count, value, alloc));
+        }
+    }
+    static variant_type _construct(size_type count, const Allocator& alloc)
+    {
+        if (count == 0) {
+            return variant_type(empty_vector_type{});
+        }
+        else if (count <= Size) {
+            return variant_type(stack_vector_type(count));
+        }
+        else {
+            return variant_type(heap_vector_type(count, alloc));
+        }
+    }
+    static variant_type _construct(std::initializer_list<T> init,
+                                   const Allocator& alloc)
+    {
+        const auto count = init.size();
+        if (count == 0) {
+            return variant_type(empty_vector_type{});
+        }
+        else if (count <= Size) {
+            return variant_type(stack_vector_type(init));
+        }
+        else {
+            return variant_type(heap_vector_type(init, alloc));
+        }
+    }
+
+    variant_type m_vec{empty_vector_type{}};
+};
+
+namespace detail {
+    template <typename A, typename B>
+    static constexpr bool is_same()
+    {
+#if SPIO_HAS_TYPE_TRAITS_V
+        return std::is_same_v<A, B>;
 #else
-        return _do();
+        return std::is_same<A, B>::value;
 #endif
     }
 
-    T m_stream;
-    std::mutex m_mutex{};
-};
+#if SPIO_HAS_IF_CONSTEXPR
+    template <typename FloatingT>
+    static constexpr auto powersOf10()
+    {
+        using T = std::decay_t<FloatingT>;
+        if constexpr (is_same<T, float>()) {
+            return std::array<float, 6>{
+                {10.f, 100.f, 1.0e4f, 1.0e8f, 1.0e16f, 1.0e32f}};
+        }
+        if constexpr (is_same<T, double>()) {
+            return std::array<double, 9>{{10., 100., 1.0e4, 1.0e8, 1.0e16,
+                                          1.0e32, 1.0e64, 1.0e128, 1.0e256}};
+        }
+        else {
+#ifdef _MSC_VER
+            return std::array<long double, 9>{{10.l, 100.l, 1.0e4l, 1.0e8l,
+                                               1.0e16l, 1.0e32l, 1.0e64l,
+                                               1.0e128l, 1.0e256l}};
+#else
+            return std::array<long double, 11>{
+                {10.l, 100.l, 1.0e4l, 1.0e8l, 1.0e16l, 1.0e32l, 1.0e64l,
+                 1.0e128l, 1.0e256l, 1.0e512l, 1.0e1024l}};
 #endif
-
-template <typename InputIt>
-constexpr std::size_t distance_nonneg(InputIt first, InputIt last);
-
-using quantity_type = extent_t;
-namespace detail {
-#if !(SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V)
-    template <bool Signed>
-    struct quantity_base_signed {
-        constexpr quantity_base_signed(quantity_type n) : m_n(n) {}
-
-        constexpr auto get_signed() const noexcept
-        {
-            return m_n;
         }
+    }
 
-        constexpr auto get_unsigned() const noexcept
-        {
-            assert(m_n >= 0);
-            return static_cast<std::make_unsigned_t<quantity_type>>(m_n);
+    template <typename FloatingT>
+    static constexpr auto maxExponent()
+    {
+        using T = std::decay_t<FloatingT>;
+        if constexpr (is_same<T, float>()) {
+            return 63;
         }
-
-    protected:
-        quantity_type m_n;
-    };
-
+        if constexpr (is_same<T, double>()) {
+            return 511;
+        }
+        else {
+            return 2047;
+        }
+    }
+#else
+    template <typename FloatingT>
+    constexpr auto powersOf10()
+    {
+#ifdef _MSC_VER
+        return std::array<long double, 11>{{10.l, 100.l, 1.0e4l, 1.0e8l,
+                                            1.0e16l, 1.0e32l, 1.0e64l, 1.0e128l,
+                                            1.0e256l}};
+#else
+        return std::array<long double, 11>{{10.l, 100.l, 1.0e4l, 1.0e8l,
+                                            1.0e16l, 1.0e32l, 1.0e64l, 1.0e128l,
+                                            1.0e256l, 1.0e512l, 1.0e1024l}};
+#endif
+    }
     template <>
-    struct quantity_base_signed<false> {
-        constexpr quantity_base_signed(quantity_type n) : m_n(n) {}
+    constexpr auto powersOf10<float>()
+    {
+        return std::array<float, 6>{
+            {10.f, 100.f, 1.0e4f, 1.0e8f, 1.0e16f, 1.0e32f}};
+    }
+    template <>
+    constexpr auto powersOf10<double>()
+    {
+        return std::array<double, 9>{{10., 100., 1.0e4, 1.0e8, 1.0e16, 1.0e32,
+                                      1.0e64, 1.0e128, 1.0e256}};
+    }
 
-        constexpr auto get_signed() const noexcept
-        {
-            return static_cast<std::make_signed_t<quantity_type>>(m_n);
-        }
-        constexpr auto get_unsigned() const noexcept
-        {
-            return m_n;
-        }
-
-    protected:
-        quantity_type m_n;
-    };
-#else
-    template <bool>
-    struct quantity_base_signed {
-        constexpr quantity_base_signed(quantity_type n) : m_n(n) {}
-
-    protected:
-        quantity_type m_n;
-    };
+    template <typename FloatingT>
+    constexpr auto maxExponent()
+    {
+        return 2047;
+    }
+    template <>
+    constexpr auto maxExponent<float>()
+    {
+        return 63;
+    }
+    template <>
+    constexpr auto maxExponent<double>()
+    {
+        return 511;
+    }
 #endif
-
-    struct quantity_base
-        : quantity_base_signed<std::is_signed<quantity_type>::value> {
-        using quantity_base_signed<
-            std::is_signed<quantity_type>::value>::quantity_base_signed;
-
-        constexpr operator quantity_type() const noexcept
-        {
-            assert(m_n >= 0);
-            return m_n;
-        }
-
-        constexpr auto get() const noexcept
-        {
-            return m_n;
-        }
-
-#if SPIO_HAS_IF_CONSTEXPR && SPIO_HAS_TYPE_TRAITS_V
-        constexpr auto get_signed() const noexcept
-        {
-            if constexpr (std::is_signed_v<quantity_type>) {
-                return m_n;
-            }
-            else {
-                return static_cast<std::make_signed_t<quantity_type>>(m_n);
-            }
-        }
-        constexpr auto get_unsigned() const noexcept
-        {
-            assert(m_n >= 0);
-            if constexpr (std::is_unsigned_v<quantity_type>) {
-                return m_n;
-            }
-            else {
-                return static_cast<std::make_unsigned_t<quantity_type>>(m_n);
-            }
-        }
-
-#endif
-    };
-}  // namespace detail
-struct characters : detail::quantity_base {
-    using quantity_base::quantity_base;
-};
-struct elements : detail::quantity_base {
-    using quantity_base::quantity_base;
-};
-struct bytes : detail::quantity_base {
-    using quantity_base::quantity_base;
-};
-struct bytes_contiguous : detail::quantity_base {
-    using quantity_base::quantity_base;
-};
-
-namespace detail {
-    template <typename T, std::size_t N = 0, typename Enable = void>
-    struct string_tag : std::false_type {
-        using type = T;
-        static constexpr auto size = N;
-    };
-
-    template <typename T, std::size_t N>
-    struct string_tag<
-        const T (&)[N],
-        N,
-        std::enable_if_t<
-            contains<std::decay_t<T>, char, wchar_t, char16_t, char32_t>::
-                value>> : std::true_type {
-        using type = const T (&)[N];
-        using pointer = const T*;
-        using char_type = std::decay_t<T>;
-        static constexpr auto size = N;
-
-        static constexpr pointer make_pointer(type v)
-        {
-            return &v[0];
-        }
-    };
-    template <typename T>
-    struct string_tag<
-        const T (&)[],
-        0,
-        std::enable_if_t<
-            contains<std::decay_t<T>, char, wchar_t, char16_t, char32_t>::
-                value>> : std::true_type {
-        using type = const T*;
-        using pointer = const T*;
-        using char_type = std::decay_t<T>;
-        static constexpr auto size = 0;
-
-        static constexpr pointer make_pointer(type v)
-        {
-            return &v[0];
-        }
-    };
-
-    template <typename T>
-    struct string_tag<
-        const T*,
-        0,
-        std::enable_if_t<
-            contains<std::decay_t<T>, char, wchar_t, char16_t, char32_t>::
-                value>> : std::true_type {
-        using type = const T*;
-        using pointer = type;
-        using char_type = std::decay_t<T>;
-        static constexpr auto size = 0;
-
-        static constexpr pointer make_pointer(type v)
-        {
-            return v;
-        }
-    };
-
-    template <typename T, std::size_t N = 0>
-    struct check_string_tag {
-        static constexpr auto value = string_tag<T, N>::value;
-    };
-
-    template <typename T, std::size_t N>
-    struct check_string_tag<const T (&)[N], N> : std::true_type {
-    };
-
-    template <typename T, std::size_t N>
-    struct check_string_tag<const T*, N> : std::true_type {
-    };
 }  // namespace detail
 
+/*
+ * The original C implementation of this function:
+ *
+ * strtod.c --
+ *
+ *	Source code for the "strtod" library procedure.
+ *
+ * Copyright (c) 1988-1993 The Regents of the University of California.
+ * Copyright (c) 1994 Sun Microsystems, Inc.
+ *
+ * Permission to use, copy, modify, and distribute this
+ * software and its documentation for any purpose and without
+ * fee is hereby granted, provided that the above copyright
+ * notice appear in all copies.  The University of California
+ * makes no representations about the suitability of this
+ * software for any purpose.  It is provided "as is" without
+ * express or implied warranty.
+ */
 template <typename FloatingT, typename CharT>
-FloatingT str_to_floating(const CharT* str, CharT** end);
-
-template <typename CharT>
-constexpr bool is_space(CharT c, span<CharT> spaces = span<CharT>{nullptr});
-
-template <typename CharT>
-constexpr bool is_digit(CharT c, int base = 10);
-
-template <typename IntT, typename CharT>
-constexpr IntT char_to_int(CharT c, int base = 10);
-
-template <typename CharT, typename IntT>
-constexpr void int_to_char(IntT value, span<CharT> result, int base = 10);
-
-template <typename IntT>
-constexpr int max_digits() noexcept;
-
-template <typename Dest, typename Source>
-Dest bit_cast(const Source& s);
-
-template <typename CharT>
-constexpr std::ptrdiff_t strlen(const CharT* str) noexcept
+FloatingT str_to_floating(const CharT* str, CharT** end)
 {
-    assert(str);
-    const CharT* s = str;
-    for (; *s; ++s) {
+    static int maxExponent = detail::maxExponent<FloatingT>();
+    static auto powersOf10 = detail::powersOf10<FloatingT>();
+
+    bool sign;
+    bool expSign = false;
+    FloatingT fraction, dblExp, *d;
+    const CharT* p;
+    int c;
+    int exp = 0;       /* Exponent read from "EX" field. */
+    int fracExp = 0;   /* Exponent that derives from the fractional
+                        * part.  Under normal circumstatnces, it is
+                        * the negative of the number of digits in F.
+                        * However, if I is very long, the last digits
+                        * of I get dropped (otherwise a long I with a
+                        * large negative exponent could cause an
+                        * unnecessary overflow on I alone).  In this
+                        * case, fracExp is incremented one for each
+                        * dropped digit. */
+    int mantSize;      /* Number of digits in mantissa. */
+    int decPt;         /* Number of mantissa digits BEFORE decimal
+                        * point. */
+    const CharT* pExp; /* Temporarily holds location of exponent
+                        * in string. */
+
+    /*
+     * Strip off leading blanks and check for a sign.
+     */
+
+    p = str;
+    while (std::isspace(*p)) {
+        p += 1;
     }
-    return (s - str);
-}
-
-template <>
-inline std::ptrdiff_t strlen(const char* str) noexcept
-{
-    return static_cast<std::ptrdiff_t>(std::strlen(str));
-}
-
-template <>
-inline std::ptrdiff_t strlen(const wchar_t* str) noexcept
-{
-    return static_cast<std::ptrdiff_t>(std::wcslen(str));
-}
-
-template <typename T, extent_t N>
-constexpr std::enable_if_t<
-    contains<T, char, wchar_t, char16_t, char32_t>::value,
-    ptrdiff_t>
-strlen(span<T, N> str) noexcept
-{
-    auto it = std::find(str.begin(), str.end(), T{'\0'});
-    if (it == str.end()) {
-        return str.size();
+    if (*p == '-') {
+        sign = true;
+        p += 1;
     }
-    return std::distance(str.begin(), it);
+    else {
+        if (*p == '+') {
+            p += 1;
+        }
+        sign = false;
+    }
+
+    /*
+     * Count the number of digits in the mantissa (including the decimal
+     * point), and also locate the decimal point.
+     */
+
+    decPt = -1;
+    for (mantSize = 0;; mantSize += 1) {
+        c = *p;
+        if (!std::isdigit(c)) {
+            if ((c != '.') || (decPt >= 0)) {
+                break;
+            }
+            decPt = mantSize;
+        }
+        p += 1;
+    }
+
+    /*
+     * Now suck up the digits in the mantissa.  Use two integers to
+     * collect 9 digits each (this is faster than using floating-point).
+     * If the mantissa has more than 18 digits, ignore the extras, since
+     * they can't affect the value anyway.
+     */
+
+    pExp = p;
+    p -= mantSize;
+    if (decPt < 0) {
+        decPt = mantSize;
+    }
+    else {
+        mantSize -= 1; /* One of the digits was the point. */
+    }
+    if (mantSize > 18) {
+        fracExp = decPt - 18;
+        mantSize = 18;
+    }
+    else {
+        fracExp = decPt - mantSize;
+    }
+    if (mantSize == 0) {
+        fraction = static_cast<FloatingT>(0.0);
+        p = str;
+        goto done;
+    }
+    else {
+        int frac1, frac2;
+        frac1 = 0;
+        for (; mantSize > 9; mantSize -= 1) {
+            c = *p;
+            p += 1;
+            if (c == '.') {
+                c = *p;
+                p += 1;
+            }
+            frac1 = 10 * frac1 + (c - '0');
+        }
+        frac2 = 0;
+        for (; mantSize > 0; mantSize -= 1) {
+            c = *p;
+            p += 1;
+            if (c == '.') {
+                c = *p;
+                p += 1;
+            }
+            frac2 = 10 * frac2 + (c - '0');
+        }
+        fraction = (static_cast<FloatingT>(1.0e9) * frac1) + frac2;
+    }
+
+    /*
+     * Skim off the exponent.
+     */
+
+    p = pExp;
+    if ((*p == 'E') || (*p == 'e')) {
+        p += 1;
+        if (*p == '-') {
+            expSign = true;
+            p += 1;
+        }
+        else {
+            if (*p == '+') {
+                p += 1;
+            }
+            expSign = false;
+        }
+        while (std::isdigit(*p)) {
+            exp = exp * 10 + (*p - '0');
+            p += 1;
+        }
+    }
+    if (expSign) {
+        exp = fracExp - exp;
+    }
+    else {
+        exp = fracExp + exp;
+    }
+
+    /*
+     * Generate a floating-point number that represents the exponent.
+     * Do this by processing the exponent one bit at a time to combine
+     * many powers of 2 of 10. Then combine the exponent with the
+     * fraction.
+     */
+
+    if (exp < 0) {
+        expSign = true;
+        exp = -exp;
+    }
+    else {
+        expSign = false;
+    }
+    if (exp > maxExponent) {
+        exp = maxExponent;
+        errno = ERANGE;
+    }
+    dblExp = static_cast<FloatingT>(1.0);
+    for (d = &powersOf10[0]; exp != 0; exp >>= 1, d += 1) {
+        if (exp & 01) {
+            dblExp *= *d;
+        }
+    }
+    if (expSign) {
+        fraction /= dblExp;
+    }
+    else {
+        fraction *= dblExp;
+    }
+
+done:
+    if (end != nullptr) {
+        *end = const_cast<CharT*>(p);
+    }
+
+    if (sign) {
+        return -fraction;
+    }
+    return fraction;
 }
-}  // namespace io
+}  // namespace spio
 
-#include "util.impl.h"
-
-#endif  // SPIO_UTIL_H
+#endif
