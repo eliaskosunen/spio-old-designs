@@ -1,0 +1,141 @@
+# Based on:
+# https://github.com/eliaskosunen/libcppffi/blob/master/.travis.yml
+# https://github.com/boostorg/hana/blob/master/.travis.yml
+# https://github.com/onqtam/doctest/blob/master/.travis.yml
+# https://github.com/ChaiScript/ChaiScript/blob/master/.travis.yml
+
+language: cpp
+dist: trusty
+sudo: false
+
+git:
+    depth: 5
+
+addons:
+    apt:
+        sources: &apt_sources
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-trusty
+            - llvm-toolchain-trusty-3.9
+            - llvm-toolchain-trusty-4.0
+            - llvm-toolchain-trusty-5.0
+
+os: linux
+
+env:
+    global:
+        - secure: "ZeVGUsQUTsf5omzcGeClZ9TBzKbpSxX+zA/We3t8ZAQWhtQkVGEgAXbPawUaB9ae0QJdKAl1zI7aZU3JNRCQ31Rs1WUS6WQkq5heu+pJI4hKRENLwnehu50867C8hFTg1F47Ez5fkbule+wnvFMutvdNioUMpbUT4M4FGtbdPl9ij0Lx/Doj+uJkzQ+V94b2YeLZBiT+94vGCEwHYuvtZILkX4iBCfnjMggM7AbE1akk0S9CdK1LWJeUornepPHZDKGov0vtVK7bHa0js0LvUQl9Cf68wBNf9rI/iV8lbLXyAFPszqzB4PPSRE1vJj37FNHIVOnrhtMQNgB0EYf1Kp96hNr4xxNx6dwBSNDMlLonIFKSd6oeV5GiDkn03gcLJVE8tumMYVVRlMwM1DkWAss1PmAvLCV1gL4o1EXy1O+iwEY1AYpqRTWgK4MCmQT0UHYZNahDtTln6ojqMTtbkMAjUZiWa61+934JmjqA2XGrLvLxeffwN9QsPaksFgYgI4Snll9FcWAfHglWkU0c6otyevo8djS4lkMZODPNgRPOxB9Nt1XxzoooAWzklPQtvKzbB0PISMcr9sAd3Jqu1W9UitotZrilxytTtBzMtmXcOS7gkfeSrNkqVZ5HcoNzB1de5GDArB21vInsZUPCbLditHUqjXe639kJQQUpJFA="
+    
+matrix:
+    exclude:
+        - env: TRAVIS_EMPTY_JOB_WORKAROUND=true
+    include:
+        # coverage
+        - env: CXX_COMPILER=g++-5 CXX_STANDARD=17 COVERAGE=ON
+          compiler: gcc
+          addons: &cov
+            apt:
+                packages: ["g++-5", "lcov", "ggcov", "curl"]
+                sources: *apt_sources
+
+        # GCC 7
+        - env: CXX_COMPILER=g++-7 CXX_STANDARD=17
+          compiler: gcc
+          addons: &gcc6
+            apt:
+                packages: ["g++-7"]
+                sources: *apt_sources
+        # GCC 6
+        - env: CXX_COMPILER=g++-6 CXX_STANDARD=14
+          compiler: gcc
+          addons: &gcc6
+            apt:
+                packages: ["g++-6", "libstdc++-7-dev"]
+                sources: *apt_sources
+        # GCC 5
+        - env: CXX_COMPILER=g++-5 CXX_STANDARD=14
+          compiler: gcc
+          addons: &gcc5
+            apt:
+                packages: ["g++-5", "libstdc++-7-dev"]
+                sources: *apt_sources
+
+        # Clang 5
+        - env: CXX_COMPILER=clang++-5.0 CXX_STANDARD=17
+          compiler: clang
+          addons: &clang5
+            apt:
+                packages: ["clang-5.0", "libstdc++-7-dev"]
+                sources: *apt_sources
+        # Clang 4
+        - env: CXX_COMPILER=clang++-4.0 CXX_STANDARD=14
+          compiler: clang
+          addons: &clang4
+            apt:
+                packages: ["clang-4.0", "libstdc++-7-dev"]
+                sources: *apt_sources
+        # Clang 3.9
+        - env: CXX_COMPILER=clang++-3.9 CXX_STANDARD=14
+          compiler: clang
+          addons: &clang39
+            apt:
+                packages: ["clang-3.9", "libstdc++-7-dev"]
+                sources: *apt_sources
+
+        # Xcode 8.3 (Clang)
+        - env: CXX_COMPILER=clang++ CXX_STANDARD=14
+          os: osx
+          compiler: clang
+          osx_image: xcode8.3
+ 
+install:
+    - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
+    - mkdir -p ${DEPS_DIR} && cd ${DEPS_DIR}
+
+    # Install a recent CMake
+    - |
+      if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
+        CMAKE_URL="https://cmake.org/files/v3.9/cmake-3.9.3-Linux-x86_64.tar.gz"
+        mkdir -p cmake && travis_retry wget --no-check-certificate --quiet -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
+        export PATH=${DEPS_DIR}/cmake/bin:${PATH}
+      fi
+    - |
+      if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
+        brew update
+
+        if brew list -1 | grep -q "^cmake\$"; then
+          brew outdated cmake || brew upgrade cmake
+        else
+          brew install cmake
+        fi
+      fi
+
+    - cd ${TRAVIS_BUILD_DIR}
+
+before_script:
+    - export CXX=${CXX_COMPILER}
+    - ${CXX} --version
+    - git submodule update --init --recursive
+
+script:
+    - mkdir build && cd build
+
+    - |
+      if [[ "${COVERAGE}" == "ON" ]]; then
+        export COVERALLS_SERVICE_NAME=travis-ci
+        export COVERALLS_REPO_TOKEN=${repo_token}
+        export GCOV=gcov-5
+        cmake -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_CXX_STANDARD=${CXX_STANDARD} -DCMAKE_BUILD_TYPE=Debug -DCOVERALLS=ON ..
+        make -k -j2
+        cd tests
+        ln -s ../../tests/*.txt .
+        cd ..
+        make coveralls
+        exit
+      fi
+
+    - cmake -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_CXX_STANDARD=${CXX_STANDARD} -DWERROR=ON -DCMAKE_BUILD_TYPE=Debug -Wdev ..
+    - make tests -j2
+
+    - cd ../tests
+    - ../build/tests/tests

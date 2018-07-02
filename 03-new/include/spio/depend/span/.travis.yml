@@ -1,0 +1,130 @@
+# Based on:
+# https://github.com/eliaskosunen/spio/blob/master/.travis.yml
+
+language: cpp
+dist: trusty
+sudo: false
+
+git:
+    depth: 5
+
+addons:
+    apt:
+        sources: &apt_sources
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-trusty
+            - llvm-toolchain-trusty-3.9
+            - llvm-toolchain-trusty-4.0
+            - llvm-toolchain-trusty-5.0
+            - llvm-toolchain-trusty-6.0
+
+os: linux
+
+matrix:
+    exclude:
+        - env: TRAVIS_EMPTY_JOB_WORKAROUND=true
+    include:
+        # GCC 7
+        - env: CXX_COMPILER=g++-7 CXX_STANDARD=17
+          compiler: gcc
+          addons: &gcc6
+            apt:
+                packages: ["g++-7"]
+                sources: *apt_sources
+        # GCC 6
+        - env: CXX_COMPILER=g++-6 CXX_STANDARD=14
+          compiler: gcc
+          addons: &gcc6
+            apt:
+                packages: ["g++-6"]
+                sources: *apt_sources
+        # GCC 5
+        - env: CXX_COMPILER=g++-5 CXX_STANDARD=14
+          compiler: gcc
+          addons: &gcc5
+            apt:
+                packages: ["g++-5"]
+                sources: *apt_sources
+        # GCC 4.9
+        - env: CXX_COMPILER=g++-4.9 CXX_STANDARD=11
+          compiler: gcc
+          addons: &gcc49
+            apt:
+                packages: ["g++-4.9"]
+                sources: *apt_sources
+        # GCC 4.7
+        - env: CXX_COMPILER=g++-4.7 CXX_STANDARD=11
+          compiler: gcc
+          addons: &gcc47
+            apt:
+                packages: ["g++-4.7"]
+                sources: *apt_sources
+
+        # Clang 5
+        - env: CXX_COMPILER=clang++-5.0 CXX_STANDARD=17
+          compiler: clang
+          addons: &clang5
+            apt:
+                packages: ["clang-5.0", "libstdc++-7-dev"]
+                sources: *apt_sources
+        # Clang 4.0
+        - env: CXX_COMPILER=clang++-4.0 CXX_STANDARD=14
+          compiler: clang
+          addons: &clang40
+            apt:
+                packages: ["clang-4.0", "libstdc++-7-dev"]
+                sources: *apt_sources
+        # Clang 3.6
+        - env: CXX_COMPILER=clang++-3.6 CXX_STANDARD=11
+          compiler: clang
+          addons: &clang36
+            apt:
+                packages: ["clang-3.6", "libstdc++-7-dev"]
+                sources: *apt_sources
+
+        # Xcode 8.3 (Clang)
+        - env: CXX_COMPILER=clang++ CXX_STANDARD=14
+          os: osx
+          compiler: clang
+          osx_image: xcode8.3
+
+    # These may take a while to start
+    allow_failures:
+        - os: osx
+
+install:
+    - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
+    - mkdir -p ${DEPS_DIR} && cd ${DEPS_DIR}
+
+    # Install a recent CMake
+    - |
+      if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
+        CMAKE_URL="https://cmake.org/files/v3.9/cmake-3.9.3-Linux-x86_64.tar.gz"
+        mkdir -p cmake && travis_retry wget --no-check-certificate --quiet -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
+        export PATH=${DEPS_DIR}/cmake/bin:${PATH}
+      fi
+    - |
+      if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
+        brew update
+
+        if brew list -1 | grep -q "^cmake\$"; then
+          brew outdated cmake || brew upgrade cmake
+        else
+          brew install cmake
+        fi
+      fi
+
+    - cd ${TRAVIS_BUILD_DIR}
+
+before_script:
+    - export CXX=${CXX_COMPILER}
+    - ${CXX} --version
+    - git submodule update --init --recursive
+
+script:
+    - mkdir build && cd build
+
+    - cmake -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_CXX_STANDARD=${CXX_STANDARD} -DWERROR=ON -DCMAKE_BUILD_TYPE=Debug -Wdev ..
+    - make -j2
+
+    - ../build/span_tests
