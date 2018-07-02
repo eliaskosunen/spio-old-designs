@@ -1,0 +1,20 @@
+if(COVERALLS)
+    add_compiler_flags(-fno-inline -fno-inline-small-functions -fno-default-inline --coverage)
+endif()
+
+file(GLOB sources_tests *.cpp)
+add_executable(tests ${sources_tests})
+if(SPIO_USE_THREADING)
+    target_link_libraries(tests fmt-header-only Threads::Threads)
+else()
+    target_link_libraries(tests fmt-header-only)
+endif()
+#target_compile_options(tests PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+#target_link_libraries(tests "-fsanitize=address")
+add_test(NAME spio COMMAND tests)
+
+if(COVERALLS)
+    file(GLOB coveralls_sources
+       "${PROJECT_SOURCE_DIR}/include/spio/*.h" "${PROJECT_SOURCE_DIR}/tests/*.cpp")
+    coveralls_setup("${coveralls_sources}" ON "${PROJECT_SOURCE_DIR}/tests/coveralls-cmake/cmake")
+endif()
